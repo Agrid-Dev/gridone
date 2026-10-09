@@ -109,6 +109,8 @@ import {
   stateOf,
   symbolSlotKey,
   tagSlotKey,
+  targetDeviceId,
+  type ReadingTarget,
   type SlotReading,
   type SynopticValues,
 } from "./values";
@@ -131,6 +133,9 @@ export type PlateHandle = {
    *  client coordinates; null before layout or for an id the plate does
    *  not draw. */
   symbolClientRect: (id: string, head?: string) => DOMRect | null;
+  /** The screen rectangle of a clickable reading, by its slot key, in
+   *  client coordinates; null when the plate draws no such button. */
+  readingClientRect: (key: string) => DOMRect | null;
 };
 
 type SynopticRendererProps = {
@@ -141,8 +146,12 @@ type SynopticRendererProps = {
   knownSynoptics?: ReadonlySet<string>;
   /** A symbol the user activated: one that is a device, or a link whose
    *  target exists; on a symbol of several machines, the head that is a
-   *  device. Nothing else is clickable. */
+   *  device. */
   onSymbolClick?: (symbol: SymbolElement, head?: string) => void;
+  /** A tag's or a label's live value the user activated: it opens the
+   *  device the value comes from, which need not be a symbol's. Nothing
+   *  but these and the symbols above is clickable. */
+  onReadingClick?: (target: ReadingTarget) => void;
   /** The pointer entered (or left) a drawn symbol. */
   onSymbolHover?: (symbol: SymbolElement | null) => void;
   /** A symbol to ring on the plate: the one a navigation panel points at. */
@@ -250,6 +259,7 @@ export function SynopticRenderer({
   knownSynoptics,
   onSymbolClick,
   onSymbolHover,
+  onReadingClick,
   highlightId,
   vocabulary = DEFAULT_VOCABULARY,
   animated = true,
@@ -291,6 +301,7 @@ export function SynopticRenderer({
           knownSynoptics,
           onSymbolClick,
           onSymbolHover: hover,
+          onReadingClick,
           vocabulary,
           animated,
         },
@@ -302,6 +313,7 @@ export function SynopticRenderer({
       knownSynoptics,
       onSymbolClick,
       hover,
+      onReadingClick,
       vocabulary,
       animated,
       extent,
@@ -375,6 +387,16 @@ export function SynopticRenderer({
           Math.abs(b.x - a.x),
           Math.abs(b.y - a.y),
         );
+      },
+      // A reading is placed where the text pass leaves it, so its button
+      // is read off the drawing rather than off the geometry; one the pass
+      // has hidden at this zoom has no rectangle.
+      readingClientRect: (key) => {
+        const button = frame.current?.querySelector(
+          `[data-reading-key="${key}"]`,
+        );
+        if (!button || button.closest("[data-text-hidden]")) return null;
+        return button.getBoundingClientRect();
       },
     }),
     [geometry, offset.x, offset.y],
@@ -485,7 +507,7 @@ const LABEL_RINGS = 8;
 /** What the surface hosting the plate lets the user do with a symbol. */
 type Interaction = Pick<
   SynopticRendererProps,
-  "knownSynoptics" | "onSymbolClick" | "onSymbolHover"
+  "knownSynoptics" | "onSymbolClick" | "onSymbolHover" | "onReadingClick"
 > & {
   vocabulary: PlateVocabulary;
   animated: boolean;
@@ -964,19 +986,30 @@ function addRuns(plate: Plate) {
               grows={grows}
               className={fluidFillClass(pipe.fluid)}
             />
-            {value && (
-              <Chip
-                at={at}
-                reading={value}
-                label={below ? undefined : tag.label}
-                title={plate.vocabulary.readingTitle?.(value, tag.label)}
-              />
-            )}
-            {(!value || below) && (
-              <Caption
-                at={{ x: at.x, y: value ? captionY : at.y + 4 }}
-                text={tag.label}
-              />
+            {/* The chip and its caption are the button; the leader and the
+                disc on the run are not. */}
+            {readingAffordance(
+              plate,
+              tagSlotKey(tag.id),
+              tag.value,
+              value,
+              tag.label,
+              <>
+                {value && (
+                  <Chip
+                    at={at}
+                    reading={value}
+                    label={below ? undefined : tag.label}
+                    title={plate.vocabulary.readingTitle?.(value, tag.label)}
+                  />
+                )}
+                {(!value || below) && (
+                  <Caption
+                    at={{ x: at.x, y: value ? captionY : at.y + 4 }}
+                    text={tag.label}
+                  />
+                )}
+              </>,
             )}
           </g>
         ),
@@ -1053,8 +1086,39 @@ function Affordance({
       </g>
     );
   }
-  const activate = () => onClick?.(symbol, head);
   const name = symbol.label ?? symbol.id;
+  return (
+    <Activatable
+      activate={() => onClick?.(symbol, head)}
+      name={head ? `${name} ${headName(head)}` : name}
+      tabStop={tabStop}
+      data={{
+        "data-symbol": tabStop ? symbol.id : undefined,
+        "data-head": head,
+        "data-affordance": kind,
+      }}
+    >
+      {children}
+    </Activatable>
+  );
+}
+
+/** A group that takes a click, Enter or Space as one activation. A second
+ *  target of the same thing (`tabStop` false) takes the click alone: the
+ *  first keeps the keyboard and the accessible name. */
+function Activatable({
+  activate,
+  name,
+  tabStop = true,
+  data,
+  children,
+}: {
+  activate: () => void;
+  name: string;
+  tabStop?: boolean;
+  data: Record<`data-${string}`, string | undefined>;
+  children: ReactNode;
+}) {
   // A double click's second click is not a second activation.
   const onClickOnce = (e: MouseEvent<SVGGElement>) => {
     if (e.detail <= 1) activate();
@@ -1067,14 +1131,10 @@ function Affordance({
   };
   return (
     <g
-      data-symbol={tabStop ? symbol.id : undefined}
-      data-head={head}
-      data-affordance={kind}
+      {...data}
       role={tabStop ? "button" : undefined}
       tabIndex={tabStop ? 0 : undefined}
-      aria-label={
-        tabStop ? (head ? `${name} ${headName(head)}` : name) : undefined
-      }
+      aria-label={tabStop ? name : undefined}
       aria-hidden={tabStop ? undefined : true}
       className="cursor-pointer outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       onClick={onClickOnce}
@@ -1083,6 +1143,35 @@ function Affordance({
     >
       {children}
     </g>
+  );
+}
+
+/** A tag's or a label's value as a button opening the device it reads,
+ *  on a surface that takes reading clicks; the node as drawn otherwise, and
+ *  for a literal or a reading that names no device. */
+function readingAffordance(
+  plate: Plate,
+  key: string,
+  slot: SlotValue | null | undefined,
+  reading: SlotReading | null | undefined,
+  caption: string,
+  node: ReactNode,
+): ReactNode {
+  const onClick = plate.onReadingClick;
+  if (!onClick || slot?.kind !== "attribute") return node;
+  // A device the binding names is known from the document, values or not
+  // (the editor's preview has none); a filter's is the one it resolved to.
+  const deviceId = targetDeviceId(slot.target) ?? reading?.deviceId;
+  if (!deviceId) return node;
+  const target = { key, deviceId, attribute: slot.target.attribute };
+  return (
+    <Activatable
+      activate={() => onClick(target)}
+      name={[caption, reading?.text, reading?.unit].filter(Boolean).join(" ")}
+      data={{ "data-reading-key": key, "data-affordance": "reading" }}
+    >
+      {node}
+    </Activatable>
   );
 }
 
@@ -1624,7 +1713,12 @@ function addLabels(
         ),
         rank: label.role === "title" ? TEXT_RANK.name : TEXT_RANK.note,
       },
-      node: (
+      node: readingAffordance(
+        plate,
+        labelSlotKey(label.id),
+        label.value,
+        value,
+        label.text,
         <g data-label={label.role}>
           {font ? (
             <text
@@ -1647,7 +1741,7 @@ function addLabels(
               title={plate.vocabulary.readingTitle?.(value, label.text)}
             />
           )}
-        </g>
+        </g>,
       ),
     });
   }

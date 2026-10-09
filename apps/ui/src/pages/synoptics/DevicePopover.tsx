@@ -12,6 +12,7 @@ import {
   readingState,
   SILENT_READING,
   symbolSlotKey,
+  type ReadingTarget,
   type SlotReading,
   type SynopticValues,
 } from "@/components/synoptic/values";
@@ -76,14 +77,64 @@ function pointsOf(
   });
 }
 
-type DevicePopoverProps = {
-  symbol: SymbolElement;
-  /** The head opened, on a symbol of several machines; its device and its
-   *  points alone. */
-  head?: string | null;
+/** What the popover opens on: a machine (a symbol, or one head of a twin)
+ *  or a reading of the plate. */
+export type PopoverSubject =
+  | {
+      symbol: SymbolElement;
+      /** The head opened, on a symbol of several machines; its device and
+       *  its points alone. */
+      head?: string | null;
+      reading?: never;
+    }
+  | {
+      /** A reading opened on the plate: the device it comes from, and that
+       *  reading alone. */
+      reading: ReadingTarget;
+      symbol?: never;
+      head?: never;
+    };
+
+type DevicePopoverProps = PopoverSubject & {
   values: SynopticValues;
   vocabulary: PageVocabulary;
   onClose: () => void;
+};
+
+/** The classes of each popover: a machine's points, or one reading's value
+ *  on a line each, in small type. */
+const SIZE = {
+  machine: {
+    box: "w-72 gap-3 p-3 text-sm",
+    title: "truncate",
+    close: "h-7 w-7",
+    closeIcon: "h-4 w-4",
+    placeholder: "h-16",
+    row: "py-1.5",
+    caption: "text-xs",
+    link: "text-sm",
+    linkIcon: "h-3.5 w-3.5",
+  },
+  reading: {
+    box: "w-56 gap-1 p-2 text-xs",
+    title: "break-words",
+    close: "h-5 w-5",
+    closeIcon: "h-3 w-3",
+    placeholder: "h-8",
+    row: "py-0.5",
+    caption: "text-[10px]",
+    link: "text-xs",
+    linkIcon: "h-3 w-3",
+  },
+} as const;
+type PopoverSize = (typeof SIZE)[keyof typeof SIZE];
+
+/** The reading's device as the plate reads it now, so the popover follows a
+ *  filter that resolves elsewhere; the one clicked while no value has come
+ *  (the editor's preview reads none). */
+const readingDeviceId = (reading: ReadingTarget, values: SynopticValues) => {
+  const live = values.slots[reading.key];
+  return live ? live.deviceId : reading.deviceId;
 };
 
 /**
@@ -91,42 +142,70 @@ type DevicePopoverProps = {
  * and a link to its page, and the symbol's own points (the slots the
  * document binds) with their live readings. A point whose attribute the
  * device lets one write is edited here, by a user allowed to command
- * devices, through the same preflight and consent as the device page. Nothing else of the device is shown: the
- * plate names what matters, the device page has the rest.
+ * devices, through the same preflight and consent as the device page. A
+ * click on a reading opens the device it comes from with that reading
+ * alone, read only: it asks where the number comes from. Nothing else of
+ * the device is shown: the plate names what matters, the device page has
+ * the rest.
  */
 export const DevicePopover: FC<DevicePopoverProps> = ({
   symbol,
   head = null,
+  reading,
   values,
   vocabulary,
   onClose,
 }) => {
   const { t } = useTranslation("synoptics");
   const { t: tCommon } = useTranslation();
-  const machine = headOf(symbol, head);
-  const deviceId = machine?.deviceId ?? undefined;
+  const machine = symbol ? headOf(symbol, head) : null;
+  const deviceId = reading
+    ? readingDeviceId(reading, values)
+    : (machine?.deviceId ?? undefined);
   const result = useDeviceById(deviceId);
   const device = result.data;
-  const points = pointsOf(symbol, machine?.slots ?? [], values);
-  const name = symbol.label ?? device?.name ?? deviceId;
+  const points: Point[] = reading
+    ? [
+        {
+          slot: reading.key,
+          attribute: reading.attribute,
+          reading: values.slots[reading.key] ?? SILENT_READING,
+        },
+      ]
+    : symbol
+      ? pointsOf(symbol, machine?.slots ?? [], values)
+      : [];
+  const size = SIZE[reading ? "reading" : "machine"];
+  // A reading has no label of its own: its title waits for the device's
+  // name rather than flashing the id.
+  const name =
+    symbol?.label ?? device?.name ?? (result.isLoading ? null : deviceId);
 
   return (
     <div
       aria-label={t("popover.label")}
-      className="flex w-72 flex-col gap-3 text-sm"
-      data-device-popover={symbol.id}
+      className={cn("flex flex-col", size.box)}
+      data-device-popover={symbol?.id ?? reading?.key}
       data-head={head ?? undefined}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <div className="truncate font-semibold text-foreground">
-            {head ? `${name} · ${headName(head)}` : name}
+          <div className={cn("font-semibold text-foreground", size.title)}>
+            {name == null ? (
+              <Skeleton className="h-3 w-24" />
+            ) : head ? (
+              `${name} · ${headName(head)}`
+            ) : (
+              name
+            )}
           </div>
-          <div className="text-xs text-muted-foreground">
-            {device?.name && device.name !== symbol.label
-              ? device.name
-              : vocabulary.typeLabel(symbol.type)}
-          </div>
+          {symbol && (
+            <div className="text-xs text-muted-foreground">
+              {device?.name && device.name !== symbol.label
+                ? device.name
+                : vocabulary.typeLabel(symbol.type)}
+            </div>
+          )}
         </div>
         <div className="flex shrink-0 items-center gap-1">
           {device?.is_faulty && (
@@ -139,16 +218,16 @@ export const DevicePopover: FC<DevicePopoverProps> = ({
             type="button"
             variant="ghost"
             size="icon"
-            className="h-7 w-7"
+            className={size.close}
             onClick={onClose}
             aria-label={t("popover.close")}
           >
-            <X className="h-4 w-4" />
+            <X className={size.closeIcon} />
           </Button>
         </div>
       </div>
       {result.isLoading ? (
-        <Skeleton className="h-16 w-full" />
+        <Skeleton className={cn("w-full", size.placeholder)} />
       ) : result.error || !device ? (
         <p className="text-muted-foreground">
           {isNotFound(result.error)
@@ -156,15 +235,24 @@ export const DevicePopover: FC<DevicePopoverProps> = ({
             : tCommon("common.deviceLoadError")}
         </p>
       ) : (
-        <PointList device={device} points={points} vocabulary={vocabulary} />
+        <PointList
+          device={device}
+          points={points}
+          vocabulary={vocabulary}
+          size={size}
+          editable={!reading}
+        />
       )}
       {deviceId && (
         <Link
           to={`/devices/${deviceId}`}
-          className="flex items-center gap-1 text-sm font-medium text-primary hover:underline focus-visible:underline"
+          className={cn(
+            "flex items-center gap-1 font-medium text-primary hover:underline focus-visible:underline",
+            size.link,
+          )}
         >
           {t("popover.open")}
-          <ArrowUpRight className="h-3.5 w-3.5" />
+          <ArrowUpRight className={size.linkIcon} />
         </Link>
       )}
     </div>
@@ -175,7 +263,11 @@ const PointList: FC<{
   device: Device;
   points: Point[];
   vocabulary: PageVocabulary;
-}> = ({ device, points, vocabulary }) => {
+  size: PopoverSize;
+  /** Whether a writable point offers its editor: a machine's do, a
+   *  reading's does not. */
+  editable: boolean;
+}> = ({ device, points, vocabulary, size, editable }) => {
   const { t, i18n } = useTranslation("synoptics");
   const labelFor = useAttributeLabel();
   const can = usePermissions();
@@ -191,6 +283,7 @@ const PointList: FC<{
           ? (attributes[point.attribute] as AttributeFields | undefined)
           : undefined;
         const writable =
+          editable &&
           !!point.attribute &&
           isAttributeWritable(device, point.attribute) &&
           can("devices:command");
@@ -199,10 +292,15 @@ const PointList: FC<{
           <div
             key={point.slot}
             data-point={point.slot}
-            className="flex flex-col gap-1 py-1.5"
+            className={cn("flex flex-col gap-1", size.row)}
           >
             <div className="flex items-center justify-between gap-3">
-              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <dt
+                className={cn(
+                  "font-semibold uppercase tracking-wide text-muted-foreground",
+                  size.caption,
+                )}
+              >
                 {point.attribute
                   ? labelFor(point.attribute, attribute)
                   : vocabulary.slotLabel(point.slot)}

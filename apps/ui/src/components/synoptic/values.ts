@@ -42,6 +42,17 @@ export type SlotReading = {
    *  number: drawn in the neutral ink, since the reading green on a word
    *  reads as a verdict where it only means freshness. */
   word?: boolean;
+  /** The device the slot reads: the one its target names or resolves to.
+   *  Absent for a literal and for a filter matching no or several devices. */
+  deviceId?: string;
+};
+
+/** A reading the user activated on the plate: a tag's or a label's value,
+ *  with the device it reads and the attribute it shows. */
+export type ReadingTarget = {
+  key: string;
+  deviceId: string;
+  attribute: string;
 };
 
 /** What the plate knows of a device it names: whether it is faulty, and
