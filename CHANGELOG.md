@@ -1,3 +1,9 @@
+## v0.310.0 (2026-10-09)
+
+### Feat
+
+- **synoptics**: clicking a reading opens its device (#794)
+
 ## v0.309.0 (2026-10-09)
 
 ### Feat
