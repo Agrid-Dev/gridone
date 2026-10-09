@@ -212,6 +212,7 @@ export const useSynopticValues: UseSynopticValues = (doc) => {
           faulty,
           severity,
           lastUpdated: null,
+          deviceId: id,
         };
         continue;
       }
@@ -226,6 +227,7 @@ export const useSynopticValues: UseSynopticValues = (doc) => {
         faulty,
         severity,
         lastUpdated: attr.last_updated,
+        deviceId: id,
       };
     }
     return { slots: readings, devices: facts };

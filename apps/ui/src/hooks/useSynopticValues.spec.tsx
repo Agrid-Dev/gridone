@@ -177,6 +177,8 @@ describe("useSynopticValues", () => {
       faulty: false,
       severity: null,
       lastUpdated: null,
+      // The device is known from the binding before it has answered.
+      deviceId: "PAC-03",
     });
     expect(rendered.result.current.devices).toEqual({});
   });
@@ -199,6 +201,7 @@ describe("useSynopticValues", () => {
       faulty: true,
       severity: null,
       lastUpdated: ago(10),
+      deviceId: "PAC-03",
     });
     // 120 s old against the binding's own 600 s.
     expect(slots["symbol.pac.supply_temp"]).toEqual({
@@ -209,6 +212,7 @@ describe("useSynopticValues", () => {
       faulty: true,
       severity: null,
       lastUpdated: ago(120),
+      deviceId: "PAC-03",
     });
     // A value with no timestamp, and an attribute the device lacks.
     expect(slots["symbol.pac.power"].text).toBeNull();
@@ -237,6 +241,9 @@ describe("useSynopticValues", () => {
     expect(mockList).toHaveBeenCalledTimes(2);
     // Seeded from the list: no per-device request.
     expect(mockGet).not.toHaveBeenCalled();
+    // The tag names a type, not a device: its reading carries the one device
+    // the filter resolved to, the one a click on it opens.
+    expect(rendered.result.current.slots["tag.flow"].deviceId).toBe("PAC-03");
   });
 
   it("lists the plate once even when a filter resolves to a device no symbol names", async () => {
@@ -292,6 +299,11 @@ describe("useSynopticValues", () => {
       ),
     );
     expect(rendered.result.current.slots["tag.flow"].text).toBeNull();
+    // Two devices match: the reading names neither, so nothing opens on it.
+    expect(rendered.result.current.slots["tag.flow"]).not.toHaveProperty(
+      "deviceId",
+      expect.anything(),
+    );
     warn.mockRestore();
   });
 
@@ -320,6 +332,7 @@ describe("useSynopticValues", () => {
         faulty: false,
         severity: null,
         lastUpdated: ago(0),
+        deviceId: "PAC-03",
       }),
     );
     expect(rendered.result.current.devices["PAC-03"].faulty).toBe(false);
