@@ -2795,3 +2795,172 @@ describe("a twin pump", () => {
     ).toEqual(["on", "unknown"]);
   });
 });
+
+describe("a reading's click-through", () => {
+  /** A binding by filter: its device is the one the values resolved. */
+  const byType = (attribute: string): AttributeSlot => ({
+    kind: "attribute",
+    target: { devices: { types: ["meter"] }, attribute },
+  });
+  // "A tag's or a label's live value opens the device it reads, controller
+  // or not; a text literal, a caption and a filter that resolves to no
+  // single device stay inert."
+  const READINGS: Synoptic = {
+    ...DOC,
+    pipes: (DOC.pipes ?? []).map((pipe) =>
+      pipe.id === "supply"
+        ? {
+            ...pipe,
+            tags: [
+              ...(pipe.tags ?? []),
+              {
+                id: "orphan",
+                at: { x: 3, y: 1 },
+                label: "ORPHAN",
+                value: byType("x"),
+              },
+            ],
+          }
+        : {
+            ...pipe,
+            tags: [
+              {
+                id: "nm",
+                at: { x: 5, y: 3 },
+                label: "NM",
+                value: { kind: "text", text: "non mesurée" },
+              },
+            ],
+          },
+    ),
+    labels: [
+      ...(DOC.labels ?? []),
+      {
+        id: "cpt",
+        at: { x: 0, y: 7 },
+        text: "CPT",
+        role: "note",
+        value: byType("energy"),
+      },
+    ],
+  };
+  const READ: SynopticValues = {
+    ...VALUES,
+    slots: {
+      ...VALUES.slots,
+      "tag.tt-03": { ...live("51.9", 51.9, "°C"), deviceId: "TT-DEV" },
+      // A filter that matched no single device: a value, but no device.
+      "tag.orphan": live("7", 7),
+      "label.cpt": { ...live("12", 12, "kWh"), deviceId: "CPT-DEV" },
+    },
+  };
+  const draw = (onReadingClick?: () => void) =>
+    render(
+      <SynopticRenderer
+        doc={READINGS}
+        values={READ}
+        onReadingClick={onReadingClick}
+      />,
+    ).container;
+  const readings = (c: Element) =>
+    q(c, "[data-affordance='reading']").map((g) =>
+      g.getAttribute("data-reading-key"),
+    );
+
+  it("makes a button of a live tag and of a live label, not of a literal, a caption or an unresolved reading", () => {
+    const c = draw(vi.fn());
+    expect(readings(c).sort()).toEqual(["label.cpt", "tag.tt-03"]);
+    expect(
+      c.querySelector("[data-reading-key='tag.tt-03']")?.getAttribute("role"),
+    ).toBe("button");
+    // The literal note label, the NM marker, the LPS caption: no button.
+    expect(
+      c.querySelector("[data-tag='nm']")?.closest("[role='button']"),
+    ).toBeNull();
+    expect(
+      c.querySelector("[data-tag='lps']")?.closest("[role='button']"),
+    ).toBeNull();
+  });
+
+  it("reports the device the reading comes from and the attribute it shows", () => {
+    const onReadingClick = vi.fn();
+    const c = draw(onReadingClick);
+    fireEvent.click(c.querySelector("[data-reading-key='tag.tt-03']")!, {
+      detail: 1,
+    });
+    fireEvent.click(c.querySelector("[data-reading-key='label.cpt']")!, {
+      detail: 1,
+    });
+    expect(onReadingClick.mock.calls).toEqual([
+      // Named by the binding: PAC-03, whatever the values say.
+      [{ key: "tag.tt-03", deviceId: "PAC-03", attribute: "t" }],
+      [{ key: "label.cpt", deviceId: "CPT-DEV", attribute: "energy" }],
+    ]);
+  });
+
+  it("activates once on a double click and on Enter, and names the button by its caption and value", () => {
+    const onReadingClick = vi.fn();
+    const c = draw(onReadingClick);
+    const tag = c.querySelector("[data-reading-key='tag.tt-03']")!;
+    fireEvent.click(tag, { detail: 1 });
+    fireEvent.click(tag, { detail: 2 });
+    fireEvent.keyDown(tag, { key: "Enter" });
+    expect(onReadingClick).toHaveBeenCalledTimes(2);
+    expect(tag.getAttribute("aria-label")).toBe("TT-03 51.9 °C");
+  });
+
+  it("opens a reading whose binding names its device with no values at all, as the editor's preview has none", () => {
+    const onReadingClick = vi.fn();
+    const c = render(
+      <SynopticRenderer doc={READINGS} onReadingClick={onReadingClick} />,
+    ).container;
+    // The filtered label and tag wait for a resolution that never comes.
+    expect(readings(c)).toEqual(["tag.tt-03"]);
+    fireEvent.click(c.querySelector("[data-reading-key='tag.tt-03']")!, {
+      detail: 1,
+    });
+    expect(onReadingClick).toHaveBeenCalledWith({
+      key: "tag.tt-03",
+      deviceId: "PAC-03",
+      attribute: "t",
+    });
+  });
+
+  it("makes the chip and its caption the button, not the leader or the disc on the run", () => {
+    const c = draw(vi.fn());
+    const tag = c.querySelector("[data-tag='tt-03']")!;
+    expect(
+      tag.querySelector("[data-chip]")?.closest("[role='button']"),
+    ).not.toBeNull();
+    expect(
+      tag.querySelector("[data-leader]")?.closest("[role='button']"),
+    ).toBeNull();
+    expect(tag.getAttribute("role")).toBeNull();
+  });
+
+  it("makes no reading a button without a reading click handler", () => {
+    expect(readings(draw())).toEqual([]);
+  });
+
+  it("gives a popover the rectangle of a drawn reading, none for another key", () => {
+    const handle = createRef<PlateHandle>();
+    render(
+      <SynopticRenderer
+        doc={READINGS}
+        values={READ}
+        onReadingClick={vi.fn()}
+        plateRef={handle}
+      />,
+    );
+    // jsdom lays nothing out: the rectangle is the drawn button's, zero-sized.
+    expect(handle.current!.readingClientRect("tag.tt-03")).toEqual(
+      expect.objectContaining({ width: 0, height: 0 }),
+    );
+    expect(handle.current!.readingClientRect("tag.orphan")).toBeNull();
+    // Hidden at this zoom by the text pass: no rectangle to anchor on.
+    document
+      .querySelector("[data-reading-key='tag.tt-03']")!
+      .parentElement!.setAttribute("data-text-hidden", "true");
+    expect(handle.current!.readingClientRect("tag.tt-03")).toBeNull();
+  });
+});
