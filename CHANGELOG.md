@@ -1,3 +1,9 @@
+## v0.309.0 (2026-10-09)
+
+### Feat
+
+- **ui**: sidebar hierarchy, configuration behind a single entry
+
 ## v0.308.1 (2026-10-08)
 
 ### Fix
