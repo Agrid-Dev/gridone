@@ -292,6 +292,136 @@ describe("DevicePopover", () => {
     });
   });
 
+  describe("a reading", () => {
+    // "A tag's or a label's live value opens the device it reads."
+    const TAG = {
+      key: "tag.tt-03",
+      deviceId: "PAC-03",
+      attribute: "outlet_temperature",
+    };
+    const renderReading = () =>
+      render(
+        <MemoryRouter>
+          <DevicePopover
+            reading={TAG}
+            values={{
+              ...VALUES,
+              slots: {
+                ...VALUES.slots,
+                "tag.tt-03": {
+                  ...live("51.9", 51.9, "°C"),
+                  deviceId: "PAC-03",
+                },
+              },
+            }}
+            vocabulary={vocabulary}
+            onClose={vi.fn()}
+          />
+        </MemoryRouter>,
+      );
+
+    it("opens the device the reading comes from, named by the device, with that reading alone and a link to its page", () => {
+      renderReading();
+      expect(mockUseDeviceById).toHaveBeenLastCalledWith("PAC-03");
+      expect(popover().getAttribute("data-device-popover")).toBe("tag.tt-03");
+      // One value: a line each for the name, the reading and the link.
+      expect(popover().className).toContain("w-56");
+      expect(popover().className).toContain("text-xs");
+      // No symbol: the device's own name is the title, with no type under it.
+      expect(popover().querySelector(".font-semibold")?.textContent).toBe(
+        "Pompe à chaleur 3",
+      );
+      expect(popover().textContent).not.toContain(humanize("heat_pump"));
+      expect(points()).toEqual(["tag.tt-03"]);
+      expect(point("tag.tt-03").textContent).toContain("Départ");
+      expect(reading("tag.tt-03").textContent).toBe("51.9°C");
+      expect(
+        screen
+          .getByRole("link", { name: "Ouvrir l'appareil" })
+          .getAttribute("href"),
+      ).toBe("/devices/PAC-03");
+    });
+
+    it("offers no pencil, even on a writable attribute and to a user allowed to command", () => {
+      render(
+        <MemoryRouter>
+          <DevicePopover
+            reading={{
+              key: "tag.speed",
+              deviceId: "PAC-03",
+              attribute: "speed",
+            }}
+            values={{
+              ...VALUES,
+              slots: { ...VALUES.slots, "tag.speed": live("3", 3) },
+            }}
+            vocabulary={vocabulary}
+            onClose={vi.fn()}
+          />
+        </MemoryRouter>,
+      );
+      expect(points()).toEqual(["tag.speed"]);
+      expect(pencil("tag.speed")).toBeNull();
+    });
+
+    it("follows the device the plate reads now, not the one clicked", () => {
+      render(
+        <MemoryRouter>
+          <DevicePopover
+            reading={TAG}
+            values={{
+              ...VALUES,
+              slots: {
+                ...VALUES.slots,
+                "tag.tt-03": {
+                  ...live("51.9", 51.9, "°C"),
+                  deviceId: "PAC-04",
+                },
+              },
+            }}
+            vocabulary={vocabulary}
+            onClose={vi.fn()}
+          />
+        </MemoryRouter>,
+      );
+      expect(mockUseDeviceById).toHaveBeenLastCalledWith("PAC-04");
+      expect(
+        screen
+          .getByRole("link", { name: "Ouvrir l'appareil" })
+          .getAttribute("href"),
+      ).toBe("/devices/PAC-04");
+    });
+
+    it("waits for the device's name rather than titling by its id", () => {
+      mockUseDeviceById.mockReturnValue({
+        data: undefined,
+        isLoading: true,
+        error: null,
+      });
+      renderReading();
+      expect(popover().textContent).not.toContain("PAC-03");
+    });
+
+    it("says the device no longer exists and still links to where it was", () => {
+      mockUseDeviceById.mockReturnValue({
+        data: undefined,
+        isLoading: false,
+        error: new GridoneError(404, "gone"),
+      });
+      renderReading();
+      expect(popover().textContent).toContain("Cet appareil n'existe plus.");
+      expect(
+        screen
+          .getByRole("link", { name: "Ouvrir l'appareil" })
+          .getAttribute("href"),
+      ).toBe("/devices/PAC-03");
+      expect(popover().querySelector(".font-semibold")?.textContent).toBe(
+        "PAC-03",
+      );
+      expect(points()).toEqual([]);
+    });
+  });
+
   describe("header", () => {
     it("names the symbol, then the device when its name differs, and links to its page", () => {
       renderPopover();

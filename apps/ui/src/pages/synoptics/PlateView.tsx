@@ -27,7 +27,10 @@ import {
 import { headOf } from "@/components/synoptic/heads";
 import type { View } from "@/components/synoptic/hooks/useViewport";
 import { ZOOM_STEP } from "@/components/synoptic/hooks/useViewport";
-import type { SynopticValues } from "@/components/synoptic/values";
+import type {
+  ReadingTarget,
+  SynopticValues,
+} from "@/components/synoptic/values";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -41,7 +44,7 @@ import {
   writeNavOpen,
 } from "@/lib/synopticPreference";
 import { cn } from "@/lib/utils";
-import { DevicePopover } from "./DevicePopover";
+import { DevicePopover, type PopoverSubject } from "./DevicePopover";
 import { PlateLegend } from "./PlateLegend";
 import { PlatePrintSheet } from "./PlatePrintSheet";
 import { SymbolNav, type NavEntry } from "./SymbolNav";
@@ -73,6 +76,18 @@ export const MIN_TEXT_PX = 9;
 
 /** Where a popover's anchor sits over the plate, in the plate's own box. */
 type AnchorRect = { left: number; top: number; width: number; height: number };
+
+/** The popover's identity: a new subject opens a fresh one. */
+const subjectKey = (subject: PopoverSubject) =>
+  subject.reading
+    ? subject.reading.key
+    : `${subject.symbol.id}:${subject.head ?? ""}`;
+
+/** Where the subject is on screen, for the popover to anchor on. */
+const subjectRect = (subject: PopoverSubject, plate: PlateHandle | null) =>
+  subject.reading
+    ? plate?.readingClientRect(subject.reading.key)
+    : plate?.symbolClientRect(subject.symbol.id, subject.head ?? undefined);
 
 /**
  * A plate with its chrome: the toolbar (the equipment list, plan or
@@ -118,20 +133,24 @@ export const PlateView: FC<PlateViewProps> = ({
   }, [doc, projection, embedded]);
   const [zoom, setZoom] = useState(1);
   const [viewTick, setViewTick] = useState(0);
-  // The machine whose points are open: a symbol, or one head of a twin.
-  const [selected, setSelected] = useState<{
-    symbol: SymbolElement;
-    head: string | null;
-  } | null>(null);
+  // What the popover shows: a machine's points (a symbol, or one head of a
+  // twin), or the device behind a reading.
+  const [selected, setSelected] = useState<PopoverSubject | null>(null);
   // The popover has no trigger to hand focus back to: it returns to what
-  // held it when the points opened (a symbol, a row of the list).
+  // held it when the points opened (a symbol, a reading, a row of the list).
   const returnFocus = useRef<Element | null>(null);
+  const select = useCallback((selection: PopoverSubject) => {
+    returnFocus.current = document.activeElement;
+    setSelected(selection);
+  }, []);
   const open = useCallback(
-    (symbol: SymbolElement, head: string | null = null) => {
-      returnFocus.current = document.activeElement;
-      setSelected({ symbol, head });
-    },
-    [],
+    (symbol: SymbolElement, head: string | null = null) =>
+      select({ symbol, head }),
+    [select],
+  );
+  const onReadingClick = useCallback(
+    (reading: ReadingTarget) => select({ reading }),
+    [select],
   );
   const [anchor, setAnchor] = useState<AnchorRect | null>(null);
   const [legendOpen, setLegendOpen] = useState(readLegendOpen);
@@ -177,13 +196,11 @@ export const PlateView: FC<PlateViewProps> = ({
       setAnchor(null);
       return;
     }
-    const rect = plate.current?.symbolClientRect(
-      selected.symbol.id,
-      selected.head ?? undefined,
-    );
+    const rect = subjectRect(selected, plate.current);
     const frame = canvas.current?.getBoundingClientRect();
-    // No rectangle (the symbol left the document, or no layout yet): the
-    // last anchor would leave the popover floating where the symbol was.
+    // No rectangle (the symbol left the document, the reading is hidden at
+    // this zoom, or no layout yet): the last anchor would leave the popover
+    // floating where it was.
     if (!rect || !frame) {
       setAnchor(null);
       return;
@@ -194,7 +211,8 @@ export const PlateView: FC<PlateViewProps> = ({
       width: rect.width,
       height: rect.height,
     });
-  }, [selected, viewTick, projection]);
+    // A reading moves with its value's width, so a new value re-anchors.
+  }, [selected, viewTick, projection, values]);
 
   // The renderer only reports a device symbol or a link whose target exists.
   const onSymbolClick = useCallback(
@@ -389,6 +407,7 @@ export const PlateView: FC<PlateViewProps> = ({
             knownSynoptics={knownSynoptics}
             onSymbolClick={onSymbolClick}
             onSymbolHover={onSymbolHover}
+            onReadingClick={onReadingClick}
             highlightId={ringed}
             vocabulary={vocabulary}
             plateRef={plate}
@@ -424,13 +443,12 @@ export const PlateView: FC<PlateViewProps> = ({
               side="right"
               align="start"
               collisionPadding={8}
-              className="w-auto p-3"
+              className="w-auto p-0"
             >
               {selected && (
                 <DevicePopover
-                  key={`${selected.symbol.id}:${selected.head ?? ""}`}
-                  symbol={selected.symbol}
-                  head={selected.head}
+                  key={subjectKey(selected)}
+                  {...selected}
                   values={values}
                   vocabulary={vocabulary}
                   onClose={() => setSelected(null)}

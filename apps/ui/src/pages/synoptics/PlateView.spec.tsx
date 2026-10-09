@@ -186,6 +186,42 @@ function stubScreenCtm() {
   );
 }
 
+/** The plate with a flow reading on its supply, read off a valve no symbol
+ *  is: "a tag's or a label's live value opens the device it reads". */
+const WITH_READING: Synoptic = {
+  ...DOC,
+  pipes: (DOC.pipes ?? []).map((pipe) =>
+    pipe.id === "supply"
+      ? {
+          ...pipe,
+          tags: [
+            {
+              id: "debit",
+              at: { x: 4, y: 11 },
+              label: "DÉBIT",
+              value: {
+                kind: "attribute",
+                target: {
+                  devices: { types: ["valve"] },
+                  attribute: "absflow1",
+                },
+              },
+            },
+          ],
+        }
+      : pipe,
+  ),
+};
+const READING_VALUES: SynopticValues = {
+  ...VALUES,
+  slots: {
+    ...VALUES.slots,
+    "tag.debit": { ...live("0.56", 0.56), unit: "l/s", deviceId: "EV-CTA" },
+  },
+};
+const reading = (key: string) =>
+  card().querySelector(`[data-reading-key='${key}']`)!;
+
 function renderView(
   doc: Synoptic = DOC,
   props: Partial<ComponentProps<typeof PlateView>> = {},
@@ -609,6 +645,30 @@ describe("PlateView", () => {
     });
   });
 
+  describe("readings", () => {
+    it("opens the device a reading comes from, and a symbol's points after it", () => {
+      renderView(WITH_READING, { values: READING_VALUES });
+      fireEvent.click(reading("tag.debit"), { detail: 1 });
+      expect(popover()?.getAttribute("data-device-popover")).toBe("tag.debit");
+      expect(mockUseDeviceById).toHaveBeenLastCalledWith("EV-CTA");
+
+      fireEvent.click(symbol("pac"));
+      expect(
+        [...document.querySelectorAll("[data-device-popover]")].map((el) =>
+          el.getAttribute("data-device-popover"),
+        ),
+      ).toEqual(["pac"]);
+      expect(mockUseDeviceById).toHaveBeenLastCalledWith("PAC-03");
+    });
+
+    it("closes a reading's popover from its button", () => {
+      renderView(WITH_READING, { values: READING_VALUES });
+      fireEvent.click(reading("tag.debit"), { detail: 1 });
+      fireEvent.click(button("Fermer"));
+      expect(popover()).toBeNull();
+    });
+  });
+
   it("leaves the plate's title to the page header and draws its other labels", () => {
     renderView({
       ...DOC,
@@ -915,6 +975,13 @@ describe("PlateView", () => {
       fullscreen.enter(card());
       expect(wheel()).toBe(false);
       expect(view().scale).toBeGreaterThan(pinched);
+    });
+
+    it("opens the device a reading comes from on a dashboard too", () => {
+      renderView(WITH_READING, { ...EMBEDDED, values: READING_VALUES });
+      fireEvent.click(reading("tag.debit"), { detail: 1 });
+      expect(popover()?.getAttribute("data-device-popover")).toBe("tag.debit");
+      expect(mockUseDeviceById).toHaveBeenLastCalledWith("EV-CTA");
     });
 
     it("opens a device's points inside the plate in full screen, where nothing outside it shows", () => {
