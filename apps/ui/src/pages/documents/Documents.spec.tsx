@@ -300,4 +300,70 @@ describe("documents", () => {
       screen.getByRole("link", { name: "See all documents" }),
     ).toHaveAttribute("href", "/documents?asset_id=building");
   });
+
+  it("keeps filters while paging and resets the page when filters change", async () => {
+    api.documents.list.mockImplementation(async (params) => ({
+      ...page,
+      page: params.page,
+      total: 101,
+      total_pages: 3,
+    }));
+    const user = setup("/documents?q=Notice&asset_id=building&page=2");
+    await user.click(await screen.findByRole("button", { name: "Next" }));
+    await waitFor(() =>
+      expect(api.documents.list).toHaveBeenLastCalledWith({
+        q: "Notice",
+        asset_id: "building",
+        device_id: undefined,
+        page: 3,
+      }),
+    );
+    expect(await screen.findByRole("button", { name: "Next" })).toBeDisabled();
+
+    await user.click(screen.getByRole("combobox", { name: "Devices" }));
+    await user.click(await screen.findByRole("option", { name: "Boiler" }));
+    await waitFor(() =>
+      expect(api.documents.list).toHaveBeenLastCalledWith({
+        q: "Notice",
+        asset_id: "building",
+        device_id: "boiler",
+        page: 1,
+      }),
+    );
+    await user.click(screen.getByRole("button", { name: "Clear filters" }));
+    await waitFor(() =>
+      expect(api.documents.list).toHaveBeenLastCalledWith({
+        q: undefined,
+        asset_id: undefined,
+        device_id: undefined,
+        page: 1,
+      }),
+    );
+    expect(
+      screen.getByRole("searchbox", { name: "Search documents" }),
+    ).toHaveValue("");
+    expect(screen.getByRole("combobox", { name: "Assets" })).toHaveTextContent(
+      "All assets",
+    );
+    expect(screen.getByRole("combobox", { name: "Devices" })).toHaveTextContent(
+      "All devices",
+    );
+  });
+
+  it("opens a document and downloads its original filename from the list", async () => {
+    permissions.delete("documents:write");
+    const user = setup("/documents");
+    expect(await screen.findByRole("link", { name: "Notice" })).toHaveAttribute(
+      "href",
+      "/documents/doc",
+    );
+    expect(
+      screen.queryByRole("link", { name: "Add document" }),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Download Notice" }));
+    await waitFor(() =>
+      expect(api.documents.download).toHaveBeenCalledWith("doc"),
+    );
+    expect(downloadBlob).toHaveBeenCalledWith(expect.any(Blob), "notice.txt");
+  });
 });

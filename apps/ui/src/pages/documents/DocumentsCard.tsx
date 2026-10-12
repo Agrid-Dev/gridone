@@ -4,7 +4,7 @@ import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { usePermissions } from "@/contexts/AuthContext";
-import { DocumentRows } from "./DocumentsList";
+import { DocumentRows } from "./DocumentRows";
 
 export function DocumentsCard({
   assetId,
@@ -32,6 +32,7 @@ export function DocumentsCard({
       <CardContent className="space-y-3">
         <ResourceBoundary resetKeys={[assetId, deviceId]}>
           <DocumentRows
+            compact
             params={{ asset_id: assetId, device_id: deviceId, size: 5 }}
           />
         </ResourceBoundary>
