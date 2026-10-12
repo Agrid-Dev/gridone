@@ -95,6 +95,16 @@ function setup(path = "/documents/new", card = false) {
   return userEvent.setup();
 }
 
+async function chooseVisibility(
+  user: ReturnType<typeof userEvent.setup>,
+  label: string,
+) {
+  await user.click(
+    screen.getByRole("combobox", { name: "Who can read this document?" }),
+  );
+  await user.click(screen.getByRole("option", { name: label }));
+}
+
 beforeEach(() => {
   permissions.clear();
   ["documents:read", "documents:write", "assets:read", "devices:read"].forEach(
@@ -123,14 +133,13 @@ describe("documents", () => {
   it("requires an explicit audience and sends the selected file and prefilled asset", async () => {
     const user = setup("/documents/new?asset_id=building");
     const file = new File(["notice"], "notice.txt", { type: "text/plain" });
-    await user.upload(await screen.findByLabelText("File"), file);
-    expect(screen.getByLabelText("Name")).toHaveValue("notice.txt");
+    await user.upload(await screen.findByLabelText(/^File/), file);
+    expect(screen.getByRole("textbox", { name: "Name" })).toHaveValue(
+      "notice.txt",
+    );
     await user.click(screen.getByRole("button", { name: "Upload" }));
     expect(api.documents.create).not.toHaveBeenCalled();
-    await user.selectOptions(
-      screen.getByLabelText("Who can read this document?"),
-      "admin",
-    );
+    await chooseVisibility(user, "Administrators only");
     await user.click(screen.getByRole("button", { name: "Upload" }));
     await waitFor(() =>
       expect(api.documents.create).toHaveBeenCalledWith(
@@ -150,11 +159,8 @@ describe("documents", () => {
     api.documents.create.mockRejectedValueOnce(new Error("Offline"));
     const user = setup();
     const file = new File(["notice"], "notice.txt");
-    await user.upload(await screen.findByLabelText("File"), file);
-    await user.selectOptions(
-      screen.getByLabelText("Who can read this document?"),
-      "roles",
-    );
+    await user.upload(await screen.findByLabelText(/^File/), file);
+    await chooseVisibility(user, "Selected roles");
     await user.click(
       screen.getByRole("button", { name: "Select all current roles" }),
     );
@@ -163,10 +169,12 @@ describe("documents", () => {
     ).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Upload" }));
     await screen.findByRole("alert");
-    expect(screen.getByLabelText("Name")).toHaveValue("notice.txt");
-    expect((screen.getByLabelText("File") as HTMLInputElement).files?.[0]).toBe(
-      file,
+    expect(screen.getByRole("textbox", { name: "Name" })).toHaveValue(
+      "notice.txt",
     );
+    expect(
+      (screen.getByLabelText(/^File/) as HTMLInputElement).files?.[0],
+    ).toBe(file);
     await user.click(screen.getByRole("button", { name: "Upload" }));
     await waitFor(() => expect(api.documents.create).toHaveBeenCalledTimes(2));
     expect(api.documents.create.mock.calls[1][0].allowed_role_ids).toEqual([
@@ -177,13 +185,10 @@ describe("documents", () => {
   it("rejects an oversized file before sending it", async () => {
     const user = setup();
     await user.upload(
-      await screen.findByLabelText("File"),
+      await screen.findByLabelText(/^File/),
       new File(["x".repeat(101)], "large.txt"),
     );
-    await user.selectOptions(
-      screen.getByLabelText("Who can read this document?"),
-      "admin",
-    );
+    await chooseVisibility(user, "Administrators only");
     await user.click(screen.getByRole("button", { name: "Upload" }));
     expect(
       await screen.findByText(
@@ -199,7 +204,7 @@ describe("documents", () => {
       asset_ids: ["deleted"],
     });
     const user = setup("/documents/doc/edit");
-    const name = await screen.findByLabelText("Name");
+    const name = await screen.findByRole("textbox", { name: "Name" });
     await user.clear(name);
     await user.type(name, "Renamed");
     await user.click(screen.getByRole("button", { name: "Save" }));
@@ -207,6 +212,48 @@ describe("documents", () => {
       expect(api.documents.update).toHaveBeenCalledWith("doc", {
         name: "Renamed",
       }),
+    );
+  });
+
+  it("searches and toggles roles and links using the shared multi-selects", async () => {
+    const user = setup();
+    const file = new File(["notice"], "notice.txt");
+    await user.upload(await screen.findByLabelText(/^File/), file);
+    await chooseVisibility(user, "Selected roles");
+    await user.click(
+      screen.getByRole("combobox", { name: "Authorized roles" }),
+    );
+    await user.type(screen.getByPlaceholderText("Search roles…"), "View");
+    await user.click(screen.getByRole("option", { name: "Viewer" }));
+    await user.keyboard("{Escape}");
+    expect(
+      screen.getByRole("combobox", { name: "Authorized roles" }),
+    ).toHaveTextContent("Viewer");
+
+    for (const [label, search, option] of [
+      ["Assets", "Search assets…", "Building"],
+      ["Devices", "Search devices…", "Boiler"],
+    ]) {
+      await user.click(screen.getByRole("combobox", { name: label }));
+      await user.type(screen.getByPlaceholderText(search), option);
+      await user.click(screen.getByRole("option", { name: option }));
+      await user.keyboard("{Escape}");
+    }
+    await user.click(screen.getByRole("combobox", { name: "Assets" }));
+    await user.click(screen.getByRole("option", { name: "Building" }));
+    await user.keyboard("{Escape}");
+    await user.click(screen.getByRole("button", { name: "Upload" }));
+    await waitFor(() =>
+      expect(api.documents.create).toHaveBeenCalledWith(
+        {
+          name: "notice.txt",
+          allowed_role_ids: ["viewer"],
+          asset_ids: [],
+          device_ids: ["boiler"],
+        },
+        file,
+        "notice.txt",
+      ),
     );
   });
 

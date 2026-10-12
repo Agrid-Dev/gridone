@@ -57,6 +57,23 @@ def test_accepted_formats(name, content, media):
     assert validate_file(name, content) == media
 
 
+@pytest.mark.parametrize("extension", ["csv", "txt"])
+@pytest.mark.parametrize("encoding", ["utf-8", "utf-16"])
+@pytest.mark.parametrize(
+    "separator", ["\u00a0", "\u202f", "\u2009", "\u2028", "\u2029"]
+)
+def test_text_accepts_unicode_separators(extension, encoding, separator):
+    content = f"name,value\r\nÉtage{separator}1,20\r\n".encode(encoding)
+    expected = "text/csv" if extension == "csv" else "text/plain"
+    assert validate_file(f"export.{extension}", content) == expected
+
+
+@pytest.mark.parametrize("control", ["\x00", "\x01", "\x1b", "\x1f", "\x7f", "\x80"])
+def test_text_still_rejects_binary_controls(control):
+    with pytest.raises(InvalidError):
+        validate_file("export.csv", f"name,value\ntext,{control}".encode())
+
+
 @pytest.mark.parametrize(
     ("name", "content"),
     [

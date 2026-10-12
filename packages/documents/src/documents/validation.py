@@ -3,6 +3,7 @@
 import zlib
 from io import BytesIO
 from pathlib import PurePosixPath
+from unicodedata import category
 from zipfile import BadZipFile, ZipFile
 
 from models.errors import InvalidError
@@ -35,12 +36,21 @@ def safe_filename(filename: str) -> str:
 
 
 def _is_text(data: bytes) -> bool:
+    """Accept decoded text, including Unicode spaces, but reject binary controls.
+
+    ``isprintable`` excludes separators such as NBSP (U+00A0), which commonly
+    occur in exported CSV files. Accept the Unicode separator categories too;
+    validation never rewrites the original bytes.
+    """
     encoding = "utf-16" if data.startswith((b"\xff\xfe", b"\xfe\xff")) else "utf-8-sig"
     try:
         text = data.decode(encoding)
     except UnicodeError:
         return False
-    return all(char.isprintable() or char in "\r\n\t\f" for char in text)
+    return all(
+        char.isprintable() or char in "\r\n\t\f" or category(char).startswith("Z")
+        for char in text
+    )
 
 
 def _is_office(data: bytes, extension: str) -> bool:

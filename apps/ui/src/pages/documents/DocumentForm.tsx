@@ -1,178 +1,157 @@
+import { Controller } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import type { Document } from "@gridone/sdk";
 import { ResourceLink as Link } from "@/components/ResourceLink";
 import { ResourceHeader } from "@/components/ResourceHeader";
+import { FieldShell } from "@/components/forms/controllers/FieldShell";
+import { InputController } from "@/components/forms/controllers/InputController";
+import { MultiSelectController } from "@/components/forms/controllers/MultiSelectController";
+import { SelectController } from "@/components/forms/controllers/SelectController";
+import { ServerErrorAlert } from "@/components/forms/schema-form/ServerErrorAlert";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import {
-  Field,
-  FieldLabel,
-  FieldError,
-  FieldDescription,
-} from "@/components/ui/field";
-import {
-  useDocumentChoices,
   useDocumentFromRoute,
   useDocumentUploadPolicy,
   documentSize,
 } from "./useDocuments";
 import { useDocumentForm } from "./useDocumentForm";
 
-const selectClass =
-  "min-h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm";
-
-function choicesWithMissing(
-  choices: { id: string; name: string }[],
-  selected: string[],
-  unavailable: string,
-) {
-  return [
-    ...choices,
-    ...selected
-      .filter((id) => !choices.some((c) => c.id === id))
-      .map((id) => ({ id, name: `${id} — ${unavailable}` })),
-  ];
-}
-
 export function DocumentForm({ document }: { document?: Document }) {
   const { t, i18n } = useTranslation("documents");
   const policy = useDocumentUploadPolicy();
-  const choices = useDocumentChoices();
-  const { form, visibility, assetIds, deviceIds, roleIds, selectFile, submit } =
-    useDocumentForm(policy, document);
+  const {
+    form,
+    visibility,
+    options,
+    choicesLoading,
+    selectAllRoles,
+    selectFile,
+    submit,
+  } = useDocumentForm(policy, document);
   const { errors, isSubmitting } = form.formState;
   return (
-    <section className="mx-auto max-w-3xl space-y-6">
+    <section className="space-y-6">
       <ResourceHeader
         title={t(document ? "edit" : "add")}
         caption={t("formCaption")}
       />
-      <form onSubmit={submit} className="space-y-6">
-        <fieldset disabled={isSubmitting} className="space-y-6">
-          {!document && (
-            <Field data-invalid={!!errors.file}>
-              <FieldLabel htmlFor="document-file">{t("file")}</FieldLabel>
-              <Input
-                id="document-file"
-                type="file"
-                accept={policy.extensions.join(",")}
-                aria-invalid={!!errors.file}
-                onChange={(event) => selectFile(event.target.files?.[0])}
+      <Card className="max-w-3xl">
+        <form onSubmit={submit} noValidate>
+          <CardContent className="space-y-6 pt-6">
+            <fieldset disabled={isSubmitting} className="space-y-6">
+              {!document && (
+                <Controller
+                  name="file"
+                  control={form.control}
+                  render={({ field, fieldState }) => (
+                    <FieldShell
+                      id="document-file"
+                      label={t("file")}
+                      required
+                      invalid={fieldState.invalid}
+                      error={fieldState.error}
+                      description={t("fileHint", {
+                        formats: policy.extensions.join(", "),
+                        limit: documentSize(
+                          policy.max_file_bytes,
+                          i18n.language,
+                        ),
+                      })}
+                    >
+                      <Input
+                        id="document-file"
+                        type="file"
+                        accept={policy.extensions.join(",")}
+                        name={field.name}
+                        ref={field.ref}
+                        onBlur={field.onBlur}
+                        aria-required
+                        aria-invalid={fieldState.invalid}
+                        onChange={(event) =>
+                          selectFile(event.target.files?.[0])
+                        }
+                      />
+                    </FieldShell>
+                  )}
+                />
+              )}
+              <InputController
+                name="name"
+                control={form.control}
+                label={t("name")}
+                required
               />
-              <FieldDescription>
-                {t("fileHint", {
-                  formats: policy.extensions.join(", "),
-                  limit: documentSize(policy.max_file_bytes, i18n.language),
-                })}
-              </FieldDescription>
-              {errors.file && <FieldError errors={[errors.file]} />}
-            </Field>
-          )}
-          <Field data-invalid={!!errors.name}>
-            <FieldLabel htmlFor="document-name">{t("name")}</FieldLabel>
-            <Input
-              id="document-name"
-              {...form.register("name")}
-              aria-invalid={!!errors.name}
-            />
-            {errors.name && <FieldError errors={[errors.name]} />}
-          </Field>
-          <Field
-            data-invalid={!!errors.visibility || !!errors.allowed_role_ids}
-          >
-            <FieldLabel htmlFor="document-visibility">
-              {t("visibility")}
-            </FieldLabel>
-            <select
-              id="document-visibility"
-              className={selectClass}
-              {...form.register("visibility")}
-              aria-invalid={!!errors.visibility}
-            >
-              <option value="">{t("chooseVisibility")}</option>
-              <option value="admin">{t("adminOnly")}</option>
-              <option value="roles">{t("selectedRoles")}</option>
-            </select>
-            <FieldDescription>{t("adminAccess")}</FieldDescription>
-            {visibility === "roles" && (
-              <>
-                <FieldLabel htmlFor="document-roles">{t("roles")}</FieldLabel>
-                <select
-                  id="document-roles"
-                  className={selectClass}
-                  multiple
-                  {...form.register("allowed_role_ids")}
-                >
-                  {choicesWithMissing(
-                    choices.roles,
-                    roleIds,
-                    t("unavailable"),
-                  ).map((role) => (
-                    <option key={role.id} value={role.id}>
-                      {role.name}
-                    </option>
-                  ))}
-                </select>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={choices.loading}
-                  onClick={() =>
-                    form.setValue(
-                      "allowed_role_ids",
-                      choices.roles.map((r) => r.id),
-                      { shouldValidate: true, shouldDirty: true },
-                    )
-                  }
-                >
-                  {t("allRoles")}
-                </Button>
-              </>
-            )}
-            {(errors.visibility || errors.allowed_role_ids) && (
-              <FieldError
-                errors={[errors.visibility, errors.allowed_role_ids]}
+              <SelectController
+                name="visibility"
+                control={form.control}
+                label={t("visibility")}
+                description={t("adminAccess")}
+                placeholder={t("chooseVisibility")}
+                options={[
+                  { value: "admin", label: t("adminOnly") },
+                  { value: "roles", label: t("selectedRoles") },
+                ]}
+                required
               />
-            )}
-          </Field>
-          {(["asset_ids", "device_ids"] as const).map((key) => (
-            <Field key={key} data-invalid={!!errors[key]}>
-              <FieldLabel htmlFor={`document-${key}`}>
-                {t(key === "asset_ids" ? "assets" : "devices")}
-              </FieldLabel>
-              <select
-                id={`document-${key}`}
-                className={selectClass}
-                multiple
-                {...form.register(key)}
-              >
-                {choicesWithMissing(
-                  key === "asset_ids" ? choices.assets : choices.devices,
-                  key === "asset_ids" ? assetIds : deviceIds,
-                  t("unavailable"),
-                ).map((item) => (
-                  <option value={item.id} key={item.id}>
-                    {item.name}
-                  </option>
+              {visibility === "roles" && (
+                <div className="space-y-3">
+                  <MultiSelectController
+                    name="allowed_role_ids"
+                    control={form.control}
+                    label={t("roles")}
+                    options={options.allowed_role_ids}
+                    placeholder={t("chooseRoles")}
+                    searchPlaceholder={t("searchRoles")}
+                    emptyMessage={t("noOptions")}
+                    required
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={choicesLoading}
+                    onClick={selectAllRoles}
+                  >
+                    {t("allRoles")}
+                  </Button>
+                </div>
+              )}
+              <div className="grid gap-6 sm:grid-cols-2">
+                {(["asset_ids", "device_ids"] as const).map((key) => (
+                  <MultiSelectController
+                    key={key}
+                    name={key}
+                    control={form.control}
+                    label={t(key === "asset_ids" ? "assets" : "devices")}
+                    description={t("multipleHint")}
+                    options={options[key]}
+                    placeholder={t(
+                      key === "asset_ids" ? "chooseAssets" : "chooseDevices",
+                    )}
+                    searchPlaceholder={t(
+                      key === "asset_ids" ? "searchAssets" : "searchDevices",
+                    )}
+                    emptyMessage={t("noOptions")}
+                  />
                 ))}
-              </select>
-              <FieldDescription>{t("multipleHint")}</FieldDescription>
-              {errors[key] && <FieldError errors={[errors[key]]} />}
-            </Field>
-          ))}
-        </fieldset>
-        {errors.root && <FieldError errors={[errors.root]} />}
-        <div className="flex justify-end gap-3">
-          <Button asChild variant="outline" disabled={isSubmitting}>
-            <Link to={document ? `/documents/${document.id}` : "/documents"}>
-              {t("cancel")}
-            </Link>
-          </Button>
-          <Button type="submit" disabled={isSubmitting || choices.loading}>
-            {isSubmitting ? t("saving") : t(document ? "save" : "upload")}
-          </Button>
-        </div>
-      </form>
+              </div>
+            </fieldset>
+            <ServerErrorAlert message={errors.root?.message} />
+          </CardContent>
+          <CardFooter className="justify-end gap-3 border-t pt-6">
+            <Button asChild variant="outline" disabled={isSubmitting}>
+              <Link to={document ? `/documents/${document.id}` : "/documents"}>
+                {t("cancel")}
+              </Link>
+            </Button>
+            <Button type="submit" disabled={isSubmitting || choicesLoading}>
+              {isSubmitting ? t("saving") : t(document ? "save" : "upload")}
+            </Button>
+          </CardFooter>
+        </form>
+      </Card>
     </section>
   );
 }

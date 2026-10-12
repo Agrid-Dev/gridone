@@ -11,7 +11,7 @@ import type {
   DocumentUploadPolicy,
 } from "@gridone/sdk";
 import { serverErrorMessage } from "@/lib/serverErrorMessage";
-import { useDocumentActions } from "./useDocuments";
+import { useDocumentActions, useDocumentChoices } from "./useDocuments";
 
 type Visibility = "" | "admin" | "roles";
 export interface DocumentFormValues {
@@ -47,6 +47,19 @@ function changedMetadata(
   return patch;
 }
 
+function optionsWithMissing(
+  choices: { id: string; name: string }[],
+  selected: string[],
+  unavailable: string,
+) {
+  return [
+    ...choices.map(({ id, name }) => ({ value: id, label: name })),
+    ...selected
+      .filter((id) => !choices.some((choice) => choice.id === id))
+      .map((id) => ({ value: id, label: `${id} — ${unavailable}` })),
+  ];
+}
+
 export function useDocumentForm(
   policy: DocumentUploadPolicy,
   document?: Document,
@@ -55,6 +68,7 @@ export function useDocumentForm(
   const navigate = useNavigate();
   const [search] = useSearchParams();
   const actions = useDocumentActions();
+  const choices = useDocumentChoices();
   const schema = useMemo(() => {
     const wireSchema = z.fromJSONSchema(policy.metadata_schema);
     return z
@@ -129,6 +143,29 @@ export function useDocumentForm(
   const assetIds = useWatch({ control: form.control, name: "asset_ids" });
   const deviceIds = useWatch({ control: form.control, name: "device_ids" });
   const roleIds = useWatch({ control: form.control, name: "allowed_role_ids" });
+  const options = {
+    asset_ids: optionsWithMissing(choices.assets, assetIds, t("unavailable")),
+    device_ids: optionsWithMissing(
+      choices.devices,
+      deviceIds,
+      t("unavailable"),
+    ),
+    allowed_role_ids: optionsWithMissing(
+      choices.roles,
+      roleIds,
+      t("unavailable"),
+    ),
+  };
+  function selectAllRoles() {
+    form.setValue(
+      "allowed_role_ids",
+      choices.roles.map((role) => role.id),
+      {
+        shouldValidate: true,
+        shouldDirty: true,
+      },
+    );
+  }
   function selectFile(file?: File) {
     form.setValue("file", file, { shouldValidate: true });
     if (file && !form.getValues("name"))
@@ -153,5 +190,13 @@ export function useDocumentForm(
       });
     }
   });
-  return { form, visibility, assetIds, deviceIds, roleIds, selectFile, submit };
+  return {
+    form,
+    visibility,
+    options,
+    choicesLoading: choices.loading,
+    selectAllRoles,
+    selectFile,
+    submit,
+  };
 }
