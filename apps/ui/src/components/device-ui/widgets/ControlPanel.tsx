@@ -18,13 +18,13 @@ import { toLabel } from "@/lib/textFormat";
 import { cn } from "@/lib/utils";
 import type { Scalar } from "../conditions";
 import { localize } from "../face";
-import {
-  useAwaitedWrite,
-  type BoundControlState,
-  type DeviceUiRuntime,
-  type WriteState,
+import type {
+  BoundControlState,
+  DeviceUiRuntime,
+  WriteState,
 } from "../runtime";
 import { decimalsOf } from "../runtime/controls";
+import { useAwaitedWrite } from "../runtime/useAwaitedWrite";
 import { formatNumber } from "./formatters";
 import { NumberSlider } from "./NumberSlider";
 import { ControlValue } from "./ControlValue";

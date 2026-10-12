@@ -22,4 +22,3 @@ export {
   type BoundControlState,
   type DeviceUiRuntime,
 } from "./useDeviceControlRuntime";
-export { useAwaitedWrite } from "./useAwaitedWrite";
