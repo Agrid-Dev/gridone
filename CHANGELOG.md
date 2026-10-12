@@ -1,3 +1,9 @@
+## v0.310.1 (2026-10-12)
+
+### Fix
+
+- **ui**: keep the device page still while a command is in flight (#700)
+
 ## v0.310.0 (2026-10-09)
 
 ### Feat
