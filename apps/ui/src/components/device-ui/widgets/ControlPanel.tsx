@@ -330,6 +330,17 @@ function SelectControl({
   const optionLabel = (option: Scalar) =>
     attributeValueLabel(state.spec.attribute, option, t) ??
     toLabel(String(option));
+  // Each option keeps its reason from before a write this page sent, so an
+  // inline reason never moves the rows below while that write is in flight.
+  const { shown: reasons } = useAwaitedWrite(
+    state,
+    Object.fromEntries(
+      (state.optionStates ?? []).map((item) => [
+        String(item.value),
+        commandReasons(item.reasons, i18n.language),
+      ]),
+    ),
+  );
   return (
     <div
       role="radiogroup"
@@ -348,7 +359,7 @@ function SelectControl({
             label={optionLabel(option)}
             active={active}
             unavailable={unavailable}
-            reason={commandReasons(resolved?.reasons, i18n.language)}
+            reason={reasons[String(option)] ?? ""}
             reasonId={`${id}-option-${index}-reason`}
             tooltip={state.spec.optionReasonDisplay === "tooltip"}
             onSelect={() => runtime.setValue(id, option)}

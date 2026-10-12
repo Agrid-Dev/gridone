@@ -1398,6 +1398,24 @@ describe("no layout shift during a command", () => {
     expect(within(fanRow()).queryByText(/Not in fan mode/)).toBeNull();
   });
 
+  it("keeps each option's settled reason while the awaited write is in flight", () => {
+    const options = (reasons: (typeof provisional)[]) => ({
+      optionStates: [
+        { value: "low", available: true },
+        { value: "high", available: !reasons.length, reasons },
+      ],
+    });
+    writeInFlight(
+      { ...missingFan([]), ...options([]) },
+      {
+        ...missingFan(["mode"]),
+        ...options([provisional]),
+        inFlight: ["mode"],
+      },
+    );
+    expect(within(fanRow()).queryByText("Not in fan mode")).toBeNull();
+  });
+
   it("keeps the settled explanations while the awaited write is in flight", () => {
     writeInFlight(missingFan([], [settled]), {
       ...missingFan(["mode"], [settled, provisional]),
