@@ -1,3 +1,4 @@
+import { useEffect, useState, type ReactNode } from "react";
 import { AttributeDependencies } from "@/components/AttributeDependencies";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { moveRadioFocus } from "@/lib/radioNavigation";
@@ -17,9 +18,13 @@ import { toLabel } from "@/lib/textFormat";
 import { cn } from "@/lib/utils";
 import type { Scalar } from "../conditions";
 import { localize } from "../face";
-import type { BoundControlState, DeviceUiRuntime } from "../runtime";
-import type { WriteState } from "../runtime";
+import type {
+  BoundControlState,
+  DeviceUiRuntime,
+  WriteState,
+} from "../runtime";
 import { decimalsOf } from "../runtime/controls";
+import { useAwaitedWrite } from "../runtime/useAwaitedWrite";
 import { formatNumber } from "./formatters";
 import { NumberSlider } from "./NumberSlider";
 import { ControlValue } from "./ControlValue";
@@ -76,40 +81,43 @@ export function ControlRow({
   const { t } = useTranslation();
   const label = localize(state.spec.label, language);
   return (
-    <div
-      className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
-      data-control={id}
-    >
-      <div className="min-w-0">
-        <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-          {label}
-          <DescriptionHint
-            name={label}
-            entries={describedAttributes(
-              [{ caption: label, attribute: state.attribute }],
-              language,
-            )}
-          />
-        </p>
-        {state.valueLabel && (
-          <p className="text-xs text-muted-foreground">{state.valueLabel}</p>
-        )}
-        {state.spec.kind === "select" &&
-          state.reported !== null &&
-          !state.options.includes(state.reported) && (
-            <p className="text-xs text-muted-foreground">
-              {t("common.currentValue")}: {String(state.reported)}
-            </p>
+    <div className="px-4 py-3" data-control={id}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+            {label}
+            <DescriptionHint
+              name={label}
+              entries={describedAttributes(
+                [{ caption: label, attribute: state.attribute }],
+                language,
+              )}
+            />
+          </p>
+          {state.valueLabel && (
+            <p className="text-xs text-muted-foreground">{state.valueLabel}</p>
           )}
-        <WriteStateIndicator state={state.write} />
-        <ControlFeedback state={state} runtime={runtime} language={language} />
+          {state.spec.kind === "select" &&
+            state.reported !== null &&
+            !state.options.includes(state.reported) && (
+              <p className="text-xs text-muted-foreground">
+                {t("common.currentValue")}: {String(state.reported)}
+              </p>
+            )}
+        </div>
+        <ControlInput id={id} state={state} runtime={runtime} label={label} />
       </div>
-      <ControlInput id={id} state={state} runtime={runtime} label={label} />
+      <ControlFeedback state={state} runtime={runtime} language={language} />
     </div>
   );
 }
 
-/** Availability explanations shared by standalone controls and setpoint tables. */
+/**
+ * Write status and availability explanations shared by standalone controls
+ * and setpoint tables. While a write this page sent makes dependencies
+ * unknown, the explanations from before the write stay on screen: that gap is
+ * ours, and the page must not move for it.
+ */
 export function ControlFeedback({
   state,
   runtime,
@@ -119,28 +127,38 @@ export function ControlFeedback({
   runtime: DeviceUiRuntime;
   language?: string;
 }) {
+  const writeState = state.attribute?.write_state;
+  const {
+    awaiting,
+    shown: { reasons, warnings },
+  } = useAwaitedWrite(state, {
+    reasons: commandReasons(state.reasons, language),
+    warnings: commandReasons(writeState?.warnings, language),
+  });
+  const missing = (writeState?.missing_attributes ?? []).filter(
+    (name) => !awaiting.includes(name),
+  );
+  const label = (name: string) => runtime.attributeLabel?.(name) ?? name;
   return (
     <>
-      {state.reasons?.length ? (
+      {runtime.reportsWrites && (
+        <ControlStatus state={state.write} awaiting={awaiting.map(label)} />
+      )}
+      {reasons && (
         <p role="status" className="text-xs text-muted-foreground">
-          {commandReasons(state.reasons, language)}
+          {reasons}
         </p>
-      ) : null}
-      {state.attribute?.write_state?.missing_dependencies &&
+      )}
+      {writeState?.missing_dependencies &&
+        (!awaiting.length || missing.length > 0) &&
         runtime.deviceId && (
           <AttributeDependencies
             deviceId={runtime.deviceId}
             attribute={state.spec.attribute}
-            labels={(state.attribute.write_state.missing_attributes ?? []).map(
-              (name) => runtime.attributeLabel?.(name) ?? name,
-            )}
+            labels={missing.map(label)}
           />
         )}
-      {state.attribute?.write_state?.warnings?.length ? (
-        <p className="text-xs text-amber-700">
-          {commandReasons(state.attribute.write_state.warnings, language)}
-        </p>
-      ) : null}
+      {warnings && <p className="text-xs text-amber-700">{warnings}</p>}
     </>
   );
 }
@@ -232,6 +250,12 @@ export function NumberStepper({
       : (state.valueLabel ?? t("presentation.unavailable"));
   const unit = state.attribute?.unit;
   const { minimum, maximum } = state.constraints;
+  const known =
+    minimum !== null && maximum !== null ? { minimum, maximum } : null;
+  // While a write this page sent leaves the bounds unknown, the last known
+  // ones stay, greyed, in place.
+  const { shown: held } = useAwaitedWrite(state, known);
+  const range = known ?? held;
   return (
     <div className="flex items-center gap-2" role="group" aria-label={label}>
       <Button
@@ -259,11 +283,17 @@ export function NumberStepper({
             }
           />
         </span>
-        {minimum !== null && maximum !== null && (
-          <p className="text-[11px] text-muted-foreground">
+        {range && (
+          <p
+            data-stale={!known || undefined}
+            className={cn(
+              "text-[11px] text-muted-foreground",
+              !known && "opacity-50",
+            )}
+          >
             {t("presentation.range", {
-              min: formatNumber(minimum, decimals, i18n.language),
-              max: formatNumber(maximum, decimals, i18n.language),
+              min: formatNumber(range.minimum, decimals, i18n.language),
+              max: formatNumber(range.maximum, decimals, i18n.language),
             })}
           </p>
         )}
@@ -300,6 +330,17 @@ function SelectControl({
   const optionLabel = (option: Scalar) =>
     attributeValueLabel(state.spec.attribute, option, t) ??
     toLabel(String(option));
+  // Each option keeps its reason from before a write this page sent, so an
+  // inline reason never moves the rows below while that write is in flight.
+  const { shown: reasons } = useAwaitedWrite(
+    state,
+    Object.fromEntries(
+      (state.optionStates ?? []).map((item) => [
+        String(item.value),
+        commandReasons(item.reasons, i18n.language),
+      ]),
+    ),
+  );
   return (
     <div
       role="radiogroup"
@@ -312,60 +353,102 @@ function SelectControl({
           (item) => item.value === option,
         );
         const unavailable = !state.writable || resolved?.available === false;
-        const reason = commandReasons(resolved?.reasons, i18n.language);
-        const reasonId = `${id}-option-${index}-reason`;
-        const tooltip =
-          state.spec.optionReasonDisplay === "tooltip" && !!reason;
-        const button = (
-          <button
-            type="button"
-            role="radio"
-            aria-checked={active}
-            aria-disabled={unavailable}
-            {...(!tooltip && reason ? { "aria-describedby": reasonId } : {})}
-            onClick={() => {
-              if (!unavailable) runtime.setValue(id, option);
-            }}
-            onKeyDown={moveRadioFocus}
-            className={cn(
-              "rounded-full px-3 py-1.5 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring",
-              unavailable && "opacity-50",
-              active && "bg-background shadow-sm",
-            )}
-          >
-            {optionLabel(option)}
-          </button>
-        );
         return (
-          <div key={`${typeof option}:${String(option)}`}>
-            {tooltip ? (
-              <Tooltip delayDuration={0}>
-                <TooltipTrigger asChild>{button}</TooltipTrigger>
-                <TooltipPrimitive.Portal>
-                  <TooltipContent
-                    side="top"
-                    collisionPadding={16}
-                    className="max-w-[min(24rem,var(--radix-tooltip-content-available-width))] whitespace-normal [overflow-wrap:anywhere]"
-                  >
-                    {reason}
-                    <TooltipArrow className="fill-popover" />
-                  </TooltipContent>
-                </TooltipPrimitive.Portal>
-              </Tooltip>
-            ) : (
-              button
-            )}
-            {reason && !tooltip && (
-              <p
-                id={reasonId}
-                className="max-w-48 px-2 text-xs text-muted-foreground"
-              >
-                {reason}
-              </p>
-            )}
-          </div>
+          <OptionButton
+            key={`${typeof option}:${String(option)}`}
+            label={optionLabel(option)}
+            active={active}
+            unavailable={unavailable}
+            reason={reasons[String(option)] ?? ""}
+            reasonId={`${id}-option-${index}-reason`}
+            tooltip={state.spec.optionReasonDisplay === "tooltip"}
+            onSelect={() => runtime.setValue(id, option)}
+          />
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * An option with its reason: below it, or in a tooltip when the driver asks
+ * for one. Hover and focus open the tooltip; a tap on an unavailable option
+ * opens it too, since touch has neither.
+ */
+function OptionButton({
+  label,
+  active,
+  unavailable,
+  reason,
+  reasonId,
+  tooltip,
+  onSelect,
+}: {
+  label: string;
+  active: boolean;
+  unavailable: boolean;
+  reason: string;
+  reasonId: string;
+  tooltip: boolean;
+  onSelect: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  // Radix only reports a change away from `open`, so a state left true while
+  // there is no reason would open the tooltip unprompted once one arrives.
+  if (open && !reason) setOpen(false);
+  const button = (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={active}
+      aria-disabled={unavailable}
+      {...(!tooltip && reason ? { "aria-describedby": reasonId } : {})}
+      onClick={(event) => {
+        if (!unavailable) onSelect();
+        else if (tooltip && reason) {
+          // Keeps the tooltip trigger from closing what the tap opens.
+          event.preventDefault();
+          setOpen(true);
+        }
+      }}
+      onKeyDown={moveRadioFocus}
+      className={cn(
+        "rounded-full px-3 py-1.5 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring",
+        unavailable && "opacity-50",
+        active && "bg-background shadow-sm",
+      )}
+    >
+      {label}
+    </button>
+  );
+  // The trigger stays mounted when a reason comes or goes, so focus is kept.
+  return (
+    <div>
+      {tooltip ? (
+        <Tooltip open={open} onOpenChange={setOpen} delayDuration={0}>
+          <TooltipTrigger asChild>{button}</TooltipTrigger>
+          <TooltipPrimitive.Portal>
+            <TooltipContent
+              side="top"
+              collisionPadding={16}
+              className="max-w-[min(24rem,var(--radix-tooltip-content-available-width))] whitespace-normal [overflow-wrap:anywhere]"
+            >
+              {reason}
+              <TooltipArrow className="fill-popover" />
+            </TooltipContent>
+          </TooltipPrimitive.Portal>
+        </Tooltip>
+      ) : (
+        button
+      )}
+      {reason && !tooltip && (
+        <p
+          id={reasonId}
+          className="max-w-48 px-2 text-xs text-muted-foreground"
+        >
+          {reason}
+        </p>
+      )}
     </div>
   );
 }
@@ -398,6 +481,101 @@ export function WriteStateIndicator({ state }: { state: WriteState }) {
         t("presentation.error", { message: state.message })}
       {state.kind === "unconfirmed" &&
         t("presentation.unconfirmed", { message: state.message })}
+    </p>
+  );
+}
+
+export const CONFIRMED_VISIBLE_MS = 2000;
+const FADE_MS = 500;
+
+type StatusLine = {
+  text?:
+    | "presentation.awaiting"
+    | "presentation.sending"
+    | "presentation.confirmed"
+    | "presentation.error"
+    | "presentation.unconfirmed";
+  icon?: ReactNode;
+  failed?: boolean;
+};
+const SPINNER = (
+  <Loader2 className="mr-1 inline h-3 w-3 animate-spin" aria-hidden />
+);
+const AWAITING_LINE: StatusLine = {
+  text: "presentation.awaiting",
+  icon: SPINNER,
+};
+const STATUS_LINES: Record<WriteState["kind"], StatusLine> = {
+  idle: {},
+  sending: { text: "presentation.sending", icon: SPINNER },
+  confirmed: {
+    text: "presentation.confirmed",
+    icon: <Check className="mr-1 inline h-3 w-3" aria-hidden />,
+  },
+  error: { text: "presentation.error", failed: true },
+  unconfirmed: { text: "presentation.unconfirmed", failed: true },
+};
+
+/**
+ * The outcome of the last write, announced politely: sending, confirmed,
+ * or the real failure, else the dependencies whose write is awaited.
+ * Measurements are never announced here. The line keeps one line of height
+ * and never widens its container; a long progress message is cut, in full in
+ * its title, while a failure wraps so it can be read in full. "Applied" fades
+ * out, then leaves an empty line.
+ */
+function ControlStatus({
+  state,
+  awaiting,
+}: {
+  state: WriteState;
+  awaiting: string[];
+}) {
+  const { t } = useTranslation("devices");
+  const [faded, setFaded] = useState<{ state: WriteState; gone: boolean }>();
+  useEffect(() => {
+    if (state.kind !== "confirmed") return;
+    const timers = [
+      setTimeout(() => setFaded({ state, gone: false }), CONFIRMED_VISIBLE_MS),
+      setTimeout(
+        () => setFaded({ state, gone: true }),
+        CONFIRMED_VISIBLE_MS + FADE_MS,
+      ),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, [state]);
+  const own = STATUS_LINES[state.kind];
+  const waiting =
+    !own.failed && state.kind !== "sending" && awaiting.length > 0;
+  const fading = !waiting && faded?.state === state;
+  const line = waiting
+    ? AWAITING_LINE
+    : fading && faded.gone
+      ? STATUS_LINES.idle
+      : own;
+  const text = line.text
+    ? t(line.text, {
+        names: awaiting.join(", "),
+        message: "message" in state ? state.message : "",
+      })
+    : "";
+  return (
+    <p
+      role="status"
+      aria-live="polite"
+      data-write-state={state.kind}
+      title={text || undefined}
+      style={{ transitionDuration: `${FADE_MS}ms` }}
+      className={cn(
+        "min-h-4 w-0 min-w-full text-xs leading-4 transition-opacity",
+        line.failed
+          ? "break-words text-destructive"
+          : "truncate text-muted-foreground",
+        fading && "opacity-0",
+      )}
+    >
+      {line.icon}
+      {text}
     </p>
   );
 }
