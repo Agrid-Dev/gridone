@@ -7,11 +7,12 @@ from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 
 from api.auth import get_current_user_id
-from api.dependencies import get_users_service
+from api.dependencies import get_documents_service, get_users_service
 from api.exception_handlers import register_exception_handlers
 from api.routes.users.auth_router import router as auth_router
 from api.routes.users.roles_router import router as roles_router
 from api.routes.users.users_router import router as users_router
+from documents import DocumentsService
 from models.errors import ConflictError, InvalidError, NotFoundError
 from users import Role, RoleCreate, RoleUpdate, User
 from users.auth import AuthService
@@ -73,6 +74,9 @@ def um() -> AsyncMock:
 @pytest.fixture
 def app(um: AsyncMock) -> FastAPI:
     app = FastAPI()
+    documents_service = AsyncMock(spec=DocumentsService)
+    documents_service.has_role_reference.return_value = False
+    app.dependency_overrides[get_documents_service] = lambda: documents_service
     app.state.auth_service = AuthService(secret_key="test-secret")
     app.state.cookie_secure = False
     app.dependency_overrides[get_users_service] = lambda: um
@@ -213,6 +217,16 @@ class TestUpdate:
 
 
 class TestDelete:
+    def test_document_reference_blocks_deletion(
+        self, app: FastAPI, um: AsyncMock
+    ) -> None:
+        svc = app.dependency_overrides[get_documents_service]()
+        svc.has_role_reference.return_value = True
+        with TestClient(app) as client:
+            response = client.delete("/users/roles/maintainer", headers=_auth(client))
+        assert response.status_code == 409
+        um.delete_role.assert_not_awaited()
+
     def test_returns_204(self, app: FastAPI, um: AsyncMock) -> None:
         with TestClient(app) as client:
             resp = client.delete(

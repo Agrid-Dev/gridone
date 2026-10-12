@@ -41,6 +41,7 @@ def test_operator_permissions():
         "devices:command",
         "devices:read",
         "devices:write",
+        "documents:read",
         "drivers:read",
         "drivers:write",
         "operating_rules:read",
@@ -59,6 +60,7 @@ def test_viewer_permissions():
         "automations:read",
         "dashboards:read",
         "devices:read",
+        "documents:read",
         "drivers:read",
         "operating_rules:read",
         "roles:read",
@@ -365,3 +367,12 @@ class TestKnownScopes:
         assert kept == [Permission.TIMESERIES_READ]
         assert scopes == {}
         assert "permission dropped" in caplog.text
+
+
+@pytest.mark.parametrize("model", [RoleCreate, RoleUpdate])
+def test_document_write_is_reserved_for_admin(model):
+    body: dict[str, object] = {"permissions": [Permission.DOCUMENTS_WRITE]}
+    if model is RoleCreate:
+        body.update(id="maintainer", name="Maintainer")
+    with pytest.raises(ValidationError):
+        model.model_validate(body)

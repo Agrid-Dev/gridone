@@ -67,7 +67,7 @@ export class UsersResource {
     });
   }
 
-  /** Delete a custom role; 409 while a user still holds it. Needs `roles:write`. */
+  /** Delete a custom role; 409 while users or documents reference it. Needs `roles:write`. */
   deleteRole(roleId: string): Promise<void> {
     return this.request("DELETE", `/users/roles/${encodeURIComponent(roleId)}`);
   }

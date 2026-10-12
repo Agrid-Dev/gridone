@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   Blocks,
   Building2,
+  Files,
   LayoutDashboard,
   Network,
   Puzzle,
@@ -36,7 +37,8 @@ type ConfigurationPage =
   | "drivers"
   | "networks"
   | "building"
-  | "users";
+  | "users"
+  | "documents";
 
 export type ConfigurationEntry = {
   group: ConfigurationGroup;
@@ -112,6 +114,13 @@ const CONFIGURATION: readonly ConfigurationEntry[] = [
     label: "app.users",
     icon: Users,
     visible: (access) => access.can("users:read"),
+  },
+  {
+    group: "organization",
+    to: "/documents",
+    label: "app.documents",
+    icon: Files,
+    visible: (access) => access.can("documents:read"),
   },
 ];
 

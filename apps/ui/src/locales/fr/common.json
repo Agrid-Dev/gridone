@@ -269,7 +269,8 @@
     "faults": "Défauts",
     "users": "Utilisateurs",
     "building": "Bâtiment",
-    "notifications": "Notifications"
+    "notifications": "Notifications",
+    "documents": "Documents"
   },
   "nav": {
     "configuration": "Configuration",

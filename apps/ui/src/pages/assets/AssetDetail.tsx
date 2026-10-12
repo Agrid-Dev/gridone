@@ -1,3 +1,4 @@
+import { DocumentsCard } from "@/pages/documents/DocumentsCard";
 import { useState } from "react";
 import { useParams } from "react-router";
 import { ResourceLink as Link } from "@/components/ResourceLink";
@@ -106,6 +107,9 @@ export default function AssetDetail() {
         onUnlinkDevice={(deviceId) => unlink.mutateAsync(deviceId)}
         onReorder={(orderedIds) => reorderMutation.mutate(orderedIds)}
       />
+      <div className="mt-6">
+        <DocumentsCard assetId={asset.id} />
+      </div>
       <DeviceLinkDialog
         assetId={assetId!}
         open={linkDialogOpen}

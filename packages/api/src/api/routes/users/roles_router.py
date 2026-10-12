@@ -3,7 +3,9 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, status
 
 from api.auth import require_permission
-from api.dependencies import get_users_service
+from api.dependencies import get_documents_service, get_users_service
+from documents import DocumentsService
+from models.errors import ConflictError
 from users import Role, RoleCreate, RoleUpdate, UsersService
 from users.permissions import Permission
 
@@ -65,6 +67,12 @@ async def update_role(
 async def delete_role(
     role_id: str,
     um: Annotated[UsersService, Depends(get_users_service)],
+    documents: Annotated[DocumentsService, Depends(get_documents_service)],
 ) -> None:
     # ConflictError -> 409 (built-in, or still assigned), NotFoundError -> 404
+    if await documents.has_role_reference(role_id):
+        msg = (
+            "Role is still referenced by documents. Remove its document sharing first."
+        )
+        raise ConflictError(msg)
     await um.delete_role(role_id)

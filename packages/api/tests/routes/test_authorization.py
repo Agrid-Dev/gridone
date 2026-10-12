@@ -1,6 +1,8 @@
 """Tests that RBAC permissions are enforced on API endpoints."""
 
 import inspect
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
@@ -30,6 +32,7 @@ from api.dependencies import (
     get_commands_service,
     get_dashboards_service,
     get_device_manager,
+    get_documents_service,
     get_notifications_service,
     get_synoptics_service,
     get_ts_service,
@@ -43,6 +46,7 @@ from api.routes.command_router import get_selection_commands
 from api.routes.command_router import router as command_router
 from api.routes.dashboards_router import router as dashboards_router
 from api.routes.devices_router import router as devices_router
+from api.routes.documents_router import router as documents_router
 from api.routes.drivers_router import router as drivers_router
 from api.routes.faults_router import router as faults_router
 from api.routes.notifications_router import router as notifications_router
@@ -88,6 +92,7 @@ from devices_manager.dto import FaultView
 from devices_manager.dto.device_dto import Device
 from devices_manager.dto.presentation_dto import UnavailablePresentationResponse
 from devices_manager.types import DataType
+from documents import DocumentCreate, DocumentsService
 from models.errors import NotFoundError
 from models.metadata import ResourceMetadata
 from models.operating_rules import OperatingRule
@@ -114,7 +119,8 @@ INTEGRATION_ROLE = Role(
     permissions=[
         p
         for p in Permission
-        if not p.startswith("users:") and p is not Permission.ROLES_WRITE
+        if not p.startswith("users:")
+        and p not in {Permission.ROLES_WRITE, Permission.DOCUMENTS_WRITE}
     ],
 )
 
@@ -135,6 +141,127 @@ THERMOSTAT_READER_ROLE = Role(
     },
 )
 CUSTOM_ROLES = {r.id: r for r in (INTEGRATION_ROLE, THERMOSTAT_READER_ROLE)}
+
+
+@pytest.fixture
+def documents_app():
+    app = _build_app()
+    svc = DocumentsService(None)
+
+    @asynccontextmanager
+    async def lifespan(_app) -> AsyncIterator[None]:
+        await svc.start()
+        private = await svc.create(
+            DocumentCreate(name="Contract", allowed_role_ids=[]),
+            filename="contract.txt",
+            data=b"private",
+            created_by="admin",
+        )
+        shared = await svc.create(
+            DocumentCreate(
+                name="Notice", allowed_role_ids=["viewer", "operator", "integration"]
+            ),
+            filename="notice.txt",
+            data=b"notice",
+            created_by="admin",
+        )
+        app.state.private_document = private.id
+        app.state.shared_document = shared.id
+        yield
+        await svc.stop()
+
+    app.router.lifespan_context = lifespan
+    app.dependency_overrides[get_documents_service] = lambda: svc
+    assets_mock = AsyncMock()
+    app.dependency_overrides[get_assets_service] = lambda: assets_mock
+    app.dependency_overrides[get_device_manager] = lambda: MagicMock(
+        spec=DevicesServiceInterface
+    )
+    app.include_router(
+        documents_router,
+        prefix="/documents",
+        dependencies=[Depends(get_current_user_id)],
+    )
+    register_exception_handlers(app)
+    return app
+
+
+@pytest.mark.parametrize(
+    "username", [None, "admin", "operator", "viewer", "integrator", "reader"]
+)
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "list",
+        "policy",
+        "shared",
+        "private",
+        "shared-content",
+        "private-content",
+        "create",
+        "update",
+        "delete",
+    ],
+)
+def test_documents_permissions_and_visibility(documents_app, username, kind):
+    import json
+
+    with TestClient(documents_app) as client:
+        headers = _auth_header(_login(client, username)) if username else {}
+        private = documents_app.state.private_document
+        shared = documents_app.state.shared_document
+        path = {
+            "list": "/documents",
+            "policy": "/documents/upload-policy",
+            "shared": f"/documents/{shared}",
+            "private": f"/documents/{private}",
+            "shared-content": f"/documents/{shared}/content",
+            "private-content": f"/documents/{private}/content",
+            "create": "/documents",
+            "update": f"/documents/{shared}",
+            "delete": f"/documents/{shared}",
+        }[kind]
+        if kind == "create":
+            response = client.post(
+                path,
+                headers=headers,
+                data={"metadata": json.dumps({"name": "new", "allowed_role_ids": []})},
+                files={"file": ("new.txt", b"new")},
+            )
+        elif kind == "update":
+            response = client.patch(path, headers=headers, json={"name": "updated"})
+        elif kind == "delete":
+            response = client.delete(path, headers=headers)
+        else:
+            response = client.get(path, headers=headers)
+        if username is None:
+            expected = 401
+        elif username == "reader" or (
+            kind in {"create", "update", "delete"} and username != "admin"
+        ):
+            expected = 403
+        elif kind.startswith("private") and username != "admin":
+            expected = 404
+        else:
+            expected = {"create": 201, "delete": 204}.get(kind, 200)
+        assert response.status_code == expected, response.text
+        if kind == "list" and expected == 200:
+            assert response.json()["total"] == (2 if username == "admin" else 1)
+            assert len(response.json()["items"]) == response.json()["total"]
+
+
+def test_revoked_document_sharing_applies_to_next_download(documents_app):
+    with TestClient(documents_app) as client:
+        admin = _auth_header(_login(client, "admin"))
+        viewer = _auth_header(_login(client, "viewer"))
+        path = f"/documents/{documents_app.state.shared_document}"
+        assert client.get(path + "/content", headers=viewer).status_code == 200
+        assert (
+            client.patch(path, headers=admin, json={"allowed_role_ids": []}).status_code
+            == 200
+        )
+        assert client.get(path + "/content", headers=viewer).status_code == 404
+        assert client.get("/documents", headers=viewer).json()["total"] == 0
 
 
 class MockUsersService:
@@ -253,6 +380,9 @@ def _build_apps_service_mock() -> AsyncMock:
 
 def _build_app() -> FastAPI:
     app = FastAPI()
+    documents_service = AsyncMock(spec=DocumentsService)
+    documents_service.has_role_reference.return_value = False
+    app.dependency_overrides[get_documents_service] = lambda: documents_service
     app.state.auth_service = AuthService(secret_key="test-secret")
     app.state.cookie_secure = False
     manager = MockUsersService()

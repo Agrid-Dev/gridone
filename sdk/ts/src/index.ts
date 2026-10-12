@@ -66,3 +66,6 @@ export { UsersResource } from "./resources/users";
 export type * from "./types";
 export { MemoryTokenStorage } from "./http/tokenStorage";
 export type { MaybePromise, Tokens, TokenStorage } from "./http/tokenStorage";
+
+export { DocumentsResource } from "./resources/documents";
+export type { DocumentListParams } from "./resources/documents";

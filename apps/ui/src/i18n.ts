@@ -8,6 +8,8 @@ import enProfile from "./locales/en/profile.json";
 import enOperatingRules from "./locales/en/operatingRules.json";
 import enCommon from "./locales/en/common.json";
 import enDashboards from "./locales/en/dashboards.json";
+import enDocuments from "./locales/en/documents.json";
+import frDocuments from "./locales/fr/documents.json";
 import enDevices from "./locales/en/devices.json";
 import enDrivers from "./locales/en/drivers.json";
 import enFaults from "./locales/en/faults.json";
@@ -40,6 +42,7 @@ i18n.use(initReactI18next).init({
       common: enCommon,
       dashboards: enDashboards,
       devices: enDevices,
+      documents: enDocuments,
       users: enUsers,
       assets: enAssets,
       transports: enTransports,
@@ -58,6 +61,7 @@ i18n.use(initReactI18next).init({
       common: frCommon,
       dashboards: frDashboards,
       devices: frDevices,
+      documents: frDocuments,
       users: frUsers,
       assets: frAssets,
       transports: frTransports,

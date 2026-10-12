@@ -32,8 +32,10 @@ RoleIdField = Annotated[
 ]
 
 # Held by the built-in admin only: a role that could mint roles could mint
-# one richer than itself.
-RESERVED_PERMISSIONS: frozenset[Permission] = frozenset({Permission.ROLES_WRITE})
+# one richer than itself. Document writes are also admin-only in v1.
+RESERVED_PERMISSIONS: frozenset[Permission] = frozenset(
+    {Permission.ROLES_WRITE, Permission.DOCUMENTS_WRITE}
+)
 
 # Permissions a scope can narrow. ``devices:command`` is scopable by design
 # (ADR 0004) but no write path enforces it yet: refusing it keeps a role author

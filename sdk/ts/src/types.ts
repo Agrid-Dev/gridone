@@ -422,3 +422,10 @@ export type OperatingRuleSchemas = Schemas["OperatingRuleSchemas"];
 export type DeviceAttributeRef = Schemas["DeviceAttributeRef"];
 export type WriteCondition = Schemas["Condition-Input"];
 export type WriteExpression = Schemas["Expression-Input"];
+
+// Uploaded documents
+export type Document = Schemas["Document"];
+export type DocumentCreate = Pick<Document, "name" | "allowed_role_ids"> &
+  Partial<Pick<Document, "asset_ids" | "device_ids">>;
+export type DocumentUpdate = Schemas["DocumentUpdate"];
+export type DocumentUploadPolicy = Schemas["DocumentUploadPolicy"];

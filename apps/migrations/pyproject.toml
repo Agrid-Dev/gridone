@@ -12,6 +12,7 @@ dependencies = [
     "gridone-device-views",
     "gridone-timeseries",
     "gridone-assets",
+    "gridone-documents",
 ]
 
 [build-system]

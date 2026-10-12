@@ -1,3 +1,4 @@
+import { DocumentsCard } from "@/pages/documents/DocumentsCard";
 import type { ReactNode } from "react";
 import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
@@ -39,97 +40,100 @@ export default function DeviceConfigView() {
   const configEntries = Object.entries(device.config);
 
   return (
-    <Card>
-      <CardContent className="my-8 grid gap-8">
-        <FieldSet>
-          <FieldLegend>{t("views.tagsTitle")}</FieldLegend>
-          <p className="text-sm">{formatTagCriteria(device.tags) || "—"}</p>
-          {can("devices:write") && (
-            <Button asChild variant="outline">
-              <Link
-                to={`/devices/tags/edit?ids=${encodeURIComponent(device.id)}`}
-              >
-                {t("views.editTags")}
+    <div className="space-y-6">
+      <Card>
+        <CardContent className="my-8 grid gap-8">
+          <FieldSet>
+            <FieldLegend>{t("views.tagsTitle")}</FieldLegend>
+            <p className="text-sm">{formatTagCriteria(device.tags) || "—"}</p>
+            {can("devices:write") && (
+              <Button asChild variant="outline">
+                <Link
+                  to={`/devices/tags/edit?ids=${encodeURIComponent(device.id)}`}
+                >
+                  {t("views.editTags")}
+                </Link>
+              </Button>
+            )}
+          </FieldSet>
+          <FieldSet>
+            <FieldLegend>{t("devices.sections.identity")}</FieldLegend>
+            <Row label={t("devices.fields.name")} value={device.name} />
+          </FieldSet>
+
+          <FieldSet>
+            <FieldLegend>{t("devices.sections.driverNetwork")}</FieldLegend>
+            <Row
+              label={t("devices.fields.driver")}
+              value={
+                <Link
+                  to={`/drivers/${device.driver_id}`}
+                  className="text-primary hover:underline"
+                >
+                  {device.driver_id}
+                </Link>
+              }
+            />
+            <Row
+              label={t("devices.fields.transport")}
+              value={
+                <Link
+                  to={`/transports/${device.transport_id}`}
+                  className="text-primary hover:underline"
+                >
+                  {transportLabel}
+                </Link>
+              }
+            />
+          </FieldSet>
+
+          <FieldSet>
+            <FieldLegend>{t("devices.sections.configuration")}</FieldLegend>
+            {configEntries.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {t("common:common.noConfiguration")}
+              </p>
+            ) : (
+              configEntries.map(([key, value]) => (
+                <Row key={key} label={toLabel(key)} value={String(value)} />
+              ))
+            )}
+          </FieldSet>
+        </CardContent>
+
+        {can("devices:write") && (
+          <CardFooter className="flex justify-end gap-3">
+            <ConfirmButton
+              variant="outline"
+              className="text-destructive hover:text-destructive"
+              disabled={isDeleting}
+              onConfirm={() => handleDelete(device.id)}
+              confirmTitle={t("common:deletion.title", {
+                name: device.name || device.id,
+              })}
+              confirmDetails={
+                <>
+                  {t("devices.actions.deleteDialogContent", {
+                    name: device.name || device.id,
+                  })}{" "}
+                  {t("common:deletion.irreversible")}
+                </>
+              }
+              confirmLabel={t("devices.actions.delete")}
+            >
+              <Trash2 className="h-4 w-4" />
+              {t("devices.actions.delete")}
+            </ConfirmButton>
+            <Button asChild>
+              <Link to="edit">
+                <Pencil className="h-4 w-4" />
+                {t("devices.actions.edit")}
               </Link>
             </Button>
-          )}
-        </FieldSet>
-        <FieldSet>
-          <FieldLegend>{t("devices.sections.identity")}</FieldLegend>
-          <Row label={t("devices.fields.name")} value={device.name} />
-        </FieldSet>
-
-        <FieldSet>
-          <FieldLegend>{t("devices.sections.driverNetwork")}</FieldLegend>
-          <Row
-            label={t("devices.fields.driver")}
-            value={
-              <Link
-                to={`/drivers/${device.driver_id}`}
-                className="text-primary hover:underline"
-              >
-                {device.driver_id}
-              </Link>
-            }
-          />
-          <Row
-            label={t("devices.fields.transport")}
-            value={
-              <Link
-                to={`/transports/${device.transport_id}`}
-                className="text-primary hover:underline"
-              >
-                {transportLabel}
-              </Link>
-            }
-          />
-        </FieldSet>
-
-        <FieldSet>
-          <FieldLegend>{t("devices.sections.configuration")}</FieldLegend>
-          {configEntries.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              {t("common:common.noConfiguration")}
-            </p>
-          ) : (
-            configEntries.map(([key, value]) => (
-              <Row key={key} label={toLabel(key)} value={String(value)} />
-            ))
-          )}
-        </FieldSet>
-      </CardContent>
-
-      {can("devices:write") && (
-        <CardFooter className="flex justify-end gap-3">
-          <ConfirmButton
-            variant="outline"
-            className="text-destructive hover:text-destructive"
-            disabled={isDeleting}
-            onConfirm={() => handleDelete(device.id)}
-            confirmTitle={t("common:deletion.title", {
-              name: device.name || device.id,
-            })}
-            confirmDetails={
-              <>
-                {t("devices.actions.deleteDialogContent", {
-                  name: device.name || device.id,
-                })}{" "}
-                {t("common:deletion.irreversible")}
-              </>
-            }
-            confirmLabel={t("devices.actions.delete")}
-          >
-            <Trash2 className="h-4 w-4" />
-            {t("devices.actions.delete")}
-          </ConfirmButton>
-          <Button asChild>
-            <Link to="edit">
-              <Pencil className="h-4 w-4" />
-              {t("devices.actions.edit")}
-            </Link>
-          </Button>
-        </CardFooter>
-      )}
-    </Card>
+          </CardFooter>
+        )}
+      </Card>
+      <DocumentsCard deviceId={device.id} />
+    </div>
   );
 }

@@ -8,6 +8,7 @@ import Apps from "./pages/apps";
 import Assets from "./pages/assets";
 import Automations from "./pages/automations";
 import Dashboards from "./pages/dashboards";
+import Documents from "./pages/documents";
 import Devices from "./pages/devices";
 import FaultsPage from "./pages/faults/FaultsPage";
 import Home from "./pages/home";
@@ -75,6 +76,7 @@ function ProtectedLayout() {
                 {synopticsEnabled && (
                   <Route path="/synoptics/*" element={<Synoptics />} />
                 )}
+                <Route path="/documents/*" element={<Documents />} />
                 <Route path="/assets/*" element={<Assets />} />
                 <Route path="/devices/*" element={<Devices />} />
                 <Route path="/drivers/*" element={<Drivers />} />
