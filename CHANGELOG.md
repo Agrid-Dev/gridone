@@ -1,3 +1,9 @@
+## v0.312.0 (2026-10-13)
+
+### Feat
+
+- **ui**: draw the isometric pump as an in-line circulator (#800)
+
 ## v0.311.0 (2026-10-13)
 
 ### Feat
