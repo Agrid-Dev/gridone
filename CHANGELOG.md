@@ -1,3 +1,17 @@
+## v0.311.0 (2026-10-13)
+
+### Feat
+
+- **ui**: add document management and linked cards
+- **api**: expose documents with global permissions
+- **documents**: add upload and storage service
+
+### Fix
+
+- **ui**: align document form with upload policy
+- **documents**: simplify uploads and allow custom-role writes
+- **devices_manager**: report hidden mapping values as missing data (#701)
+
 ## v0.310.1 (2026-10-12)
 
 ### Fix
