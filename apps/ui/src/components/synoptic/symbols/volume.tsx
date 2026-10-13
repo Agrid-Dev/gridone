@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
+import { FAULT_FILL_CLASS } from "../fault";
 import { ISO_AXIS_DEG, isoEllipse, isoHeight, round } from "../projection";
 import type { Pt } from "../types";
 import { fillUrl, KIT_GRADIENT } from "./defs";
-import { pointsAttr } from "./plan";
+import { circlePts } from "./extrude";
+import { pointsAttr, pumpTriangle, rot } from "./plan";
 
 /** World plan `(x, y, z)`, in cells, to screen: what every volume of the
  *  illustrated kit draws through. Only the isometric view has one. */
@@ -306,29 +308,127 @@ export function Slab({
  *  fault changes nothing on the machine: its outline and badge say it. */
 export type Indication = "on" | "off" | "fault" | "warning" | "unknown";
 
-const INDICATION_CLASS: Record<Indication, string> = {
+export const INDICATION_CLASS: Record<Indication, string> = {
   on: "fill-status-ok",
   off: "fill-muted-foreground",
-  fault: "fill-status-error",
-  warning: "fill-status-warning",
+  fault: FAULT_FILL_CLASS.alert,
+  warning: FAULT_FILL_CLASS.warning,
   unknown: "fill-card",
 };
 
-/** The 4.5 px dot on a motor or a valve top: the run state in colour, a
- *  dashed hollow dot while nothing is known. */
-export function StateDot({ at, state }: { at: Pt; state: Indication }) {
+/** A stroke that keeps its screen width inside a scaled frame. */
+const flatStroke = { vectorEffect: "non-scaling-stroke" as const };
+
+/** The pump of ISO 14617 (2301) lying flat on a motor's top at `z`: the
+ *  circle with its triangle pointing downstream along `dir`, filled with
+ *  what the machine indicates, dashed and hollow while nothing is known,
+ *  and a dashed ring turning around it while the pump runs, a fault or
+ *  not. Drawn in plan cells through
+ *  the projection's own axes, so it lies on the top disc whichever way the
+ *  run goes. */
+export function PumpMark({
+  P,
+  cx,
+  cy,
+  z,
+  r,
+  dir,
+  state,
+  running,
+}: {
+  P: Space;
+  cx: number;
+  cy: number;
+  z: number;
+  r: number;
+  dir: Pt;
+  state: Indication;
+  running: boolean;
+}) {
+  const o = P(cx, cy, z);
+  const ex = P(cx + 1, cy, z);
+  const ey = P(cx, cy + 1, z);
+  const frame = [ex.x - o.x, ex.y - o.y, ey.x - o.x, ey.y - o.y, o.x, o.y]
+    .map(round)
+    .join(" ");
+  const unknown = state === "unknown";
   return (
-    <circle
-      data-state-dot={state}
-      cx={round(at.x)}
-      cy={round(at.y)}
-      r={4.5}
-      strokeWidth={state === "unknown" ? 1 : 1.25}
-      strokeDasharray={state === "unknown" ? "2.5 2" : undefined}
-      className={`${INDICATION_CLASS[state]} ${
-        state === "unknown" ? "stroke-muted-foreground" : "stroke-card"
-      }`}
-    />
+    <g data-pump-mark={state} transform={`matrix(${frame})`}>
+      <circle
+        r={r}
+        {...flatStroke}
+        strokeWidth={1.25}
+        className="fill-card stroke-synoptic-dark"
+      />
+      <polygon
+        points={pointsAttr(rot(pumpTriangle(r), { x: 0, y: 0 }, dir))}
+        {...flatStroke}
+        strokeWidth={1}
+        strokeLinejoin="round"
+        strokeDasharray={unknown ? "2.5 2" : undefined}
+        className={`${INDICATION_CLASS[state]} ${
+          unknown ? "stroke-muted-foreground" : "stroke-synoptic-dark"
+        }`}
+      />
+      {running && (
+        <g className="animate-[spin_2.4s_linear_infinite] motion-reduce:animate-none">
+          <circle
+            r={r * 1.22}
+            fill="none"
+            {...flatStroke}
+            strokeWidth={1.5}
+            strokeDasharray="3 3"
+            className="stroke-status-ok"
+          />
+        </g>
+      )}
+    </g>
+  );
+}
+
+/** Half the thickness of a flange, in cells. */
+export const FLANGE_HALF = 0.04;
+
+/** A round flange standing across a run at `(x, y, z)`, its faces apart
+ *  along `dir`: the face further back dark, the one nearer the viewer lit
+ *  like the side of a box it would be. */
+export function Flange({
+  P,
+  x,
+  y,
+  z,
+  r,
+  dir,
+}: {
+  P: Space;
+  x: number;
+  y: number;
+  z: number;
+  r: number;
+  dir: Pt;
+}) {
+  // The ring in the plane across the run: `x` of each point goes across,
+  // `y` goes up.
+  const ring = circlePts({ x: 0, y: 0 }, r, 24);
+  const face = (t: number) =>
+    ring.map((q) => {
+      const [p] = rot([{ x: t, y: q.x }], { x, y }, dir);
+      return P(p.x, p.y, z + q.y);
+    });
+  const near = dir.x + dir.y > 0 ? FLANGE_HALF : -FLANGE_HALF;
+  return (
+    <g data-volume="flange">
+      <polygon
+        points={pointsAttr(face(-near))}
+        {...edgeProps}
+        className="fill-synoptic-dark"
+      />
+      <polygon
+        points={pointsAttr(face(near))}
+        {...edgeProps}
+        fill={fillUrl(dir.x !== 0 ? KIT_GRADIENT.right : KIT_GRADIENT.left)}
+      />
+    </g>
   );
 }
 

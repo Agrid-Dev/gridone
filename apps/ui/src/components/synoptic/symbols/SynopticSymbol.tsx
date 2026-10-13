@@ -90,8 +90,8 @@ function symbolPlane(
  * A symbol of the hydronic set at its cell. On the sheet, the plan glyph
  * on its plane, body-filled under an inline glyph so it breaks the run.
  * In the isometric view, the illustrated volume of the kit, which shows
- * the run state on the machine itself (the fan, the motor's dot, the
- * handwheel), so the label carries no LED there. Fault wraps the whole
+ * the run state on the machine itself (the fan, the pump's motor and
+ * mark, the handwheel), so the label carries no LED there. Fault wraps the whole
  * body in the error colour with a badge.
  */
 export function SynopticSymbol({
@@ -165,7 +165,15 @@ export function SynopticSymbol({
               state,
               fault,
               closed,
-              heads,
+              // The volume draws each head's outline right after that
+              // head, so a nearer head covers a farther one's outline as
+              // it covers its motor; the badges stay over everything.
+              heads?.map((head) => ({
+                ...head,
+                mark: head.fault ? (
+                  <FaultMark level={head.fault} outline={head.outline} />
+                ) : undefined,
+              })),
             ),
           )
         : drawing.plan(planeAt(top), centre, direction, closed)}
@@ -193,7 +201,12 @@ export function SynopticSymbol({
       )}
       {heads?.map(({ key, fault: level, outline, badge }) =>
         level ? (
-          <FaultMark key={key} level={level} outline={outline} badge={badge} />
+          <FaultMark
+            key={key}
+            level={level}
+            outline={volume ? undefined : outline}
+            badge={badge}
+          />
         ) : null,
       )}
     </g>
@@ -371,7 +384,8 @@ export function symbolLabelAnchor(
     projection,
     origin,
     rotation,
-    topOf(drawing, projection),
+    (projection === "isometric" ? drawing.iso?.label : undefined) ??
+      topOf(drawing, projection),
   );
   const { at, lift } = labelAnchor(drawing, projection, top, footprint);
   return {
@@ -394,7 +408,7 @@ export function symbolLabelPoint(
 
 /** The fault mark of a symbol: its silhouette outlined in the fault's
  *  colour, and a badge at the top right of its footprint. The legend
- *  draws the badge alone. */
+ *  draws the badge alone, a twin's volume a head's outline alone. */
 export function FaultMark({
   level,
   outline,
@@ -402,7 +416,7 @@ export function FaultMark({
 }: {
   level: Severity;
   outline?: Pt[];
-  badge: Pt;
+  badge?: Pt;
 }) {
   return (
     <g data-fault={level}>
@@ -414,22 +428,26 @@ export function FaultMark({
           className={`fill-none ${FAULT_STROKE_CLASS[level]}`}
         />
       )}
-      <circle
-        cx={badge.x}
-        cy={badge.y}
-        r={7}
-        className={FAULT_FILL_CLASS[level]}
-      />
-      <text
-        x={badge.x}
-        y={badge.y + 3.5}
-        textAnchor="middle"
-        fontSize={LABEL_SIZE}
-        fontWeight={600}
-        className="fill-card"
-      >
-        !
-      </text>
+      {badge && (
+        <>
+          <circle
+            cx={badge.x}
+            cy={badge.y}
+            r={7}
+            className={FAULT_FILL_CLASS[level]}
+          />
+          <text
+            x={badge.x}
+            y={badge.y + 3.5}
+            textAnchor="middle"
+            fontSize={LABEL_SIZE}
+            fontWeight={600}
+            className="fill-card"
+          >
+            !
+          </text>
+        </>
+      )}
     </g>
   );
 }

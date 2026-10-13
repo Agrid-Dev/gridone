@@ -1,16 +1,25 @@
 import type { ReactNode } from "react";
 import type { Projection } from "@gridone/sdk";
-import { PIPE_AXIS_Z, type Plane } from "../projection";
+import { isoHeight, PIPE_AXIS_Z, project, type Plane } from "../projection";
 import type { Pt } from "../types";
 import { capsulePts, circlePts, dishedPts, square } from "./extrude";
 import {
+  MOTOR_TOP,
+  PUMP_REACH,
   TANK_R,
   TWIN_HEAD,
   twinHeadCentres,
   VOLUMES,
   type Volume,
 } from "./kit";
-import { PlanCircle, PlanLine, PlanPoly, PlanText, rot } from "./plan";
+import {
+  PlanCircle,
+  PlanLine,
+  PlanPoly,
+  PlanText,
+  pumpTriangle,
+  rot,
+} from "./plan";
 
 /** Where a plan glyph comes from: the graphical symbol of ISO 14617 or
  *  its ISO 10628-2 example it is drawn after, by registration number, and
@@ -47,9 +56,14 @@ export type SymbolDrawing = {
   heads?: (c: Pt, d: Pt, projection: Projection) => Pt[][];
   /** How the isometric view draws the type: the illustrated volume of the
    *  kit, the plan silhouette a run stops at (the glyph's when absent),
-   *  and the height its top reaches, where the label sits. Without it the
-   *  isometric view extrudes the plan glyph. */
-  iso?: { volume: Volume; outline?: (c: Pt) => Pt[]; top: number };
+   *  and the height its top reaches, where the label sits unless `label`
+   *  sets it apart. Without it the isometric view extrudes the plan glyph. */
+  iso?: {
+    volume: Volume;
+    outline?: (c: Pt) => Pt[];
+    top: number;
+    label?: number;
+  };
 };
 
 /** The plan silhouette of a type in a projection: the volume's in the
@@ -147,15 +161,14 @@ function actuator(plane: Plane, c: Pt, d: Pt) {
  *  inscribed in it, its apex on the circle downstream and its base the
  *  chord upstream. */
 function pump(plane: Plane, c: Pt, d: Pt, r = INLINE_R) {
-  const tri = [
-    { x: -r * 0.5, y: -r * 0.866 },
-    { x: -r * 0.5, y: r * 0.866 },
-    { x: r, y: 0 },
-  ];
   return (
     <>
       <PlanCircle plane={plane} c={c} r={r} />
-      <PlanPoly plane={plane} points={rot(tri, c, d)} cls="outline" />
+      <PlanPoly
+        plane={plane}
+        points={rot(pumpTriangle(r), c, d)}
+        cls="outline"
+      />
     </>
   );
 }
@@ -417,6 +430,8 @@ const pumpDouble: SymbolDrawing = {
   },
   heads: (c, d, projection) => {
     const { offset, r } = TWIN_HEAD[projection];
+    // A head's outline is its motor alone: stretched to take in its
+    // terminal box, it would cross the other head on the sheet.
     return twinHeadCentres(c, d, offset).map((h) => circlePts(h, r));
   },
   base: PIPE_AXIS_Z,
@@ -495,11 +510,14 @@ const disc = (r: number) => (c: Pt) => circlePts(c, r);
  *  what a fault outline wraps, and the height its top reaches. Sized to
  *  the volumes of `kit.tsx`. The link keeps the glyph's outline (none: a
  *  run reaches its face) and writes its caption on the face. */
-const ISO: Record<string, { outline?: (c: Pt) => Pt[]; top: number }> = {
+const ISO: Record<
+  string,
+  { outline?: (c: Pt) => Pt[]; top: number; label?: number }
+> = {
   heat_pump: { outline: box(0.94, 0.94), top: 1.55 },
   tank: { outline: disc(TANK_R), top: 2.38 },
   mixing_valve: { outline: box(0.32, 0.32), top: 1.37 },
-  pump: { outline: disc(0.34), top: 1.17 },
+  pump: { outline: disc(PUMP_REACH.single), top: MOTOR_TOP },
   valve_isolation: { outline: disc(0.28), top: 1.07 },
   valve_check: { outline: disc(0.26), top: 0.56 },
   valve_control: { outline: disc(0.28), top: 1.35 },
@@ -508,7 +526,18 @@ const ISO: Record<string, { outline?: (c: Pt) => Pt[]; top: number }> = {
   air_separator: { outline: disc(0.28), top: 1.5 },
   expansion_vessel: { outline: disc(0.42), top: 1.2 },
   dirt_separator: { outline: disc(0.28), top: 0.95 },
-  pump_double: { outline: disc(0.3), top: 1.17 },
+  // The head further back stands higher on the sheet than the centre by
+  // what its offset across the run projects to: the name is anchored
+  // there, so it clears both heads.
+  pump_double: {
+    outline: disc(PUMP_REACH.twin),
+    top: MOTOR_TOP,
+    label:
+      MOTOR_TOP +
+      (project("isometric", TWIN_HEAD.isometric.offset, 0).y -
+        project("isometric", 0, 0).y) /
+        isoHeight(1),
+  },
   energy_meter: { outline: box(0.3, 0.26), top: 0.95 },
   loop_heater: { outline: box(0.45, 0.28), top: 0.7 },
 };
