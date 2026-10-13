@@ -93,6 +93,15 @@ export function PlanText({ plane, at, text, size = 8 }: TextProps) {
   );
 }
 
+/** The triangle of the ISO 14617 pump (2301) inscribed in a circle of
+ *  radius `r` about the origin, for a run along `+x`: base the chord
+ *  upstream, apex on the circle downstream. */
+export const pumpTriangle = (r: number): Pt[] => [
+  { x: -r * 0.5, y: -r * 0.866 },
+  { x: -r * 0.5, y: r * 0.866 },
+  { x: r, y: 0 },
+];
+
 /** Points authored for a run along `+x`, turned to follow direction `d`
  *  about `c`. */
 export function rot(points: Pt[], c: Pt, d: Pt): Pt[] {

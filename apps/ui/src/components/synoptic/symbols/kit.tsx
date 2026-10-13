@@ -1,6 +1,7 @@
-import type { ReactNode } from "react";
-import type { Projection, Severity } from "@gridone/sdk";
-import { ISO_AXIS_DEG, PIPE_AXIS_Z } from "../projection";
+import { Fragment, type ReactNode } from "react";
+import { symbolSchemas, type Projection, type Severity } from "@gridone/sdk";
+import { headName } from "../heads";
+import { ISO_AXIS_DEG, PIPE_AXIS_Z, round } from "../projection";
 import type { Pt } from "../types";
 import { fillUrl, KIT_GRADIENT } from "./defs";
 import type { SymbolState } from "./Label";
@@ -9,13 +10,16 @@ import {
   Actuator,
   AxisText,
   FanTop,
+  Flange,
+  FLANGE_HALF,
   IsoBox,
   IsoCylinder,
   IsoSeam,
   IsoSphere,
   IsoTube,
+  INDICATION_CLASS,
+  PumpMark,
   Shadow,
-  StateDot,
   type Indication,
   type Space,
 } from "./volume";
@@ -49,6 +53,9 @@ export type HeadIndication = {
   key: string;
   state?: SymbolState;
   fault: Severity | null;
+  /** What is drawn over the head once it is drawn, before any nearer one:
+   *  its fault outline. */
+  mark?: ReactNode;
 };
 
 export type Volume = (ctx: VolumeContext) => ReactNode;
@@ -78,7 +85,7 @@ const along = (c: Pt, d: Pt, t: number): Pt => ({
  *  how far off the run and how wide, in cells. The volume, the plan glyph,
  *  a head's fault outline and its click all read this one placement. */
 export const TWIN_HEAD: Record<Projection, { offset: number; r: number }> = {
-  isometric: { offset: 0.26, r: 0.26 },
+  isometric: { offset: 0.3, r: 0.24 },
   flat: { offset: 0.24, r: 0.22 },
 };
 
@@ -190,63 +197,252 @@ const plateExchanger: Volume = ({ P, rect, c }) => {
   );
 };
 
-/** A pump: the volute on the run, the motor on top, the state on the
- *  motor. `r` scales the twin heads of a double pump. */
-function pumpAt(
+/** Half extents of a box on a run along `dir`: `length` along the run,
+ *  `width` across it. Runs go along a plan axis. */
+const span = (dir: Pt, length: number, width: number): Pt =>
+  dir.x !== 0 ? { x: length, y: width } : { x: width, y: length };
+
+/** An in-line circulator's motor: its radius on a single pump, the
+ *  lantern it stands on, and the height of its cowl, where the pump mark
+ *  lies. */
+const MOTOR_R = 0.31;
+const LANTERN_H = 0.14;
+export const MOTOR_TOP = 1.75;
+/** Where the casing sits on the run, and its flanges either side of it. */
+const CASING = { r: 0.34, z0: 0.08, z1: 0.62 };
+const FLANGE = { at: 0.47, r: 0.2 };
+/** The twin's shared casing: half its length along the run, half its
+ *  width across it. */
+const TWIN_CASING = { along: 0.28, across: 0.6 };
+/** A motor's terminal box: how far its centre stands past the motor's
+ *  rim, half its depth out from the motor, and half its width. */
+const BOX = { at: 0.04, half: 0.09, across: 0.1 };
+
+/** How far a motor of radius `r` reaches along the run axis, its terminal
+ *  box included. */
+const motorReach = (r: number) => r + BOX.at + BOX.half;
+
+/** How far a pump reaches from its centre on the plan, to the furthest
+ *  corner it draws: what a run meets and a fault outline wraps. */
+const flangeCorner = Math.hypot(FLANGE.at + FLANGE_HALF, FLANGE.r);
+export const PUMP_REACH = {
+  single: Math.max(flangeCorner, CASING.r, motorReach(MOTOR_R)),
+  twin: Math.max(
+    flangeCorner,
+    Math.hypot(TWIN_CASING.along, TWIN_CASING.across),
+    Math.hypot(
+      motorReach(TWIN_HEAD.isometric.r),
+      TWIN_HEAD.isometric.offset + TWIN_HEAD.isometric.r,
+    ),
+  ),
+};
+
+/** One motor stack of an in-line circulator at `c`: a dark lantern on the
+ *  casing, the ribbed motor, a terminal box on the side of the run's axis
+ *  that faces the viewer, carrying a twin head's `letter`, and the pump
+ *  mark on the cowl. */
+function motor(
   P: Space,
   c: Pt,
+  dir: Pt,
+  r: number,
   state: Indication,
-  r = INLINE_BODY_R + 0.06,
+  running: boolean,
+  letter?: string,
 ): ReactNode {
-  const half = r * 0.56;
-  const top = 1.02;
-  const dot = P(c.x, c.y, top);
+  const z0 = CASING.z1 + LANTERN_H;
+  // The ribs on the half of the motor the viewer sees.
+  const ribs = [-30, 0, 30, 60, 90, 120].map((deg) => {
+    const t = (deg * Math.PI) / 180;
+    const x = c.x + r * Math.cos(t);
+    const y = c.y + r * Math.sin(t);
+    const a = P(x, y, z0 + 0.08);
+    const b = P(x, y, MOTOR_TOP - 0.06);
+    return (
+      <line
+        key={deg}
+        x1={round(a.x)}
+        y1={round(a.y)}
+        x2={round(b.x)}
+        y2={round(b.y)}
+        strokeWidth={0.75}
+        strokeOpacity={0.55}
+        className="stroke-synoptic-edge"
+      />
+    );
+  });
+  const side = dir.x !== 0 ? { x: 1, y: 0 } : { x: 0, y: 1 };
+  const box = along(c, side, r + BOX.at);
+  const half = span(dir, BOX.half, BOX.across);
+  const face = along(c, side, motorReach(r));
+  const body = (paint?: string) => (
+    <IsoCylinder
+      P={P}
+      cx={c.x}
+      cy={c.y}
+      r={r}
+      z0={z0}
+      z1={MOTOR_TOP}
+      body={paint}
+      top={paint}
+    />
+  );
   return (
-    <>
-      <IsoCylinder P={P} cx={c.x} cy={c.y} r={r} z0={0.05} z1={0.62} />
+    <g data-motor>
+      <IsoCylinder
+        P={P}
+        cx={c.x}
+        cy={c.y}
+        r={r * 0.55}
+        z0={CASING.z1}
+        z1={z0}
+        body="fill-synoptic-dark"
+        top="fill-synoptic-dark"
+      />
+      {/* The motor takes what the machine indicates, hollow while nothing
+          is known, the kit's shading over it so it stays round. */}
+      {body(INDICATION_CLASS[state])}
+      <g opacity={0.4}>{body()}</g>
+      {ribs}
+      <IsoSeam P={P} cx={c.x} cy={c.y} r={r} z={MOTOR_TOP - 0.06} />
       <IsoBox
         P={P}
-        x0={c.x - half}
-        y0={c.y - half}
-        x1={c.x + half}
-        y1={c.y + half}
-        z0={0.62}
-        z1={top}
-        top={fillUrl(KIT_GRADIENT.top)}
+        x0={box.x - half.x}
+        y0={box.y - half.y}
+        x1={box.x + half.x}
+        y1={box.y + half.y}
+        z0={z0 + 0.2}
+        z1={z0 + 0.5}
+        top="fill-synoptic-dark"
         left="fill-synoptic-dark"
         right="fill-synoptic-dark"
       />
-      <StateDot at={{ x: dot.x, y: dot.y - 3 }} state={state} />
+      {letter && (
+        <AxisText
+          P={P}
+          x={face.x}
+          y={face.y}
+          z={z0 + 0.28}
+          axis={side.x ? "y" : "x"}
+          size={9}
+          weight={800}
+          className="fill-synoptic-metal-hi"
+          text={letter}
+        />
+      )}
+      <PumpMark
+        P={P}
+        cx={c.x}
+        cy={c.y}
+        z={MOTOR_TOP}
+        r={r * 0.92}
+        dir={dir}
+        state={state}
+        running={running}
+      />
+    </g>
+  );
+}
+
+/** An in-line circulator on the run: a flange either side where the run
+ *  meets it, the casing, and a motor per head on top, the far parts
+ *  painted first. One head stands on a round casing, two on a casing as
+ *  wide as the pair. */
+function circulator(
+  P: Space,
+  c: Pt,
+  dir: Pt,
+  heads: {
+    at: Pt;
+    ind: Indication;
+    running: boolean;
+    letter?: string;
+    key?: string;
+    mark?: ReactNode;
+  }[],
+): ReactNode {
+  const depth = (p: Pt) => p.x + p.y;
+  const [back, front] = [-1, 1]
+    .map((s) => along(c, dir, s * FLANGE.at))
+    .sort((a, b) => depth(a) - depth(b));
+  const flange = (at: Pt) => (
+    <Flange P={P} x={at.x} y={at.y} z={PIPE_AXIS_Z} r={FLANGE.r} dir={dir} />
+  );
+  const twin = heads.length > 1;
+  const half = span(dir, TWIN_CASING.along, TWIN_CASING.across);
+  const r = twin ? TWIN_HEAD.isometric.r : MOTOR_R;
+  return (
+    <>
+      <Shadow
+        P={P}
+        cx={c.x}
+        cy={c.y}
+        r={twin ? PUMP_REACH.twin : PUMP_REACH.single}
+      />
+      {flange(back)}
+      {twin ? (
+        <IsoBox
+          P={P}
+          x0={c.x - half.x}
+          y0={c.y - half.y}
+          x1={c.x + half.x}
+          y1={c.y + half.y}
+          z0={CASING.z0}
+          z1={CASING.z1}
+        />
+      ) : (
+        <IsoCylinder
+          P={P}
+          cx={c.x}
+          cy={c.y}
+          r={CASING.r}
+          z0={CASING.z0}
+          z1={CASING.z1}
+        />
+      )}
+      {[...heads]
+        .sort((a, b) => depth(a.at) - depth(b.at))
+        .map(({ at, ind, running, letter, key, mark }, i) => (
+          <Fragment key={i}>
+            <g data-head={key}>{motor(P, at, dir, r, ind, running, letter)}</g>
+            {mark}
+          </Fragment>
+        ))}
+      {flange(front)}
     </>
   );
 }
 
-const pump: Volume = ({ P, c, state, fault }) =>
-  pumpAt(P, c, indication(state, fault));
+const pump: Volume = ({ P, c, dir, state, fault }) =>
+  circulator(P, c, dir, [
+    { at: c, ind: indication(state, fault), running: state === "on" },
+  ]);
 
-const pumpDouble: Volume = ({ P, c, dir, state, fault, heads }) => {
-  const { offset, r } = TWIN_HEAD.isometric;
-  const drawn = twinHeadCentres(c, dir, offset).map((at, i) => {
-    const head = heads?.[i];
-    // Drawn per head once the heads are known; a head with nothing known
-    // shows so, whatever the other one reads.
-    const ind = heads
-      ? indication(head?.state, head?.fault ?? null)
-      : indication(state, fault);
-    return { at, ind, key: head?.key };
-  });
-  // The head further back paints first.
-  drawn.sort((a, b) => a.at.x + a.at.y - (b.at.x + b.at.y));
-  return (
-    <>
-      {drawn.map(({ at, ind, key }, i) => (
-        <g key={i} data-head={key}>
-          {pumpAt(P, at, ind, r)}
-        </g>
-      ))}
-    </>
+/** The twin's heads in the order the registry lists them, head `a` first. */
+const TWIN_HEADS = Object.keys(symbolSchemas.pump_double?.["x-heads"] ?? {});
+
+const pumpDouble: Volume = ({ P, c, dir, state, fault, heads }) =>
+  circulator(
+    P,
+    c,
+    dir,
+    twinHeadCentres(c, dir, TWIN_HEAD.isometric.offset).map((at, i) => {
+      const head = heads?.[i];
+      // Drawn per head once the heads are known; a head with nothing known
+      // shows so, whatever the other one reads.
+      const own = heads ? head?.state : state;
+      const ind = indication(own, heads ? (head?.fault ?? null) : fault);
+      const name = TWIN_HEADS[i];
+      return {
+        at,
+        ind,
+        running: own === "on",
+        key: head?.key,
+        mark: head?.mark,
+        letter: name && headName(name),
+      };
+    }),
   );
-};
 
 /** The handwheel of an isolation valve: solid when closed, hollow when
  *  open, dashed and muted while nothing is known. */
