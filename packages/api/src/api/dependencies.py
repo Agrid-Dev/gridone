@@ -9,6 +9,7 @@ from apps import AppsService
 from assets import AssetsService, BuildingModelsServiceInterface
 from commands import CommandsServiceInterface
 from devices_manager import DevicesServiceInterface
+from documents import DocumentsService
 from models.pagination import PaginationParams
 from notifications import NotificationsServiceInterface
 from synoptics import SynopticsServiceInterface
@@ -70,3 +71,7 @@ def get_pagination_params(
     size: int = Query(50, ge=1, le=200),
 ) -> PaginationParams:
     return PaginationParams(page=page, size=size)
+
+
+def get_documents_service(request: Request) -> DocumentsService:
+    return request.app.state.documents_service

@@ -17,6 +17,7 @@ BUILTIN_ROLES: tuple[Role, ...] = (
         description="Building control and configuration, no user management.",
         permissions=[
             Permission.ROLES_READ,
+            Permission.DOCUMENTS_READ,
             Permission.DEVICES_READ,
             Permission.DEVICES_WRITE,
             Permission.DEVICES_COMMAND,
@@ -42,6 +43,7 @@ BUILTIN_ROLES: tuple[Role, ...] = (
         description="Read-only access.",
         permissions=[
             Permission.ROLES_READ,
+            Permission.DOCUMENTS_READ,
             Permission.DEVICES_READ,
             Permission.ASSETS_READ,
             Permission.TRANSPORTS_READ,

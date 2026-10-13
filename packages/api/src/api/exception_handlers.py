@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from api.schemas.driver_package import PackageImportErrorResponse
 from apps import AppUnreachableError, InvalidAppSchemaError
 from devices_manager.dto.driver_dto.package_errors import PackageImportError
+from documents import DocumentTooLargeError
 from models.errors import (
     BlockedUserError,
     ConfirmationError,
@@ -25,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 def register_exception_handlers(app: FastAPI) -> None:
+    app.add_exception_handler(DocumentTooLargeError, document_too_large_handler)
     app.add_exception_handler(ResourceConflictError, resource_conflict_handler)
 
     app.add_exception_handler(WriteRejectedError, command_rejected_handler)
@@ -134,4 +136,10 @@ async def command_rejected_handler(request: Request, exc: Exception) -> JSONResp
                 for reason in rejected.reasons
             ],
         },
+    )
+
+
+async def document_too_large_handler(request: Request, exc: Exception) -> JSONResponse:
+    return JSONResponse(
+        status_code=413, content={"detail": "Document exceeds the upload size limit."}
     )
