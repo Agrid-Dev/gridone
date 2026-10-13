@@ -22,7 +22,6 @@
   "upload": "Upload",
   "chooseFile": "Choose a file",
   "invalidFile": "The file is empty, too large, or its format is not supported.",
-  "invalidMetadata": "Check this field.",
   "error": "Unable to complete the operation. Please try again.",
   "search": "Search documents",
   "clearFilters": "Clear filters",

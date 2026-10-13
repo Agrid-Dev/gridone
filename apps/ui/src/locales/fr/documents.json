@@ -22,7 +22,6 @@
   "upload": "Déposer",
   "chooseFile": "Choisissez un fichier",
   "invalidFile": "Le fichier est vide, trop volumineux ou son format n’est pas accepté.",
-  "invalidMetadata": "Vérifiez ce champ.",
   "error": "Impossible de terminer cette opération. Réessayez.",
   "search": "Rechercher un document",
   "clearFilters": "Réinitialiser les filtres",

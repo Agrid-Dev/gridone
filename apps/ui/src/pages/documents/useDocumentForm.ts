@@ -65,23 +65,14 @@ export function useDocumentForm(
   const actions = useDocumentActions();
   const choices = useDocumentChoices();
   const schema = useMemo(() => {
-    const wireSchema = z.fromJSONSchema(policy.metadata_schema);
     return z
       .object({
-        name: z.string(),
-        asset_ids: z.array(z.string()),
-        device_ids: z.array(z.string()),
+        name: z.string().trim().min(1).max(255),
+        asset_ids: z.array(z.string().min(1).max(128)).max(200),
+        device_ids: z.array(z.string().min(1).max(128)).max(200),
         file: z.instanceof(File).optional(),
       })
       .superRefine((values, ctx) => {
-        const result = wireSchema.safeParse(metadata(values));
-        if (!result.success)
-          for (const issue of result.error.issues)
-            ctx.addIssue({
-              code: "custom",
-              path: issue.path,
-              message: t("invalidMetadata"),
-            });
         if (!document && !values.file)
           ctx.addIssue({
             code: "custom",

@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { createI18nMock } from "@/test/i18nMock";
-import type { Document } from "@gridone/sdk";
+import type { Document, DocumentUploadPolicy } from "@gridone/sdk";
 
 const { api, permissions, downloadBlob } = vi.hoisted(() => ({
   api: {
@@ -57,19 +57,9 @@ const page = {
   total_pages: 1,
   links: {},
 };
-const policy = {
+const policy: DocumentUploadPolicy = {
   max_file_bytes: 100,
   extensions: [".txt", ".pdf"],
-  metadata_schema: {
-    type: "object",
-    required: ["name"],
-    properties: {
-      name: { type: "string", minLength: 1 },
-      asset_ids: { type: "array", items: { type: "string" } },
-      device_ids: { type: "array", items: { type: "string" } },
-    },
-    additionalProperties: false,
-  },
 };
 
 function setup(path = "/documents/new", card = false) {
@@ -119,11 +109,14 @@ describe("documents", () => {
     expect(screen.getByRole("textbox", { name: "Name" })).toHaveValue(
       "notice.txt",
     );
+    const name = screen.getByRole("textbox", { name: "Name" });
+    await user.clear(name);
+    await user.type(name, "  Notice  ");
     await user.click(screen.getByRole("button", { name: "Upload" }));
     await waitFor(() =>
       expect(api.documents.create).toHaveBeenCalledWith(
         {
-          name: "notice.txt",
+          name: "Notice",
           asset_ids: ["building"],
           device_ids: [],
         },
@@ -132,6 +125,23 @@ describe("documents", () => {
       ),
     );
   });
+
+  it.each(["   ", "x".repeat(256)])(
+    "rejects an invalid name before uploading: %j",
+    async (value) => {
+      const user = setup();
+      await user.upload(
+        await screen.findByLabelText(/^File/),
+        new File(["notice"], "notice.txt"),
+      );
+      const name = screen.getByRole("textbox", { name: "Name" });
+      await user.clear(name);
+      await user.type(name, value);
+      await user.click(screen.getByRole("button", { name: "Upload" }));
+      await waitFor(() => expect(name).toHaveAttribute("aria-invalid", "true"));
+      expect(api.documents.create).not.toHaveBeenCalled();
+    },
+  );
 
   it("keeps the form and file after a failed upload", async () => {
     api.documents.create.mockRejectedValueOnce(new Error("Offline"));
