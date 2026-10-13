@@ -13,7 +13,14 @@ import {
 import type { Pt } from "../types";
 import { Collector, collectorLabelAnchor } from "./Collector";
 import { DRAWINGS } from "./drawings";
-import { indication, TANK_R } from "./kit";
+import {
+  indication,
+  MOTOR_TOP,
+  TANK_R,
+  TWIN_HEAD,
+  twinHeadCentres,
+} from "./kit";
+import { pointsAttr } from "./plan";
 import type { SymbolState } from "./Label";
 import {
   headShapes,
@@ -90,11 +97,11 @@ describe("SynopticSymbol", () => {
         origin={{ x: 0, y: 0 }}
       />,
     );
-    // The volute, the motor and its state dot; no plate patch, the body
-    // itself breaks the run.
-    expect(iso.querySelector("[data-volume='cylinder']")).not.toBeNull();
-    expect(iso.querySelector("[data-volume='box']")).not.toBeNull();
-    expect(iso.querySelector("[data-state-dot]")).not.toBeNull();
+    // Flanged on the run, the motor and its pump mark; no plate patch, the
+    // body itself breaks the run.
+    expect(iso.querySelectorAll("[data-volume='flange']")).toHaveLength(2);
+    expect(iso.querySelector("[data-motor]")).not.toBeNull();
+    expect(iso.querySelector("[data-pump-mark]")).not.toBeNull();
     expect(iso.querySelector("polygon.fill-synoptic-plate")).toBeNull();
     const flat = draw(
       <SynopticSymbol type="pump" projection="flat" origin={{ x: 0, y: 0 }} />,
@@ -288,7 +295,7 @@ describe("SynopticSymbol", () => {
   });
 
   it("shows the run state on the machine in isometric, and no LED on the label", () => {
-    const dot = (state?: "on" | "off", fault: Severity | null = null) =>
+    const mark = (state?: "on" | "off", fault: Severity | null = null) =>
       draw(
         <SynopticSymbol
           type="pump"
@@ -299,21 +306,25 @@ describe("SynopticSymbol", () => {
           fault={fault}
         />,
       );
-    // Nothing known: a dashed hollow dot, and no LED after the name.
-    const unknown = dot();
+    // Nothing known: a dashed hollow triangle, and no LED after the name:
+    // the mark's own circle is the only one.
+    const unknown = mark();
     expect(unknown.querySelector("text")!.textContent).toBe("P-01");
     expect(unknown.querySelectorAll("circle")).toHaveLength(1);
-    expect(unknown.querySelector("[data-state-dot='unknown']")).not.toBeNull();
     expect(
-      dot("on").querySelector("[data-state-dot='on']")!.getAttribute("class"),
-    ).toContain("fill-status-ok");
-    expect(
-      dot("off").querySelector("[data-state-dot='off']")!.getAttribute("class"),
-    ).toContain("fill-muted-foreground");
-    // Fault first, whatever the state says.
-    expect(
-      dot("on", "alert").querySelector("[data-state-dot='fault']"),
+      unknown
+        .querySelector("[data-pump-mark='unknown'] polygon")!
+        .getAttribute("stroke-dasharray"),
     ).not.toBeNull();
+    const fill = (c: HTMLElement, state: string) =>
+      c
+        .querySelector(`[data-pump-mark='${state}'] polygon`)!
+        .getAttribute("class");
+    expect(fill(mark("on"), "on")).toContain("fill-status-ok");
+    expect(fill(mark("off"), "off")).toContain("fill-muted-foreground");
+    expect(fill(unknown, "unknown")).toContain("fill-card");
+    // Fault first, whatever the state says.
+    expect(fill(mark("on", "alert"), "fault")).toContain("fill-status-error");
     // The heat pump shows it on its fan, turning while it runs.
     const fan = (state?: "on" | "off") =>
       draw(
@@ -465,6 +476,23 @@ const RUN_DIRECTIONS: Pt[] = [
 
 const round2 = (v: number) => Math.round(v * 100) / 100;
 
+/** A pump mark's centre on screen: the origin of its plan frame. */
+const markCentre = (mark: Element) => {
+  const [x, y] = mark
+    .getAttribute("transform")!
+    .match(/-?[\d.]+/g)!
+    .map(Number)
+    .slice(4);
+  return { x, y };
+};
+
+/** A polygon's corners, as `[x, y]` pairs. */
+const pointsOf = (polygon: Element) =>
+  polygon
+    .getAttribute("points")!
+    .split(" ")
+    .map((p) => p.split(",").map(Number));
+
 describe("the illustrated kit", () => {
   const iso = (
     type: string,
@@ -496,18 +524,240 @@ describe("the illustrated kit", () => {
     );
   });
 
-  it("mounts a pump's motor on its volute, dark sides under a lit top, the state dot on the motor", () => {
-    const c = iso("pump", { state: "on" });
-    expect(c.querySelectorAll("[data-volume='cylinder']")).toHaveLength(1);
-    const faces = [...c.querySelectorAll("[data-volume='box'] polygon")];
-    expect(
-      faces.map((f) => f.getAttribute("class") ?? f.getAttribute("fill")),
-    ).toEqual(["fill-synoptic-dark", "fill-synoptic-dark", "url(#syn-top)"]);
-    // The dot sits 3 px above the motor's top, at the cell centre.
-    const dot = c.querySelector("[data-state-dot='on']")!;
-    const top = project("isometric", 0.5, 0.5, 1.02);
-    expect(Number(dot.getAttribute("cx"))).toBe(round2(top.x));
-    expect(Number(dot.getAttribute("cy"))).toBe(round2(top.y - 3));
+  it("flanges a pump on its run, the far flange behind the motor and the near one over it", () => {
+    for (const d of RUN_DIRECTIONS) {
+      const c = iso("pump", { direction: d });
+      const motor = c.querySelector("[data-motor]")!;
+      const flanges = [...c.querySelectorAll("[data-volume='flange']")];
+      expect(flanges).toHaveLength(2);
+      expect(
+        flanges[0].compareDocumentPosition(motor) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(
+        motor.compareDocumentPosition(flanges[1]) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      // Nearer the viewer is lower on the screen: the flange painted last.
+      const lowest = (f: Element) =>
+        Math.max(...pointsOf(f.querySelector("polygon")!).map(([, y]) => y));
+      expect(lowest(flanges[1])).toBeGreaterThan(lowest(flanges[0]));
+    }
+  });
+
+  it("stands each flange across its run, whichever way the run goes", () => {
+    // A ring across an `x` run spans `y`, which runs left and down on the
+    // sheet: its leftmost corner is its lowest. Across a `y` run it spans
+    // `x`, which runs right and down: its leftmost corner is its highest.
+    for (const d of RUN_DIRECTIONS) {
+      const face = pointsOf(
+        iso("pump", { direction: d }).querySelector(
+          "[data-volume='flange'] polygon",
+        )!,
+      );
+      const xs = face.map(([x]) => x);
+      const left = face[xs.indexOf(Math.min(...xs))];
+      const right = face[xs.indexOf(Math.max(...xs))];
+      if (d.x !== 0) expect(left[1]).toBeGreaterThan(right[1]);
+      else expect(left[1]).toBeLessThan(right[1]);
+    }
+  });
+
+  it("lies the pump mark on the cowl, its triangle pointing downstream", () => {
+    for (const d of RUN_DIRECTIONS) {
+      const mark = iso("pump", { state: "on", direction: d }).querySelector(
+        "[data-pump-mark='on']",
+      )!;
+      // The mark's frame is the plan at the cowl's height, centred on the
+      // cell: its origin is the cowl's centre on screen.
+      const centre = project("isometric", 0.5, 0.5, MOTOR_TOP);
+      expect(markCentre(mark)).toEqual({
+        x: round2(centre.x),
+        y: round2(centre.y),
+      });
+      // The apex is the corner furthest downstream, on the circle.
+      const r = Number(mark.querySelector("circle")!.getAttribute("r"));
+      const downstream = ([x, y]: number[]) => x * d.x + y * d.y;
+      const tip = pointsOf(mark.querySelector("polygon")!).reduce((a, b) =>
+        downstream(b) > downstream(a) ? b : a,
+      );
+      expect(tip[0]).toBeCloseTo(r * d.x, 2);
+      expect(tip[1]).toBeCloseTo(r * d.y, 2);
+    }
+  });
+
+  it("paints the motor in the run state's colour, hollow while nothing is known", () => {
+    // The motor's own body: the second cylinder of its stack, after the
+    // lantern.
+    const motorBody = (state?: SymbolState, fault: Severity | null = null) =>
+      iso("pump", { state, fault })
+        .querySelectorAll("[data-motor] [data-volume='cylinder']")[1]
+        .querySelector("path")!;
+    expect(motorBody("on").getAttribute("class")).toBe("fill-status-ok");
+    expect(motorBody("off").getAttribute("class")).toBe(
+      "fill-muted-foreground",
+    );
+    expect(motorBody("on", "alert").getAttribute("class")).toBe(
+      "fill-status-error",
+    );
+    expect(motorBody("on", "warning").getAttribute("class")).toBe(
+      "fill-status-warning",
+    );
+    // Hollow, not plain metal: in the dark theme a stopped motor's grey is
+    // within a few ΔE of the metal, but never of the card.
+    expect(motorBody(undefined).getAttribute("class")).toBe("fill-card");
+  });
+
+  it("turns a ring around the pump mark only while the pump runs, a fault or not", () => {
+    const ring = (state?: SymbolState, fault: Severity | null = null) =>
+      iso("pump", { state, fault }).querySelector("[data-pump-mark] g");
+    expect(ring("on")!.getAttribute("class")).toContain("animate-[spin");
+    expect(ring("on")!.getAttribute("class")).toContain(
+      "motion-reduce:animate-none",
+    );
+    // The fault takes the colour; the ring still says it runs.
+    expect(ring("on", "warning")).not.toBeNull();
+    expect(ring("on", "alert")).not.toBeNull();
+    expect(ring("off")).toBeNull();
+    expect(ring("off", "alert")).toBeNull();
+    expect(ring(undefined)).toBeNull();
+  });
+
+  it("keeps a twin's name as clear of its back head as a single pump's name is of its cowl", () => {
+    // How far each name's baseline sits above the highest cowl ring.
+    const clearance = (type: string, direction: Pt) => {
+      const rings = [
+        ...iso(type, { state: "on", direction }).querySelectorAll(
+          "[data-pump-mark]",
+        ),
+      ].map((mark) => {
+        const r = Math.max(
+          ...[...mark.querySelectorAll("circle")].map((c) =>
+            Number(c.getAttribute("r")),
+          ),
+        );
+        return markCentre(mark).y - isoEllipse(r).ry;
+      });
+      const label = symbolLabelAnchor(type, "isometric", { x: 0, y: 0 })!;
+      return Math.min(...rings) - label.at.y;
+    };
+    for (const d of RUN_DIRECTIONS) {
+      expect(clearance("pump_double", d)).toBeGreaterThanOrEqual(
+        clearance("pump", d),
+      );
+    }
+  });
+
+  it("paints a twin head's fault outline after that head and under the nearer one, its badge over both", () => {
+    // Both heads faulty: each outline is drawn where its head is, so the
+    // nearer head covers the farther one's outline as it covers its motor.
+    const following = (a: Element, b: Element) =>
+      !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    for (const direction of RUN_DIRECTIONS) {
+      const shapes = headShapes(
+        "pump_double",
+        "isometric",
+        { x: 0, y: 0 },
+        0,
+        direction,
+      );
+      const c = iso("pump_double", {
+        direction,
+        heads: (["a", "b"] as const).map((key, i) => ({
+          key,
+          fault: "alert" as const,
+          outline: shapes[i].outline,
+          badge: shapes[i].badge,
+        })),
+      });
+      const [far, near] =
+        shapes[0].depth < shapes[1].depth ? ["a", "b"] : ["b", "a"];
+      const head = (key: string) => c.querySelector(`[data-head='${key}']`)!;
+      const outlineOf = (key: string) => {
+        const points = pointsAttr(shapes[key === "a" ? 0 : 1].outline);
+        return [...c.querySelectorAll("[data-fault] polygon")].find(
+          (p) => p.getAttribute("points") === points,
+        )!;
+      };
+      expect(following(head(far), outlineOf(far))).toBe(true);
+      expect(following(outlineOf(far), head(near))).toBe(true);
+      expect(following(head(near), outlineOf(near))).toBe(true);
+      const badges = [...c.querySelectorAll("[data-fault] circle")];
+      expect(badges).toHaveLength(2);
+      for (const badge of badges)
+        expect(following(outlineOf(near), badge)).toBe(true);
+    }
+  });
+
+  it("letters each twin head by its own name, whichever head is painted first, in an ink that reads on the dark box in both themes", () => {
+    const heads = (["a", "b"] as const).map((key) => ({
+      key,
+      fault: null,
+      outline: [],
+      badge: { x: 0, y: 0 },
+    }));
+    for (const direction of RUN_DIRECTIONS) {
+      const c = iso("pump_double", { direction, heads });
+      for (const key of ["a", "b"]) {
+        const letter = c.querySelector(
+          `[data-head='${key}'] [data-motor] text`,
+        )!;
+        expect(letter.textContent).toBe(key.toUpperCase());
+        expect(letter.getAttribute("class")).toBe("fill-synoptic-metal-hi");
+      }
+    }
+  });
+
+  it("wraps every corner the pump draws in its fault outline, and each twin head's in its motor's circle alone", () => {
+    // Inside the outline, or on its edge within half a pixel.
+    const within = (poly: number[][], [x, y]: number[]) => {
+      let inside = false;
+      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const [xi, yi] = poly[i];
+        const [xj, yj] = poly[j];
+        if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi)
+          inside = !inside;
+      }
+      const near = poly.some(([xi, yi], i) => {
+        const [xj, yj] = poly[(i + 1) % poly.length];
+        const t = Math.max(
+          0,
+          Math.min(
+            1,
+            ((x - xi) * (xj - xi) + (y - yi) * (yj - yi)) /
+              ((xj - xi) ** 2 + (yj - yi) ** 2 || 1),
+          ),
+        );
+        return Math.hypot(x - xi - t * (xj - xi), y - yi - t * (yj - yi)) < 0.5;
+      });
+      return inside || near;
+    };
+    const parts = "[data-volume='flange'] polygon, [data-volume='box'] polygon";
+    for (const direction of RUN_DIRECTIONS) {
+      for (const type of ["pump", "pump_double"]) {
+        const c = iso(type, { direction, fault: "alert" });
+        const outline = pointsOf(c.querySelector("[data-fault] polygon")!);
+        for (const part of c.querySelectorAll(parts))
+          for (const p of pointsOf(part)) expect(within(outline, p)).toBe(true);
+      }
+      // A head's outline is its motor's circle: stretched along the run to
+      // its terminal box, it would be drawn across the other head.
+      const centres = twinHeadCentres(
+        { x: 0.5, y: 0.5 },
+        direction,
+        TWIN_HEAD.isometric.offset,
+      );
+      DRAWINGS.pump_double.heads!(
+        { x: 0.5, y: 0.5 },
+        direction,
+        "isometric",
+      ).forEach((outline, i) => {
+        for (const p of outline)
+          expect(
+            Math.hypot(p.x - centres[i].x, p.y - centres[i].y),
+          ).toBeCloseTo(TWIN_HEAD.isometric.r);
+      });
+    }
   });
 
   it("draws a heat pump as a cabinet with louvres and a fan that turns only while it runs", () => {
@@ -583,9 +833,9 @@ describe("the illustrated kit", () => {
     for (const d of RUN_DIRECTIONS) {
       const heads = [
         ...iso("pump_double", { direction: d }).querySelectorAll(
-          "[data-volume='cylinder'] ellipse",
+          "[data-pump-mark]",
         ),
-      ].map((e) => Number(e.getAttribute("cy")));
+      ].map((e) => markCentre(e).y);
       expect(heads).toHaveLength(2);
       // Nearer the viewer is lower on the screen: the head painted first
       // stands higher, so the near one covers it.

@@ -17,6 +17,7 @@ import { circulatingRuns } from "./circulation";
 import { PANEL_W, panelHeight } from "./Panel";
 import {
   DEFAULT_PROJECTION,
+  isoEllipse,
   PIPE_AXIS_Z,
   portPoint,
   project,
@@ -767,7 +768,7 @@ describe("SynopticRenderer", () => {
     for (const seg of casingSegments(c))
       expect(clearOfRun(chip, seg)).toBe(true);
     // The same tag beside an inline pump: the pump's label keeps its room,
-    // and so does the state dot on the motor, so the chip covers neither.
+    // and so does the pump mark on the motor, so the chip covers neither.
     const pumped = draw(
       {
         ...DOC,
@@ -795,15 +796,24 @@ describe("SynopticRenderer", () => {
         devices: {},
       },
     );
-    const led = pumped.querySelector("[data-state-dot='on']")!;
-    const ledBox = {
-      x0: Number(led.getAttribute("cx")) - 4.5,
-      y0: Number(led.getAttribute("cy")) - 4.5,
-      x1: Number(led.getAttribute("cx")) + 4.5,
-      y1: Number(led.getAttribute("cy")) + 4.5,
-    };
+    // The mark lies flat on the cowl: its frame's origin is its centre, and
+    // its widest circle, the turning ring, is a flat circle on screen.
+    const mark = pumped.querySelector("[data-pump-mark='on']")!;
+    const [cx, cy] = mark
+      .getAttribute("transform")!
+      .match(/-?[\d.]+/g)!
+      .map(Number)
+      .slice(4);
+    const { rx, ry } = isoEllipse(
+      Math.max(
+        ...[...mark.querySelectorAll("circle")].map((c) =>
+          Number(c.getAttribute("r")),
+        ),
+      ),
+    );
+    const markBox = { x0: cx - rx, y0: cy - ry, x1: cx + rx, y1: cy + ry };
     expect(
-      apart(box(pumped.querySelector("[data-tag='tt'] rect")!), ledBox),
+      apart(box(pumped.querySelector("[data-tag='tt'] rect")!), markBox),
     ).toBe(true);
   });
 
@@ -2709,12 +2719,12 @@ describe("a twin pump", () => {
 
   it("draws each head's own state, the unidentified head dashed", () => {
     const c = draw(twin(HEAD_A), values());
-    const dot = (head: string) =>
+    const mark = (head: string) =>
       c
-        .querySelector(`[data-head='${head}'] [data-state-dot]`)
-        ?.getAttribute("data-state-dot");
-    expect(dot("a")).toBe("on");
-    expect(dot("b")).toBe("unknown");
+        .querySelector(`[data-head='${head}'] [data-pump-mark]`)
+        ?.getAttribute("data-pump-mark");
+    expect(mark("a")).toBe("on");
+    expect(mark("b")).toBe("unknown");
   });
 
   it("outlines the faulty head alone, where that head is drawn", () => {
