@@ -12,6 +12,7 @@ from pathlib import Path
 from assets.storage.postgres import run_migrations as run_assets_migrations
 from device_views.storage.postgres import run_migrations as run_views_migrations
 from devices_manager.storage.postgres import run_migrations as run_dm_migrations
+from documents.storage.postgres import run_migrations as run_documents_migrations
 from migrations.tag_preflight import audit_snapshot
 from operating_rules.storage.postgres import run_migrations as run_rules_migrations
 from timeseries.storage.postgres import run_migrations as run_ts_migrations
@@ -27,6 +28,7 @@ ALL_MIGRATIONS = [
     ("device_views", run_views_migrations),
     ("timeseries", run_ts_migrations),
     ("assets", run_assets_migrations),
+    ("documents", run_documents_migrations),
 ]
 
 

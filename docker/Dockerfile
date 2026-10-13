@@ -50,6 +50,7 @@ COPY pyproject.toml uv.lock ./
 COPY packages/api/pyproject.toml packages/api/pyproject.toml
 COPY packages/apps/pyproject.toml packages/apps/pyproject.toml
 COPY packages/assets/pyproject.toml packages/assets/pyproject.toml
+COPY packages/documents/pyproject.toml packages/documents/pyproject.toml
 COPY packages/automations/pyproject.toml packages/automations/pyproject.toml
 COPY packages/commands/pyproject.toml packages/commands/pyproject.toml
 COPY packages/dashboards/pyproject.toml packages/dashboards/pyproject.toml
