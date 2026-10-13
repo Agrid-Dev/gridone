@@ -36,7 +36,9 @@ export class DocumentsResource {
     filename: string,
   ): Promise<Document> {
     const form = new FormData();
-    form.append("metadata", JSON.stringify(metadata));
+    form.append("name", metadata.name);
+    for (const id of metadata.asset_ids ?? []) form.append("asset_ids", id);
+    for (const id of metadata.device_ids ?? []) form.append("device_ids", id);
     form.append("file", file, filename);
     return this.request("POST", "/documents", { body: form });
   }

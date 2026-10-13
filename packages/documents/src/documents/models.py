@@ -8,7 +8,8 @@ type Name = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)
 ]
 type Reference = Annotated[str, StringConstraints(min_length=1, max_length=128)]
-type References = Annotated[list[Reference], Field(max_length=200)]
+# Keep the list alias transparent so FastAPI reads every repeated form value.
+References = Annotated[list[Reference], Field(max_length=200)]
 
 
 class DocumentCreate(BaseModel):

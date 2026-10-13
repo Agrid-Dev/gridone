@@ -3332,6 +3332,16 @@ export interface components {
       attribute: string;
       display_transform?: components["schemas"]["DisplayTransform"] | null;
     };
+    /** Body_create_document_documents_post */
+    Body_create_document_documents_post: {
+      /** File */
+      file: string;
+      name: components["schemas"]["Name"];
+      /** Asset Ids */
+      asset_ids?: components["schemas"]["Reference"][];
+      /** Device Ids */
+      device_ids?: components["schemas"]["Reference"][];
+    };
     /** Body_oauth2_token_auth_token_post */
     Body_oauth2_token_auth_token_post: {
       /** Grant Type */
@@ -4872,8 +4882,10 @@ export interface components {
     /** Document */
     Document: {
       name: components["schemas"]["Name"];
-      asset_ids?: components["schemas"]["References"];
-      device_ids?: components["schemas"]["References"];
+      /** Asset Ids */
+      asset_ids?: components["schemas"]["Reference"][];
+      /** Device Ids */
+      device_ids?: components["schemas"]["Reference"][];
       /** Id */
       id: string;
       /** Filename */
@@ -4908,8 +4920,10 @@ export interface components {
     /** DocumentUpdate */
     DocumentUpdate: {
       name?: components["schemas"]["Name"] | null;
-      asset_ids?: components["schemas"]["References"] | null;
-      device_ids?: components["schemas"]["References"] | null;
+      /** Asset Ids */
+      asset_ids?: components["schemas"]["Reference"][] | null;
+      /** Device Ids */
+      device_ids?: components["schemas"]["Reference"][] | null;
     };
     /** DocumentUploadPolicy */
     DocumentUploadPolicy: {
@@ -4917,10 +4931,6 @@ export interface components {
       max_file_bytes: number;
       /** Extensions */
       extensions: string[];
-      /** Metadata Schema */
-      metadata_schema: {
-        [key: string]: unknown;
-      };
     };
     /**
      * DriverPatch
@@ -7083,7 +7093,6 @@ export interface components {
       ref: string;
     };
     Reference: string;
-    References: components["schemas"]["Reference"][];
     /** RegistrationRequestCreateBody */
     RegistrationRequestCreateBody: {
       /** Username */
@@ -9538,12 +9547,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "multipart/form-data": {
-          /** Format: binary */
-          file: string;
-          /** @description JSON-encoded document metadata */
-          metadata: string;
-        };
+        "multipart/form-data": components["schemas"]["Body_create_document_documents_post"];
       };
     };
     responses: {
@@ -9554,6 +9558,15 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["Document"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };

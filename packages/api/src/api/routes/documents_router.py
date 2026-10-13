@@ -1,7 +1,7 @@
-from typing import Annotated, Any
+from typing import Annotated
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi import APIRouter, Depends, Form, Query, Request, Response, UploadFile
 from pydantic import BaseModel
 
 from api.auth import require_permission
@@ -11,7 +11,6 @@ from api.dependencies import (
     get_documents_service,
     get_pagination_params,
 )
-from api.document_upload import read_document_upload
 from api.schemas.pagination import PaginatedResponse, to_paginated_response
 from assets import AssetsService
 from devices_manager import DevicesServiceInterface
@@ -21,8 +20,10 @@ from documents import (
     DocumentCreate,
     DocumentFilters,
     DocumentsService,
+    DocumentTooLargeError,
     DocumentUpdate,
 )
+from documents.models import Name, References
 from documents.validation import MEDIA_TYPES
 from models.errors import InvalidError, NotFoundError
 from models.pagination import PaginationParams
@@ -37,7 +38,6 @@ _Service = Annotated[DocumentsService, Depends(get_documents_service)]
 class DocumentUploadPolicy(BaseModel):
     max_file_bytes: int
     extensions: list[str]
-    metadata_schema: dict[str, Any]
 
 
 async def validate_references(
@@ -61,7 +61,6 @@ def upload_policy() -> DocumentUploadPolicy:
     return DocumentUploadPolicy(
         max_file_bytes=MAX_DOCUMENT_BYTES,
         extensions=list(MEDIA_TYPES),
-        metadata_schema=DocumentCreate.model_json_schema(),
     )
 
 
@@ -77,51 +76,29 @@ async def list_documents(
     )
 
 
-@router.post(
-    "",
-    dependencies=_write,
-    status_code=201,
-    openapi_extra={
-        "requestBody": {
-            "required": True,
-            "content": {
-                "multipart/form-data": {
-                    "schema": {
-                        "type": "object",
-                        "required": ["file", "metadata"],
-                        "properties": {
-                            "file": {"type": "string", "format": "binary"},
-                            "metadata": {
-                                "type": "string",
-                                "description": "JSON-encoded document metadata",
-                                "contentMediaType": "application/json",
-                                # Document responses register these shared types.
-                                "contentSchema": DocumentCreate.model_json_schema(
-                                    ref_template="#/components/schemas/{model}"
-                                ),
-                            },
-                        },
-                    }
-                }
-            },
-        },
-    },
-)
+@router.post("", dependencies=_write, status_code=201)
 async def create_document(
-    request: Request,
+    file: UploadFile,
+    name: Annotated[Name, Form()],
+    asset_ids: Annotated[References, Form(default_factory=list)],
+    device_ids: Annotated[References, Form(default_factory=list)],
     svc: _Service,
     user_id: Annotated[str, Depends(require_permission(Permission.DOCUMENTS_WRITE))],
     assets: Annotated[AssetsService, Depends(get_assets_service)],
     devices: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
 ) -> Document:
-    async with read_document_upload(request) as (file, metadata):
-        await validate_references(metadata, assets, devices)
-        return await svc.create(
-            metadata,
-            filename=file.filename or "",
-            data=await file.read(),
-            created_by=user_id,
-        )
+    data = await file.read(MAX_DOCUMENT_BYTES + 1)
+    if len(data) > MAX_DOCUMENT_BYTES:
+        msg = "Document exceeds the upload size limit."
+        raise DocumentTooLargeError(msg)
+    metadata = DocumentCreate(name=name, asset_ids=asset_ids, device_ids=device_ids)
+    await validate_references(metadata, assets, devices)
+    return await svc.create(
+        metadata,
+        filename=file.filename or "",
+        data=data,
+        created_by=user_id,
+    )
 
 
 @router.get("/{document_id}", dependencies=_read)

@@ -1,6 +1,6 @@
-import json
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock
+from importlib import import_module
+from unittest.mock import AsyncMock, MagicMock, call
 
 import pytest
 from fastapi import FastAPI
@@ -19,6 +19,7 @@ from devices_manager import DevicesServiceInterface
 from documents import (
     Document,
     DocumentContent,
+    DocumentCreate,
     DocumentsService,
     DocumentTooLargeError,
 )
@@ -68,30 +69,41 @@ def context(document, admin_token_payload):
 def upload(client, metadata=None, data=b"notice", name="été.txt"):
     return client.post(
         "/documents",
-        data={
-            "metadata": json.dumps(
-                metadata if metadata is not None else {"name": "Notice"}
-            )
-        },
+        data=metadata if metadata is not None else {"name": "Notice"},
         files={"file": (name, data, "text/html")},
     )
 
 
-def test_create_checks_references_and_returns_metadata(context):
+def test_create_checks_references_and_returns_metadata(context, admin_token_payload):
     client, svc, assets, devices = context
     response = upload(
         client,
         {
             "name": "Notice",
-            "asset_ids": ["building"],
-            "device_ids": ["boiler"],
+            "asset_ids": ["building", "room"],
+            "device_ids": ["boiler", "chiller"],
         },
     )
-    assert response.status_code == 201
-    assets.get_by_id.assert_awaited_once_with("building")
-    devices.get_device.assert_called_once_with("boiler")
+    assert response.status_code == 201, response.text
+    assert assets.get_by_id.await_args_list == [
+        call("building"),
+        call("room"),
+    ]
+    assert devices.get_device.call_args_list == [call("boiler"), call("chiller")]
+    assert svc.create.call_args.args[0] == DocumentCreate(
+        name="Notice",
+        asset_ids=["building", "room"],
+        device_ids=["boiler", "chiller"],
+    )
     assert svc.create.call_args.kwargs["data"] == b"notice"
     assert svc.create.call_args.kwargs["filename"] == "été.txt"
+    assert svc.create.call_args.kwargs["created_by"] == admin_token_payload.sub
+
+
+def test_create_defaults_links_and_trims_name(context):
+    client, svc, *_ = context
+    assert upload(client, {"name": "  Notice  "}).status_code == 201
+    assert svc.create.call_args.args[0] == DocumentCreate(name="Notice")
 
 
 def test_lists_and_download_headers(context):
@@ -118,13 +130,19 @@ def test_lists_and_download_headers(context):
     [
         {},
         {"name": ""},
-        {"name": "x", "allowed_role_ids": ["unknown"]},
-        {"name": "x", "unexpected": 1},
+        {"name": "   "},
+        {"name": "x" * 256},
+        {"name": "x", "asset_ids": ["x" * 129]},
+        {"name": "x", "device_ids": ["x" * 129]},
+        {"name": "x", "asset_ids": ["asset"] * 201},
+        {"name": "x", "device_ids": ["device"] * 201},
     ],
 )
 def test_rejects_invalid_metadata_before_storage(context, metadata):
     client, svc, *_ = context
-    assert upload(client, metadata).status_code == 422
+    response = upload(client, metadata)
+    assert response.status_code == 422
+    assert isinstance(response.json()["detail"], list)
     svc.create.assert_not_awaited()
 
 
@@ -161,36 +179,57 @@ def test_service_size_error_is_413(context):
     assert "private details" not in response.text
 
 
-def test_file_size_and_wire_body_caps(context, monkeypatch):
+def test_file_size_cap(context, monkeypatch):
     client, svc, *_ = context
-    monkeypatch.setattr("api.document_upload.MAX_DOCUMENT_BYTES", 5)
-    assert upload(client).status_code == 413
-    monkeypatch.setattr("api.document_upload._BODY_BYTES", 10)
+    monkeypatch.setattr(
+        import_module("api.routes.documents_router"), "MAX_DOCUMENT_BYTES", 5
+    )
     assert upload(client).status_code == 413
     svc.create.assert_not_awaited()
 
 
-def test_exact_limit_multiple_files_and_malformed_metadata(context, monkeypatch):
+def test_exact_limit(context, monkeypatch):
     client, svc, *_ = context
-    monkeypatch.setattr("api.document_upload.MAX_DOCUMENT_BYTES", 6)
+    monkeypatch.setattr(
+        import_module("api.routes.documents_router"), "MAX_DOCUMENT_BYTES", 6
+    )
     assert upload(client).status_code == 201
+    assert svc.create.call_args.kwargs["data"] == b"notice"
+
+
+def test_missing_file_and_legacy_metadata_are_rejected(context):
+    client, svc, *_ = context
+    assert client.post("/documents", data={"name": "Notice"}).status_code == 422
     response = client.post(
         "/documents",
-        files=[("file", ("a.txt", b"a")), ("file", ("b.txt", b"b"))],
-        data={"metadata": "{}"},
-    )
-    assert response.status_code == 400
-    response = client.post(
-        "/documents", files={"file": ("a.txt", b"a")}, data={"metadata": "invalid JSON"}
+        files={"file": ("a.txt", b"a")},
+        data={"metadata": '{"name": "Notice"}'},
     )
     assert response.status_code == 422
-    assert client.post("/documents", data={"wrong": "value"}).status_code == 422
-    assert svc.create.await_count == 1
+    svc.create.assert_not_awaited()
 
 
-def test_upload_policy_has_backend_limit_and_schema(context):
+def test_upload_policy_has_backend_limit_and_extensions(context):
     client, *_ = context
     policy = client.get("/documents/upload-policy").json()
     assert policy["max_file_bytes"] == 100 * 1024 * 1024
     assert ".pdf" in policy["extensions"]
-    assert policy["metadata_schema"]["required"] == ["name"]
+    assert set(policy) == {"max_file_bytes", "extensions"}
+
+
+def test_openapi_documents_typed_multipart_fields(context):
+    client, *_ = context
+    schema = client.get("/openapi.json").json()
+    body = schema["paths"]["/documents"]["post"]["requestBody"]
+    reference = body["content"]["multipart/form-data"]["schema"]["$ref"]
+    fields = schema["components"]["schemas"][reference.rsplit("/", 1)[1]]
+    assert set(fields["required"]) == {"file", "name"}
+    assert set(fields["properties"]) == {"file", "name", "asset_ids", "device_ids"}
+    assert (
+        fields["properties"]["file"]["contentMediaType"] == "application/octet-stream"
+    )
+    name_reference = fields["properties"]["name"]["$ref"]
+    name_schema = schema["components"]["schemas"][name_reference.rsplit("/", 1)[1]]
+    assert name_schema["maxLength"] == 255
+    assert fields["properties"]["asset_ids"]["type"] == "array"
+    assert fields["properties"]["device_ids"]["maxItems"] == 200

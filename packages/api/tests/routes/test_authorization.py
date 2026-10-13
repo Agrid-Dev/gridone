@@ -119,8 +119,7 @@ INTEGRATION_ROLE = Role(
     permissions=[
         p
         for p in Permission
-        if not p.startswith("users:")
-        and p not in {Permission.ROLES_WRITE, Permission.DOCUMENTS_WRITE}
+        if not p.startswith("users:") and p != Permission.ROLES_WRITE
     ],
 )
 
@@ -193,8 +192,6 @@ def documents_app():
     ],
 )
 def test_documents_global_permissions(documents_app, username, kind):
-    import json
-
     with TestClient(documents_app) as client:
         headers = _auth_header(_login(client, username)) if username else {}
         document_id = documents_app.state.document_id
@@ -211,7 +208,7 @@ def test_documents_global_permissions(documents_app, username, kind):
             response = client.post(
                 path,
                 headers=headers,
-                data={"metadata": json.dumps({"name": "new"})},
+                data={"name": "new"},
                 files={"file": ("new.txt", b"new")},
             )
         elif kind == "update":
@@ -223,7 +220,8 @@ def test_documents_global_permissions(documents_app, username, kind):
         if username is None:
             expected = 401
         elif username == "reader" or (
-            kind in {"create", "update", "delete"} and username != "admin"
+            kind in {"create", "update", "delete"}
+            and username not in {"admin", "integrator"}
         ):
             expected = 403
         else:

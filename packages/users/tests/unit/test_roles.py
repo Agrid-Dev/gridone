@@ -370,9 +370,8 @@ class TestKnownScopes:
 
 
 @pytest.mark.parametrize("model", [RoleCreate, RoleUpdate])
-def test_document_write_is_reserved_for_admin(model):
+def test_custom_roles_can_grant_document_write(model):
     body: dict[str, object] = {"permissions": [Permission.DOCUMENTS_WRITE]}
     if model is RoleCreate:
         body.update(id="maintainer", name="Maintainer")
-    with pytest.raises(ValidationError):
-        model.model_validate(body)
+    assert model.model_validate(body).permissions == [Permission.DOCUMENTS_WRITE]

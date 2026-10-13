@@ -14,6 +14,31 @@ afterEach(async () => {
   }
 });
 
+it("allows document writes granted to a custom role", async () => {
+  const admin = await makeAdminClient();
+  const roleId = `documents_writer_${Date.now()}`;
+  await admin.users.createRole({
+    id: roleId,
+    name: "Document maintainer",
+    permissions: ["documents:read", "documents:write"],
+  });
+  cleanup.push(() => admin.users.deleteRole(roleId));
+  const maintainer = await makeRoleUser(roleId);
+  cleanup.push(() => admin.users.delete(maintainer.userId));
+  const document = await maintainer.client.documents.create(
+    { name: "Maintenance notice" },
+    new Blob(["notice"]),
+    "notice.txt",
+  );
+  cleanup.push(() => admin.documents.delete(document.id));
+  expect(document.created_by).toBe(maintainer.userId);
+  const renamed = await maintainer.client.documents.update(document.id, {
+    name: "Updated notice",
+  });
+  expect(renamed.name).toBe("Updated notice");
+  await maintainer.client.documents.delete(document.id);
+});
+
 it("uploads, filters, renames and removes documents through the real SDK and API", async () => {
   const admin = await makeAdminClient();
   const suffix = Date.now();
