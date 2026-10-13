@@ -159,6 +159,7 @@ export const RESOURCE_SECTIONS: Record<string, readonly string[]> = {
     "views",
     "zone-mapping",
   ],
+  documents: ["new"],
   assets: ["new"],
   transports: ["new"],
   drivers: ["new"],

@@ -1,3 +1,4 @@
+import documents from "../locales/en/documents.json";
 import "i18next";
 import type apps from "../locales/en/apps.json";
 import type assets from "../locales/en/assets.json";
@@ -21,6 +22,7 @@ declare module "i18next" {
   interface CustomTypeOptions {
     defaultNS: "common";
     resources: {
+      documents: typeof documents;
       operatingRules: typeof operatingRules;
       common: typeof common;
       dashboards: typeof dashboards;
