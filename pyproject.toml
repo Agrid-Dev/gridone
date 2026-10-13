@@ -18,6 +18,7 @@ gridone-models  = { workspace = true }
 gridone-users = { workspace = true }
 gridone-apps = { workspace = true }
 gridone-assets = { workspace = true }
+gridone-documents = { workspace = true }
 gridone-timeseries = { workspace = true }
 gridone-automations = { workspace = true }
 gridone-commands = { workspace = true }
@@ -36,6 +37,7 @@ members = [
     "packages/api",
     "packages/apps",
     "packages/assets",
+    "packages/documents",
     "packages/automations",
     "packages/devices_manager",
     "packages/users",
@@ -96,7 +98,7 @@ fixable = ["ALL"]
 "opentelemetry.sdk".msg = "Only apps/api_server may import the OpenTelemetry SDK; use the opentelemetry-api facade (or a test fake)."
 
 [tool.ruff.lint.isort]
-known-first-party = ["api", "apps", "assets", "commands", "device_views", "devices_manager", "models", "notifications", "operating_rules", "synoptics", "timeseries", "users"]
+known-first-party = ["api", "apps", "assets", "commands", "documents", "device_views", "devices_manager", "models", "notifications", "operating_rules", "synoptics", "timeseries", "users"]
 
 [tool.ruff.lint.per-file-ignores]
 "**/test_*.py" = ["T201", "TID252", "FBT001", "S101", "S106", "ANN201", "ANN401", "PLR2004", "EM101", "INP001", "ANN001", "S603", "PLW1510", "PLC0415"]
@@ -143,6 +145,7 @@ source = [
     "packages/users/src",
     "packages/apps/src",
     "packages/assets/src",
+    "packages/documents/src",
 ]
 omit = [
     "*/tests/*",

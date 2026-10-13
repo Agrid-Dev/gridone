@@ -2,6 +2,7 @@ from .assets_router import router as assets_router
 from .automations_router import router as automations_router
 from .dashboards_router import router as dashboards_router
 from .devices_router import router as devices_router
+from .documents_router import router as documents_router
 from .drivers_router import router as drivers_router
 from .health_router import router as health_router
 from .notifications_router import router as notifications_router
@@ -15,6 +16,7 @@ __all__ = [
     "automations_router",
     "dashboards_router",
     "devices_router",
+    "documents_router",
     "drivers_router",
     "health_router",
     "notifications_router",

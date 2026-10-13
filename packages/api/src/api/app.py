@@ -27,6 +27,7 @@ from api.routes import (
     automations_router,
     dashboards_router,
     devices_router,
+    documents_router,
     drivers_router,
     health_router,
     notifications_router,
@@ -51,6 +52,7 @@ from assets.conversion.ifc import IfcSceneConverter
 from commands import CommandsService, WriteResult
 from device_views import DeviceViewsService
 from devices_manager import DevicesService
+from documents import DocumentsService
 from models.command_confirmation import (
     WriteConsent,
 )
@@ -132,7 +134,10 @@ async def _start_display_services(
     dashboards = DashboardsService(storage_url)
     await dashboards.start()
     app.state.dashboards_service = dashboards
-    return [views, dashboards]
+    documents = DocumentsService(storage_url)
+    await documents.start()
+    app.state.documents_service = documents
+    return [views, dashboards, documents]
 
 
 # Composition root: only the acceptance suite runs it, and that reports no
@@ -270,6 +275,9 @@ def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:
     # Protected routes — permissions are enforced per endpoint inside each router.
     # A blanket JWT dep is still applied so unauthenticated requests get a 401.
     jwt_dep = [Depends(get_current_user_id)]
+    app.include_router(
+        documents_router, prefix="/documents", tags=["documents"], dependencies=jwt_dep
+    )
     # Before users_router: otherwise GET /users/{user_id} would capture "roles".
     app.include_router(
         roles_router, prefix="/users/roles", tags=["users"], dependencies=jwt_dep

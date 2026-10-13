@@ -22,6 +22,13 @@ export default defineConfig({
       {
         extends: true,
         test: {
+          name: "documents",
+          include: ["suites/documents/**/*.spec.ts"],
+        },
+      },
+      {
+        extends: true,
+        test: {
           name: "auth",
           include: ["suites/auth/**/*.spec.ts"],
         },

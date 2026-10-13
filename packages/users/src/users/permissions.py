@@ -4,6 +4,8 @@ from enum import StrEnum
 
 
 class Permission(StrEnum):
+    DOCUMENTS_READ = "documents:read"
+    DOCUMENTS_WRITE = "documents:write"
     USERS_READ = "users:read"
     USERS_WRITE = "users:write"
     ROLES_READ = "roles:read"

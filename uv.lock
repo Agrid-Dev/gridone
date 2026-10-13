@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = ">=3.13"
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -19,6 +19,7 @@ members = [
     "gridone-dashboards",
     "gridone-device-views",
     "gridone-devices-manager",
+    "gridone-documents",
     "gridone-migrations",
     "gridone-models",
     "gridone-notifications",
@@ -867,6 +868,7 @@ dependencies = [
     { name = "gridone-commands" },
     { name = "gridone-dashboards" },
     { name = "gridone-device-views" },
+    { name = "gridone-documents" },
     { name = "gridone-models" },
     { name = "gridone-notifications" },
     { name = "gridone-operating-rules" },
@@ -887,6 +889,7 @@ requires-dist = [
     { name = "gridone-commands", editable = "packages/commands" },
     { name = "gridone-dashboards", editable = "packages/dashboards" },
     { name = "gridone-device-views", editable = "packages/device_views" },
+    { name = "gridone-documents", editable = "packages/documents" },
     { name = "gridone-models", editable = "packages/models" },
     { name = "gridone-notifications", editable = "packages/notifications" },
     { name = "gridone-operating-rules", editable = "packages/operating_rules" },
@@ -1068,6 +1071,25 @@ requires-dist = [
 dev = [{ name = "thermocktat-client", specifier = ">=0.3.0" }]
 
 [[package]]
+name = "gridone-documents"
+version = "0.1.0"
+source = { editable = "packages/documents" }
+dependencies = [
+    { name = "asyncpg" },
+    { name = "gridone-models" },
+    { name = "pydantic" },
+    { name = "yoyo-migrations" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "asyncpg", specifier = ">=0.30.0" },
+    { name = "gridone-models", editable = "packages/models" },
+    { name = "pydantic", specifier = ">=2.0" },
+    { name = "yoyo-migrations", specifier = ">=8.2.0" },
+]
+
+[[package]]
 name = "gridone-migrations"
 version = "0.1.0"
 source = { editable = "apps/migrations" }
@@ -1075,6 +1097,7 @@ dependencies = [
     { name = "gridone-assets" },
     { name = "gridone-device-views" },
     { name = "gridone-devices-manager" },
+    { name = "gridone-documents" },
     { name = "gridone-operating-rules" },
     { name = "gridone-timeseries" },
     { name = "gridone-users" },
@@ -1087,6 +1110,7 @@ requires-dist = [
     { name = "gridone-assets", editable = "packages/assets" },
     { name = "gridone-device-views", editable = "packages/device_views" },
     { name = "gridone-devices-manager", editable = "packages/devices_manager" },
+    { name = "gridone-documents", editable = "packages/documents" },
     { name = "gridone-operating-rules", editable = "packages/operating_rules" },
     { name = "gridone-timeseries", editable = "packages/timeseries" },
     { name = "gridone-users", editable = "packages/users" },

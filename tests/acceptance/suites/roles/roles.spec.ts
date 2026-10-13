@@ -182,7 +182,9 @@ describe("a custom integration role", () => {
       description: "Everything except user and role management.",
       permissions: everything.filter(
         (permission) =>
-          !permission.startsWith("users:") && permission !== "roles:write",
+          !permission.startsWith("users:") &&
+          permission !== "roles:write" &&
+          permission !== "documents:write",
       ),
     });
     ({ client: integration, userId: integrationUserId } =
