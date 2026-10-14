@@ -78,6 +78,19 @@ describe("useDeviceById", () => {
     await waitFor(() => expect(result.current.data).toEqual(DEVICE));
     expect(get).toHaveBeenCalledWith("dev1");
   });
+
+  it("fetches after visiting automations with a device trigger", async () => {
+    get.mockResolvedValue(DEVICE);
+    const { result } = setup((client) => {
+      client.setQueryData(["devices", FLEET_KEY, undefined], [FLEET_DEVICE]);
+      // TriggerChip and ChangeEventPresenter cache one device under this key.
+      client.setQueryData(["devices", "dev1"], DEVICE);
+    });
+
+    expect(result.current.data).toBeUndefined();
+    await waitFor(() => expect(result.current.data).toEqual(DEVICE));
+    expect(get).toHaveBeenCalledWith("dev1");
+  });
 });
 
 describe("findDeviceInCachedLists", () => {
@@ -92,11 +105,15 @@ describe("findDeviceInCachedLists", () => {
     expect(findDeviceInCachedLists(client, "dev1")).toBeUndefined();
   });
 
-  it("finds the device in a full list cached after a fleet list", () => {
+  it("finds the device and age in a full list after fleet and individual entries", () => {
     const client = new QueryClient();
     client.setQueryData(["devices", FLEET_KEY, undefined], [FLEET_DEVICE]);
-    client.setQueryData(["devices", undefined], [DEVICE]);
+    client.setQueryData(["devices", "dev1"], DEVICE);
+    client.setQueryData(["devices", undefined], [DEVICE], { updatedAt: 123 });
 
-    expect(findDeviceInCachedLists(client, "dev1")?.device).toBe(DEVICE);
+    expect(findDeviceInCachedLists(client, "dev1")).toEqual({
+      device: DEVICE,
+      updatedAt: 123,
+    });
   });
 });

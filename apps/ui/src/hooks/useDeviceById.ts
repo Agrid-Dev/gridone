@@ -22,13 +22,14 @@ export function findDeviceInCachedLists(
   queryClient: QueryClient,
   deviceId: string,
 ): { device: Device; updatedAt: number } | undefined {
-  for (const [key, devices] of queryClient.getQueriesData<Device[]>({
+  for (const [key, devices] of queryClient.getQueriesData<Device | Device[]>({
     queryKey: ["devices"],
   })) {
     // Fleet lists carry a few attributes per device: a device page seeded
     // from one would miss the rest until its own fetch lands.
-    if (key[1] === FLEET_KEY) continue;
-    const device = devices?.find((d) => d.id === deviceId);
+    // Legacy individual-device queries also share the "devices" prefix.
+    if (key[1] === FLEET_KEY || !Array.isArray(devices)) continue;
+    const device = devices.find((d) => d.id === deviceId);
     if (device) {
       return {
         device,
