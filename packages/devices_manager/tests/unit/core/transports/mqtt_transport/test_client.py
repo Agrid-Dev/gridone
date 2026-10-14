@@ -1,10 +1,12 @@
+import asyncio
 import socket
 import ssl
 import tempfile
 import threading
 from pathlib import Path
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, Mock, call, patch
 
+import aiomqtt
 import pytest
 from aiomqtt import Topic
 
@@ -20,6 +22,9 @@ from devices_manager.core.transports.mqtt_transport.client import build_ssl_cont
 from devices_manager.core.transports.mqtt_transport.mqtt_address import (
     MqttFrameMatch,
     MqttRequest,
+)
+from devices_manager.core.transports.transport_connection_state import (
+    TransportConnectionState,
 )
 from devices_manager.core.transports.transport_metadata import TransportMetadata
 
@@ -505,6 +510,296 @@ class TestReadWithMatch:
 
         with pytest.raises(TimeoutError, match="no reply"):
             await mqtt_client.read(matched_address)
+
+
+async def _deliver(mqtt_client: MqttTransportClient, *messages: AsyncMock) -> None:
+    """Run frames through the transport's receive loop, as the broker would."""
+    broker = Mock()
+    broker.messages = AsyncIteratorMock(list(messages))
+    await mqtt_client._handle_incoming_messages(broker)  # noqa: SLF001
+
+
+async def _yield_to_others() -> None:
+    """Let every other task run as far as it can before the test goes on."""
+    for _ in range(10):
+        await asyncio.sleep(0)
+
+
+def _listening(mqtt_client: MqttTransportClient, topic: str) -> set[str]:
+    """The listener ids that a frame on ``topic`` is dispatched to."""
+    return mqtt_client._message_handlers.get_by_topic(topic)  # noqa: SLF001
+
+
+class TestOneSubscribePerTopic:
+    """Every attribute of a device listens on the device's topic, and a driver
+    save registers them all again at once (AGR-1695). The broker must see one
+    SUBSCRIBE per topic, confirmed before any listener of the topic is in
+    place, and one UNSUBSCRIBE once the last listener has left."""
+
+    @staticmethod
+    def _attribute(name: str) -> MqttAddress:
+        """One attribute of a thermostat: the device's topic, its own frames."""
+        return MqttAddress(
+            topic="updData/AA", match=MqttFrameMatch(contains=f'"{name}"')
+        )
+
+    @pytest.mark.asyncio
+    async def test_the_listeners_of_one_topic_share_one_subscribe(
+        self, mqtt_client, mock_aiomqtt_client
+    ):
+        await mqtt_client.connect()
+        for name in ("Temperature", "Humidity", "Setpoint"):
+            await mqtt_client.register_listener(self._attribute(name), Mock())
+
+        mock_aiomqtt_client.subscribe.assert_awaited_once_with("updData/AA")
+
+    @pytest.mark.asyncio
+    async def test_each_topic_is_subscribed_once(
+        self, mqtt_client, mock_aiomqtt_client
+    ):
+        await mqtt_client.connect()
+        for topic in ("updData/AA", "updData/BB", "updData/AA", "updData/BB"):
+            await mqtt_client.register_listener(MqttAddress(topic=topic), Mock())
+
+        assert mock_aiomqtt_client.subscribe.await_args_list == [
+            call("updData/AA"),
+            call("updData/BB"),
+        ]
+
+    @pytest.mark.asyncio
+    async def test_a_listener_connects_a_transport_not_connected_yet(
+        self, mqtt_client, mock_aiomqtt_client
+    ):
+        await mqtt_client.register_listener(MqttAddress(topic="updData/AA"), Mock())
+
+        assert mqtt_client.connection_state.is_connected
+        mock_aiomqtt_client.__aenter__.assert_awaited_once()
+        mock_aiomqtt_client.subscribe.assert_awaited_once_with("updData/AA")
+
+    @pytest.mark.asyncio
+    async def test_concurrent_first_listeners_all_wait_for_one_subscribe(
+        self, mqtt_client, mock_aiomqtt_client
+    ):
+        await mqtt_client.connect()
+        subscribing = asyncio.Event()
+        suback = asyncio.Event()
+
+        async def subscribe(*_args: object, **_kwargs: object) -> None:
+            subscribing.set()
+            await suback.wait()
+
+        mock_aiomqtt_client.subscribe.side_effect = subscribe
+        async with asyncio.timeout(5):
+            registering = [
+                asyncio.create_task(
+                    mqtt_client.register_listener(self._attribute(f"a{i}"), Mock())
+                )
+                for i in range(20)
+            ]
+            await subscribing.wait()
+            await _yield_to_others()
+            # No attribute may count on the topic before the broker confirms it.
+            assert not any(task.done() for task in registering)
+            assert mock_aiomqtt_client.subscribe.await_count == 1
+            suback.set()
+            listener_ids = await asyncio.gather(*registering)
+
+        mock_aiomqtt_client.subscribe.assert_awaited_once_with("updData/AA")
+        assert len(set(listener_ids)) == 20
+        assert _listening(mqtt_client, "updData/AA") == set(listener_ids)
+
+    @pytest.mark.asyncio
+    async def test_a_failed_subscribe_leaves_no_listener_and_is_tried_again(
+        self, mqtt_client, mock_aiomqtt_client
+    ):
+        await mqtt_client.connect()
+        mock_aiomqtt_client.subscribe.side_effect = [
+            aiomqtt.MqttError("Operation timed out"),
+            None,
+        ]
+        refused = Mock()
+        with pytest.raises(aiomqtt.MqttError, match="timed out"):
+            await mqtt_client.register_listener(
+                MqttAddress(topic="updData/AA"), refused
+            )
+
+        assert _listening(mqtt_client, "updData/AA") == set()
+        assert mqtt_client._handlers_registry.address_ids() == set()  # noqa: SLF001
+
+        accepted = Mock()
+        listener_id = await mqtt_client.register_listener(
+            MqttAddress(topic="updData/AA"), accepted
+        )
+        assert mock_aiomqtt_client.subscribe.await_count == 2
+        assert _listening(mqtt_client, "updData/AA") == {listener_id}
+        await _deliver(mqtt_client, _message("updData/AA", "42"))
+        refused.assert_not_called()
+        accepted.assert_called_once_with("42")
+
+    @pytest.mark.asyncio
+    async def test_only_the_last_listener_to_leave_unsubscribes(
+        self, mqtt_client, mock_aiomqtt_client
+    ):
+        await mqtt_client.connect()
+        listener_ids = [
+            await mqtt_client.register_listener(self._attribute(name), Mock())
+            for name in ("Temperature", "Humidity", "Setpoint")
+        ]
+        for listener_id in listener_ids[:-1]:
+            await mqtt_client.unregister_listener(listener_id, "updData/AA")
+        mock_aiomqtt_client.unsubscribe.assert_not_awaited()
+
+        await mqtt_client.unregister_listener(listener_ids[-1], "updData/AA")
+        mock_aiomqtt_client.unsubscribe.assert_awaited_once_with("updData/AA")
+
+    @pytest.mark.asyncio
+    async def test_leaving_while_disconnected_sends_nothing_and_does_not_reconnect(
+        self, mqtt_client, mock_aiomqtt_client
+    ):
+        await mqtt_client.connect()
+        callback = Mock()
+        listener_id = await mqtt_client.register_listener(
+            MqttAddress(topic="updData/AA"), callback
+        )
+        # The session is lost and the scheduled reconnection has not run yet:
+        # the broker has already forgotten the subscription.
+        mqtt_client.connection_state = TransportConnectionState.connection_error(
+            "session lost"
+        )
+
+        await mqtt_client.unregister_listener(listener_id, "updData/AA")
+
+        mock_aiomqtt_client.unsubscribe.assert_not_awaited()
+        # No reconnection: the first connect() is the only one to enter a client.
+        mock_aiomqtt_client.__aenter__.assert_awaited_once()
+        assert mqtt_client._reconnect_task is None  # noqa: SLF001
+        assert not mqtt_client.connection_state.is_connected
+        # Gone from the registry, so the next connect() does not subscribe it.
+        assert "updData/AA" not in mqtt_client._message_handlers.list_topics()  # noqa: SLF001
+        await _deliver(mqtt_client, _message("updData/AA", "42"))
+        callback.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_leaving_during_a_close_waits_for_it_and_sends_nothing(
+        self, mqtt_client, mock_aiomqtt_client
+    ):
+        """A read's listener leaves in its ``finally``, possibly while a
+        reconnection closes the client: it waits for close() to finish rather
+        than reach a client that is already gone."""
+        await mqtt_client.connect()
+        listener_id = await mqtt_client.register_listener(
+            MqttAddress(topic="updData/AA"), Mock()
+        )
+        leaving_client = asyncio.Event()
+        disconnected = asyncio.Event()
+
+        async def leave(*_exc: object) -> None:
+            leaving_client.set()
+            await disconnected.wait()
+
+        mock_aiomqtt_client.__aexit__.side_effect = leave
+        async with asyncio.timeout(5):
+            closing = asyncio.create_task(mqtt_client.close())
+            await leaving_client.wait()
+            leaving = asyncio.create_task(
+                mqtt_client.unregister_listener(listener_id, "updData/AA")
+            )
+            await _yield_to_others()
+            assert not leaving.done()
+            disconnected.set()
+            await asyncio.gather(closing, leaving)
+
+        mock_aiomqtt_client.unsubscribe.assert_not_awaited()
+        assert _listening(mqtt_client, "updData/AA") == set()
+
+    @pytest.mark.asyncio
+    async def test_a_subscribe_never_overlaps_an_unsubscribe_of_its_topic(
+        self, mqtt_client, mock_aiomqtt_client
+    ):
+        await mqtt_client.connect()
+        last_id = await mqtt_client.register_listener(
+            MqttAddress(topic="updData/AA"), Mock()
+        )
+        broker: list[str] = []
+        unsubscribing = asyncio.Event()
+        unsuback = asyncio.Event()
+
+        async def subscribe(topic: str, *_args: object, **_kwargs: object) -> None:
+            broker.append(f"SUBSCRIBE {topic}")
+            await asyncio.sleep(0)
+            broker.append("SUBACK")
+
+        async def unsubscribe(topic: str, *_args: object, **_kwargs: object) -> None:
+            broker.append(f"UNSUBSCRIBE {topic}")
+            unsubscribing.set()
+            await unsuback.wait()
+            broker.append("UNSUBACK")
+
+        mock_aiomqtt_client.subscribe.side_effect = subscribe
+        mock_aiomqtt_client.unsubscribe.side_effect = unsubscribe
+        async with asyncio.timeout(5):
+            leaving = asyncio.create_task(
+                mqtt_client.unregister_listener(last_id, "updData/AA")
+            )
+            await unsubscribing.wait()
+            joining = asyncio.create_task(
+                mqtt_client.register_listener(MqttAddress(topic="updData/AA"), Mock())
+            )
+            await _yield_to_others()
+            assert broker == ["UNSUBSCRIBE updData/AA"]
+            assert not joining.done()
+            unsuback.set()
+            _, joined_id = await asyncio.gather(leaving, joining)
+
+        # The topic ends subscribed, for the one listener the registry holds.
+        assert broker == [
+            "UNSUBSCRIBE updData/AA",
+            "UNSUBACK",
+            "SUBSCRIBE updData/AA",
+            "SUBACK",
+        ]
+        assert _listening(mqtt_client, "updData/AA") == {joined_id}
+
+    @pytest.mark.asyncio
+    async def test_a_read_on_a_listened_topic_neither_subscribes_nor_unsubscribes(
+        self, mqtt_client, mock_aiomqtt_client, mqtt_read_address
+    ):
+        await mqtt_client.connect()
+        listener = Mock()
+        listener_id = await mqtt_client.register_listener(
+            MqttAddress(topic="test/topic"), listener
+        )
+
+        async def reply(*_args: object, **_kwargs: object) -> None:
+            await _deliver(mqtt_client, _message("test/topic", "42"))
+
+        mock_aiomqtt_client.publish.side_effect = reply
+
+        assert await mqtt_client.read(mqtt_read_address) == "42"
+
+        mock_aiomqtt_client.publish.assert_awaited_once()
+        # The device's own listener's SUBSCRIBE, and nothing for the read.
+        mock_aiomqtt_client.subscribe.assert_awaited_once_with("test/topic")
+        mock_aiomqtt_client.unsubscribe.assert_not_awaited()
+        listener.assert_called_once_with("42")
+        assert _listening(mqtt_client, "test/topic") == {listener_id}
+
+    @pytest.mark.asyncio
+    async def test_a_frame_reaches_every_listener_of_its_topic(self, mqtt_client):
+        await mqtt_client.connect()
+        listeners = [Mock() for _ in range(3)]
+        for listener in listeners:
+            await mqtt_client.register_listener(
+                MqttAddress(topic="updData/AA"), listener
+            )
+        elsewhere = Mock()
+        await mqtt_client.register_listener(MqttAddress(topic="updData/BB"), elsewhere)
+
+        await _deliver(mqtt_client, _message("updData/AA", "42"))
+
+        for listener in listeners:
+            listener.assert_called_once_with("42")
+        elsewhere.assert_not_called()
 
 
 class TestWrite:
