@@ -11,15 +11,8 @@ vi.mock("@/contexts/GridoneClientContext", () => ({
 
 // Imported after the client mock is registered.
 import { findDeviceInCachedLists, useDeviceById } from "../useDeviceById";
-import { FLEET_KEY } from "@/pages/devices/standard-devices/fleetAttributes";
 
 const DEVICE = { id: "dev1", name: "Thermostat 1" } as unknown as Device;
-/** The same device as a fleet list holds it: a few attributes only. */
-const FLEET_DEVICE = {
-  id: "dev1",
-  name: "Thermostat 1",
-  attributes: { temperature: { name: "temperature", current_value: 21 } },
-} as unknown as Device;
 
 function setup(seed?: (client: QueryClient) => void) {
   const client = new QueryClient({
@@ -66,23 +59,9 @@ describe("useDeviceById", () => {
     await waitFor(() => expect(result.current.data).toEqual(DEVICE));
   });
 
-  // Seeded from a fleet list, the device page would miss most attributes
-  // until its own fetch lands.
-  it("fetches rather than render the device a fleet list holds", async () => {
-    get.mockResolvedValue(DEVICE);
-    const { result } = setup((client) =>
-      client.setQueryData(["devices", FLEET_KEY, undefined], [FLEET_DEVICE]),
-    );
-
-    expect(result.current.data).toBeUndefined();
-    await waitFor(() => expect(result.current.data).toEqual(DEVICE));
-    expect(get).toHaveBeenCalledWith("dev1");
-  });
-
   it("fetches after visiting automations with a device trigger", async () => {
     get.mockResolvedValue(DEVICE);
     const { result } = setup((client) => {
-      client.setQueryData(["devices", FLEET_KEY, undefined], [FLEET_DEVICE]);
       // TriggerChip and ChangeEventPresenter cache one device under this key.
       client.setQueryData(["devices", "dev1"], DEVICE);
     });
@@ -94,20 +73,8 @@ describe("useDeviceById", () => {
 });
 
 describe("findDeviceInCachedLists", () => {
-  it("skips every fleet list, filtered or not", () => {
+  it("finds the device and age in a list after individual entries", () => {
     const client = new QueryClient();
-    client.setQueryData(["devices", FLEET_KEY, undefined], [FLEET_DEVICE]);
-    client.setQueryData(
-      ["devices", FLEET_KEY, { types: ["thermostat"] }],
-      [FLEET_DEVICE],
-    );
-
-    expect(findDeviceInCachedLists(client, "dev1")).toBeUndefined();
-  });
-
-  it("finds the device and age in a full list after fleet and individual entries", () => {
-    const client = new QueryClient();
-    client.setQueryData(["devices", FLEET_KEY, undefined], [FLEET_DEVICE]);
     client.setQueryData(["devices", "dev1"], DEVICE);
     client.setQueryData(["devices", undefined], [DEVICE], { updatedAt: 123 });
 

@@ -48,13 +48,11 @@ from devices_manager.core.device.connection_status import AttributeLogs
 from devices_manager.core.tags import TagMutation, TagMutationResult
 from devices_manager.dto import StandardAttributeSchema
 from devices_manager.dto.device_dto import (
-    AttributeSelection,
     Device,
     DeviceCreate,
     DeviceUpdate,
 )
 from devices_manager.dto.presentation_dto import PresentationResponse
-from devices_manager.types import AttributeKind
 from models.errors import ConflictError, InvalidError, NotFoundError
 from models.tags import Tag
 from timeseries.domain import (
@@ -153,39 +151,10 @@ def get_devices_query(
     )
 
 
-def get_device_list_query(
-    query: Annotated[dict[str, Any], Depends(get_devices_query)],
-    include_attributes: list[str] | None = Query(
-        None,
-        description=(
-            "Return only these attributes of each device, without their write "
-            "contract or descriptions (`GET /devices/{device_id}` has them)."
-        ),
-    ),
-    include_attribute_kinds: list[AttributeKind] | None = Query(
-        None, description="Also return every attribute of these kinds, likewise."
-    ),
-) -> dict[str, Any]:
-    """``get_devices_query`` plus the attribute selection, which only the list
-    serves: ``/devices/attributes`` reads every attribute to report coverage.
-
-    Without either parameter, devices carry every attribute, in full.
-    """
-    if include_attributes is None and include_attribute_kinds is None:
-        return query
-    return {
-        **query,
-        "attribute_selection": AttributeSelection(
-            names=frozenset(include_attributes or ()),
-            kinds=frozenset(include_attribute_kinds or ()),
-        ),
-    }
-
-
 @router.get("/", dependencies=[Depends(require_permission(Permission.DEVICES_READ))])
 def list_devices(
     reads: Annotated[ScopedDeviceReads, Depends(get_device_reads)],
-    query: Annotated[dict[str, Any], Depends(get_device_list_query)],
+    query: Annotated[dict[str, Any], Depends(get_devices_query)],
 ) -> list[Device]:
     return reads.list_devices(**query)
 

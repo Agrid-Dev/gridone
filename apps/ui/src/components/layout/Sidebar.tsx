@@ -8,7 +8,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
-import { useDeviceFleet } from "@/hooks/useDeviceFleet";
+import { useDevicesList } from "@/hooks/useDevicesList";
 import { useFaultsList } from "@/hooks/useFaultsList";
 import { usePendingAppRequests } from "@/hooks/usePendingAppRequests";
 import { locationUrl } from "@/lib/navigation";
@@ -136,9 +136,7 @@ function SupervisionEntries() {
   const can = usePermissions();
   const dashboardsEnabled = useFeatureEnabled("dashboards");
   const { faults } = useFaultsList();
-  // A count: the light fleet list, shared with the devices page when it is
-  // open, and refreshed every minute elsewhere.
-  const { devices } = useDeviceFleet(undefined, { refetchInterval: 60_000 });
+  const { devices } = useDevicesList();
   const faultCount = faults.length;
   const deviceCount = devices.length;
 

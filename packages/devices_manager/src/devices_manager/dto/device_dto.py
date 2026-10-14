@@ -69,9 +69,8 @@ class DeviceUpdate(BaseModel):
     driver_id: str | None = None
 
 
-# What a selection leaves out of each attribute it keeps: the write contract
-# and long texts, which fleet views never read and the device itself serves.
-# On Ibis's thermostats the setpoint's constraints alone weigh 21 kB a device.
+# Internal projections can omit write contracts and long texts. HTTP device
+# listings and detail reads keep the complete attributes.
 _OMITTED_FROM_SELECTION = dict.fromkeys(
     (
         "write_constraints",
@@ -85,7 +84,9 @@ _OMITTED_FROM_SELECTION = dict.fromkeys(
 
 @dataclass(frozen=True)
 class AttributeSelection:
-    """The attributes a device listing carries: the ones named, plus every
+    """Internal projection of the attributes a service listing carries.
+
+    Keeps the ones named, plus every
     attribute of the given kinds, each with its value and display fields but
     without its write contract or descriptions. An empty selection carries
     none, which is enough for counts, names and tags."""

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { createI18nMock } from "@/test/i18nMock";
@@ -102,18 +102,6 @@ describe("saved views", () => {
     await screen.findByText("1 devices");
     expect(screen.getByRole("link", { name: /Comfort/ })).not.toHaveTextContent(
       "comfort:",
-    );
-  });
-
-  // Member counts read tags only: the light fleet list, which the devices
-  // page shares, not every attribute of every device.
-  it("counts members from the fleet list", async () => {
-    api.devices.mockClear();
-    setup();
-    await screen.findByRole("link", { name: /Comfort/ });
-    await waitFor(() => expect(api.devices).toHaveBeenCalled());
-    expect(api.devices).toHaveBeenCalledWith(
-      expect.objectContaining({ include_attribute_kinds: ["fault"] }),
     );
   });
 });

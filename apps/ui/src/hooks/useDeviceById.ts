@@ -6,7 +6,6 @@ import {
 } from "@tanstack/react-query";
 import type { Device } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
-import { FLEET_KEY } from "@/pages/devices/standard-devices/fleetAttributes";
 
 /**
  * Find a device in any cached `["devices", filter]` list, with the age of the
@@ -25,10 +24,8 @@ export function findDeviceInCachedLists(
   for (const [key, devices] of queryClient.getQueriesData<Device | Device[]>({
     queryKey: ["devices"],
   })) {
-    // Fleet lists carry a few attributes per device: a device page seeded
-    // from one would miss the rest until its own fetch lands.
     // Legacy individual-device queries also share the "devices" prefix.
-    if (key[1] === FLEET_KEY || !Array.isArray(devices)) continue;
+    if (!Array.isArray(devices)) continue;
     const device = devices.find((d) => d.id === deviceId);
     if (device) {
       return {
