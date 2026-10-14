@@ -30,6 +30,13 @@
     "empty": "No devices use this driver yet.",
     "error": "Unable to load devices."
   },
+  "discoverySection": {
+    "title": "Discovery",
+    "description": "Enable discovery on the networks speaking this driver's protocol: matching devices are imported automatically.",
+    "empty": "No network uses this driver's protocol.",
+    "error": "Unable to load networks.",
+    "updateError": "Unable to update discovery state"
+  },
   "actions": {
     "create": "New driver",
     "delete": "Delete",

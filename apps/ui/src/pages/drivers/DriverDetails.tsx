@@ -19,6 +19,7 @@ import { ResourceHeader } from "@/components/ResourceHeader";
 import { ResourceDeleteButton } from "@/components/ResourceDeleteButton";
 import { usePermissions } from "@/contexts/AuthContext";
 import { DriverDevicesSection } from "./DriverDevicesSection";
+import { DriverDiscoverySection } from "./DriverDiscoverySection";
 import { DriverPresentationStatus } from "./DriverPresentationStatus";
 import { useExportDriverPackage } from "./useDriverPackage";
 
@@ -177,6 +178,7 @@ const DriverDetails: FC<{
           <DriverPresentationStatus driverId={driver.id} />
         </CardContent>
       </Card>
+      {driver.discovery && <DriverDiscoverySection driver={driver} />}
       <DriverDevicesSection driverId={driver.id} />
     </div>
   );
