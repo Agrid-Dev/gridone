@@ -38,6 +38,7 @@ from assets import (
 )
 from commands import AttributeWrite, CommandsServiceInterface
 from devices_manager import DevicesServiceInterface
+from devices_manager.dto import AttributeSelection
 from models.targets import AttributeTarget, DevicesFilter, TargetResolver
 from timeseries import TimeSeriesService
 from users.permissions import Permission
@@ -131,7 +132,9 @@ async def get_tree_with_devices(
     reads: Annotated[ScopedDeviceReads, Depends(get_device_reads)],
 ) -> list[dict]:
     tree = await assets_svc.get_tree()
-    all_devices = reads.list_devices()
+    # Names and zone tags only: building every attribute here would run on
+    # the event loop for each device of the site.
+    all_devices = reads.list_devices(attribute_selection=AttributeSelection())
     name_map = {d.id: d.name for d in all_devices}
     links: dict[str, list[str]] = {}
     for device in all_devices:

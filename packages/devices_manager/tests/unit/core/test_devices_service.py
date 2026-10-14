@@ -35,6 +35,7 @@ from devices_manager.core.transports.webhook_transport import (
 )
 from devices_manager.dto import (
     AttributePatch,
+    AttributeSelection,
     Device,
     DeviceCreate,
     DeviceUpdate,
@@ -44,6 +45,7 @@ from devices_manager.dto import (
     TransportUpdate,
     driver_to_public,
 )
+from devices_manager.dto.presentation_dto import PresentationReference
 from devices_manager.dto.transport_dto import HttpTransportCreate, MqttTransportCreate
 from devices_manager.ingress import MessageIngress
 from devices_manager.storage.memory import MemoryDevicesStorage
@@ -1598,6 +1600,97 @@ class TestDevicesServiceDeviceDelegation:
 
         with pytest.raises(ConfirmationError):
             await dm.write_device_attribute("d1", "temperature_setpoint", 20.0)
+
+
+class TestDevicesServiceListDevicesSelection:
+    """A listing hashes each driver once, and its filters judge the whole
+    device before a selection trims what it returns."""
+
+    @pytest_asyncio.fixture
+    async def dm(self, driver, other_http_driver, mock_transport_client):
+        # Three devices on each driver; only `driver` declares `humidity` and a
+        # writable `temperature_setpoint`.
+        devices = {
+            **{
+                f"t{i}": _make_physical_device(f"t{i}", driver, mock_transport_client)
+                for i in range(3)
+            },
+            **{
+                f"o{i}": CoreDevice.from_base(
+                    DeviceBase(id=f"o{i}", name="Other", config={}),
+                    driver=other_http_driver,
+                    transport=mock_transport_client,
+                )
+                for i in range(3)
+            },
+        }
+        dm = DevicesService(
+            devices=devices,
+            drivers={driver.id: driver, other_http_driver.id: other_http_driver},
+            transports={mock_transport_client.id: mock_transport_client},
+        )
+        await dm.load()
+        return dm
+
+    @pytest.mark.asyncio
+    async def test_hashes_each_driver_once_per_listing(self, dm):
+        with patch(
+            "devices_manager.dto.device_dto.get_presentation_revision",
+            side_effect=lambda d: f"rev-{d.id}",
+        ) as hashed:
+            listed = dm.list_devices()
+            assert hashed.call_count == 2
+            # A fresh lookup per listing: an edited driver is hashed again.
+            dm.list_devices()
+            assert hashed.call_count == 4
+
+        assert {d.id: d.presentation_ref for d in listed} == {
+            **{
+                f"t{i}": PresentationReference(revision="rev-test_driver")
+                for i in range(3)
+            },
+            **{
+                f"o{i}": PresentationReference(revision="rev-other_http_driver")
+                for i in range(3)
+            },
+        }
+
+    @pytest.mark.asyncio
+    async def test_the_selection_trims_every_listed_device(self, dm):
+        selection = AttributeSelection(
+            names=frozenset({"temperature"}),
+            kinds=frozenset({AttributeKind.INTERNAL}),
+        )
+
+        listed = dm.list_devices(attribute_selection=selection)
+
+        assert len(listed) == 6
+        assert all(
+            set(d.attributes) == {"temperature", "connection_status"} for d in listed
+        )
+        assert all(a.write_state is None for d in listed for a in d.attributes.values())
+        # A device read on its own is served whole.
+        assert "humidity" in dm.get_device("t0").attributes
+        assert dm.get_device("t0").attributes["temperature"].write_state is not None
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "query",
+        [
+            pytest.param({"attribute": "humidity"}, id="attribute"),
+            pytest.param(
+                {"writable_attribute": "temperature_setpoint"}, id="writable-attribute"
+            ),
+        ],
+    )
+    async def test_filters_match_attributes_the_selection_leaves_out(self, dm, query):
+        listed = dm.list_devices(
+            **query,
+            attribute_selection=AttributeSelection(names=frozenset({"temperature"})),
+        )
+
+        assert sorted(d.id for d in listed) == ["t0", "t1", "t2"]
+        assert all(set(d.attributes) == {"temperature"} for d in listed)
 
 
 class TestDevicesServiceStorage:

@@ -269,6 +269,11 @@ class TestListDevices:
         assert response.status_code == 200
         assert len(response.json()) == 1
 
+    def test_attribute_selection_is_not_exposed(self, app: FastAPI):
+        parameters = app.openapi()["paths"]["/"]["get"]["parameters"]
+        names = {parameter["name"] for parameter in parameters}
+        assert names.isdisjoint({"include_attributes", "include_attribute_kinds"})
+
     def test_filter_by_type_passed_to_service(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"type": "thermostat"})
         dm.list_devices.assert_called_once_with(

@@ -49,6 +49,7 @@ from .core.transports import TransportClient
 from .core.write_preview import DeviceWritePreview, preview_write
 from .dto import (
     AttributePatch,
+    AttributeSelection,
     Device,
     DeviceCreate,
     DeviceUpdate,
@@ -66,6 +67,7 @@ from .dto import (
     driver_from_public,
     driver_to_public,
     mask_transport_secrets,
+    revision_per_driver,
     standard_schema_to_public,
     transport_create_from_public,
     transport_from_public,
@@ -392,6 +394,7 @@ class DevicesService(Service):
         search: str | None = None,
         driver_id: str | None = None,
         transport_id: str | None = None,
+        attribute_selection: AttributeSelection | None = None,
     ) -> list[Device]:
         devices = self._device_registry.list_all(
             ids=ids,
@@ -405,7 +408,15 @@ class DevicesService(Service):
             driver_id=driver_id,
             transport_id=transport_id,
         )
-        return [device_to_public(device) for device in devices]
+        revision_of = revision_per_driver()
+        return [
+            device_to_public(
+                device,
+                revision_of=revision_of,
+                attribute_selection=attribute_selection,
+            )
+            for device in devices
+        ]
 
     def get_device(self, device_id: str) -> Device:
         return device_to_public(self._device_registry.get(device_id))

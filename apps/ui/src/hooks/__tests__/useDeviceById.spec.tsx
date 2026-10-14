@@ -10,7 +10,7 @@ vi.mock("@/contexts/GridoneClientContext", () => ({
 }));
 
 // Imported after the client mock is registered.
-import { useDeviceById } from "../useDeviceById";
+import { findDeviceInCachedLists, useDeviceById } from "../useDeviceById";
 
 const DEVICE = { id: "dev1", name: "Thermostat 1" } as unknown as Device;
 
@@ -57,5 +57,30 @@ describe("useDeviceById", () => {
     const { result } = setup();
 
     await waitFor(() => expect(result.current.data).toEqual(DEVICE));
+  });
+
+  it("fetches after visiting automations with a device trigger", async () => {
+    get.mockResolvedValue(DEVICE);
+    const { result } = setup((client) => {
+      // TriggerChip and ChangeEventPresenter cache one device under this key.
+      client.setQueryData(["devices", "dev1"], DEVICE);
+    });
+
+    expect(result.current.data).toBeUndefined();
+    await waitFor(() => expect(result.current.data).toEqual(DEVICE));
+    expect(get).toHaveBeenCalledWith("dev1");
+  });
+});
+
+describe("findDeviceInCachedLists", () => {
+  it("finds the device and age in a list after individual entries", () => {
+    const client = new QueryClient();
+    client.setQueryData(["devices", "dev1"], DEVICE);
+    client.setQueryData(["devices", undefined], [DEVICE], { updatedAt: 123 });
+
+    expect(findDeviceInCachedLists(client, "dev1")).toEqual({
+      device: DEVICE,
+      updatedAt: 123,
+    });
   });
 });
