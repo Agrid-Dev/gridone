@@ -102,9 +102,10 @@ class WebSocketManager:
     def _serialize(message: Any) -> str:  # noqa: ANN401
         if hasattr(message, "model_dump_json"):
             # Pydantic BaseModel supports this; keep consistent ISO formatting.
-            return message.model_dump_json()
+            # Unset fields are omitted, as the HTTP device payloads do.
+            return message.model_dump_json(exclude_none=True)
         if hasattr(message, "model_dump"):
-            return json.dumps(message.model_dump(), default=str)
+            return json.dumps(message.model_dump(exclude_none=True), default=str)
         if isinstance(message, dict):
             return json.dumps(message, default=str)
         if isinstance(message, str):

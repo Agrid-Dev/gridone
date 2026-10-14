@@ -2,17 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 
-from pydantic import (
-    AliasChoices,
-    BaseModel,
-    ConfigDict,
-    Field,
-    SerializerFunctionWrapHandler,
-    model_serializer,
-    model_validator,
-)
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
 from models.attribute_metadata import LocalizedText  # noqa: TC001 -- schema runtime
 from models.command_confirmation import (
@@ -22,21 +14,7 @@ from models.conditions import scalar_key
 from models.expressions import MAX_LIST_ITEMS, Condition, Expression, Scalar
 
 
-class ResolvedResult(BaseModel):
-    """A resolved result serialises without its unset optional fields.
-
-    Projected per attribute on every device read, these payloads carry what
-    was decided, not every field a decision could have carried.
-    """
-
-    @model_serializer(mode="wrap")
-    def _omit_unset(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
-        return {
-            name: value for name, value in handler(self).items() if value is not None
-        }
-
-
-class WriteReason(ResolvedResult):
+class WriteReason(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     code: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]*$", max_length=64)]
@@ -91,7 +69,7 @@ class ValueMapping(BaseModel):
         return self
 
 
-class ResolvedConstraints(ResolvedResult):
+class ResolvedConstraints(BaseModel):
     minimum: float | None = None
     maximum: float | None = None
     step: float | None = None
@@ -99,13 +77,13 @@ class ResolvedConstraints(ResolvedResult):
     sentinels: list[float] = Field(default_factory=list)
 
 
-class ResolvedOption(ResolvedResult):
+class ResolvedOption(BaseModel):
     value: Scalar
     available: bool
     reasons: list[WriteReason] = Field(default_factory=list)
 
 
-class AttributeWriteState(ResolvedResult):
+class AttributeWriteState(BaseModel):
     """Server projection; clients never need to fetch or evaluate dependencies."""
 
     status: Literal["ready", "blocked", "unknown"] = "ready"

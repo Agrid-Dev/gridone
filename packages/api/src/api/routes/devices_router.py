@@ -151,7 +151,12 @@ def get_devices_query(
     )
 
 
-@router.get("/", dependencies=[Depends(require_permission(Permission.DEVICES_READ))])
+# Device payloads omit unset fields: an attribute carries what it has.
+@router.get(
+    "/",
+    dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
+    response_model_exclude_none=True,
+)
 def list_devices(
     reads: Annotated[ScopedDeviceReads, Depends(get_device_reads)],
     query: Annotated[dict[str, Any], Depends(get_devices_query)],
@@ -226,6 +231,7 @@ async def rename_tag(
 @router.get(
     "/attributes",
     dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
+    response_model_exclude_none=True,
 )
 def list_device_attributes(
     reads: Annotated[ScopedDeviceReads, Depends(get_device_reads)],
@@ -297,6 +303,7 @@ def get_attribute_logs(
 @router.post(
     "/{device_id}/attributes/{attr_name}/refresh",
     dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
+    response_model_exclude_none=True,
 )
 async def refresh_device_attribute(
     device_id: str,
@@ -312,7 +319,9 @@ async def refresh_device_attribute(
 
 
 @router.get(
-    "/{device_id}", dependencies=[Depends(require_permission(Permission.DEVICES_READ))]
+    "/{device_id}",
+    dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
+    response_model_exclude_none=True,
 )
 def get_device(
     device_id: str,
@@ -325,6 +334,7 @@ def get_device(
     "/",
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
+    response_model_exclude_none=True,
 )
 async def create_device(
     dto: DeviceCreate,
@@ -343,6 +353,7 @@ async def create_device(
         },
     },
     dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
+    response_model_exclude_none=True,
 )
 async def create_devices_batch(
     dto: DeviceBatchCreate,
@@ -449,7 +460,9 @@ async def assign_devices_to_assets(
 
 
 @router.patch(
-    "/{device_id}", dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))]
+    "/{device_id}",
+    dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
+    response_model_exclude_none=True,
 )
 async def update_device(
     device_id: str,
@@ -478,6 +491,7 @@ async def delete_device(
 @router.put(
     "/{device_id}/tags/{key}",
     dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
+    response_model_exclude_none=True,
 )
 async def set_device_tag(
     device_id: str,
