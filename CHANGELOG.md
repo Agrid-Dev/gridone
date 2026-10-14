@@ -1,3 +1,9 @@
+## v0.313.1 (2026-10-14)
+
+### Perf
+
+- **devices**: omit write_state noise from device payloads
+
 ## v0.313.0 (2026-10-14)
 
 ### Feat
