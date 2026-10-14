@@ -1995,7 +1995,7 @@ def test_attribute_coverage_combines_server_options_and_only_common_limits(clien
         for a in response.json()["attributes"]
         if a["attribute"] == "temperature"
     )
-    assert state["constraints"] is None
+    assert "constraints" not in state
     assert state["status"] == "ready"
     assert state["candidate_required"]
     assert [option["value"] for option in state["options"]] == [22, 23]
