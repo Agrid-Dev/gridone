@@ -1,3 +1,9 @@
+## v0.313.0 (2026-10-14)
+
+### Feat
+
+- **ui**: enable driver discovery per network from the driver page
+
 ## v0.312.1 (2026-10-14)
 
 ### Fix
