@@ -1,3 +1,17 @@
+## v0.312.1 (2026-10-14)
+
+### Fix
+
+- **ui**: ignore individual devices in list cache lookups
+
+### Refactor
+
+- **devices**: keep attribute selection internal
+
+### Perf
+
+- **devices**: hash drivers once and let lists select attributes
+
 ## v0.312.0 (2026-10-13)
 
 ### Feat
