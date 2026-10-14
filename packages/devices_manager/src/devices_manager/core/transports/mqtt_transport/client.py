@@ -179,6 +179,7 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
             raise ValueError(msg)
         return self._client_instance
 
+    @connected
     async def register_listener(
         self, address: MqttAddress, callback: ListenerCallback
     ) -> str:
@@ -187,30 +188,35 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
             # Every attribute of a device may listen on the same topic: without
             # a match, each frame would go through every attribute's codec.
             callback = address.match.only_matching(callback)
-        listener_id = self._handlers_registry.register(topic, callback)
-        await self._subscribe(topic)
-        self._message_handlers.register(topic, listener_id)
+        # One SUBSCRIBE per topic, as OPC-UA keeps one monitored item per node:
+        # a device's attributes share its topic, and a driver save re-registers
+        # them all at once (AGR-1695). The lock is held across the SUBSCRIBE, so
+        # a second listener waits for the broker to confirm the first, and a
+        # reconnect cannot interleave.
+        async with self._connection_lock:
+            if not self._message_handlers.get_by_topic(topic):
+                await self._client.subscribe(topic)
+            listener_id = self._handlers_registry.register(topic, callback)
+            self._message_handlers.register(topic, listener_id)
         logger.debug("New listener registered on topic %s", topic)
         return listener_id
 
     async def unregister_listener(
         self, callback_id: str, topic: str | None = None
     ) -> None:
-        # unregister from _message handler
-        self._message_handlers.unregister(callback_id, topic)
-        if topic and len(self._message_handlers.get_by_topic(topic)) == 0:
-            # Await the unsubscribe: a detached task could run after a
-            # sequential re-subscribe on the same topic and drop it, hanging
-            # the next read until timeout.
-            await self._unsubscribe(topic)
-
-    @connected
-    async def _subscribe(self, topic: str) -> None:
-        await self._client.subscribe(topic)
-
-    @connected
-    async def _unsubscribe(self, topic: str) -> None:
-        await self._client.unsubscribe(topic)
+        # Under the same lock: an UNSUBSCRIBE must not drop a topic that
+        # another listener has just subscribed again.
+        async with self._connection_lock:
+            self._message_handlers.unregister(callback_id, topic)
+            if (
+                topic
+                and not self._message_handlers.get_by_topic(topic)
+                and self.connection_state.is_connected
+            ):
+                # Awaited, not detached. While disconnected there is nothing to
+                # drop: the broker forgot the session, and _resubscribe works
+                # from the listeners left.
+                await self._client.unsubscribe(topic)
 
     async def _handle_incoming_messages(self, client: aiomqtt.Client) -> None:
         """Dispatch the client's messages until the broker drops the session."""

@@ -256,14 +256,17 @@ async def test_close(mqtt_client: MqttTransportClient, mock_aiomqtt_client: Asyn
 @pytest.mark.asyncio
 async def test_subscribe(mqtt_client, mock_aiomqtt_client):
     await mqtt_client.connect()
-    await mqtt_client._subscribe("test/topic")  # noqa: SLF001
+    address = mqtt_client.build_address({"topic": "test/topic"})
+    await mqtt_client.register_listener(address, Mock())
     mock_aiomqtt_client.subscribe.assert_awaited_once_with("test/topic")
 
 
 @pytest.mark.asyncio
 async def test_unsubscribe(mqtt_client, mock_aiomqtt_client):
     await mqtt_client.connect()
-    await mqtt_client._unsubscribe("test/topic")  # noqa: SLF001
+    address = mqtt_client.build_address({"topic": "test/topic"})
+    listener_id = await mqtt_client.register_listener(address, Mock())
+    await mqtt_client.unregister_listener(listener_id, "test/topic")
     mock_aiomqtt_client.unsubscribe.assert_awaited_once_with("test/topic")
 
 
