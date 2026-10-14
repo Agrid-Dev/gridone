@@ -179,27 +179,84 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
             raise ValueError(msg)
         return self._client_instance
 
-    @connected
     async def register_listener(
         self, address: MqttAddress, callback: ListenerCallback
     ) -> str:
-        topic = address.topic
-        if address.match is not None:
-            # Every attribute of a device may listen on the same topic: without
-            # a match, each frame would go through every attribute's codec.
-            callback = address.match.only_matching(callback)
-        # One SUBSCRIBE per topic, as OPC-UA keeps one monitored item per node:
-        # a device's attributes share its topic, and a driver save re-registers
-        # them all at once (AGR-1695). The lock is held across the SUBSCRIBE, so
-        # a second listener waits for the broker to confirm the first, and a
-        # reconnect cannot interleave.
-        async with self._connection_lock:
-            if not self._message_handlers.get_by_topic(topic):
+        # A request will produce a fresh reply. A listen-only read instead
+        # needs the broker to replay its retained state, even on an active topic.
+        listener_ids = await self._register_listeners(
+            [(address, callback)], replay_retained=address.request is None
+        )
+        return listener_ids[0]
+
+    async def register_listeners(
+        self, listeners: list[tuple[MqttAddress, ListenerCallback]]
+    ) -> list[str]:
+        """Subscribe once per topic for a device's entire batch of attributes.
+
+        Re-subscribe even to active topics: MQTT 3.1.1 replays retained messages
+        on SUBSCRIBE, so new/replaced devices receive the broker's current state.
+        Caching live frames cannot replace this: their RETAIN flag is always 0.
+        """
+        return await self._register_listeners(listeners, replay_retained=True)
+
+    async def _register_listeners(
+        self,
+        listeners: list[tuple[MqttAddress, ListenerCallback]],
+        *,
+        replay_retained: bool,
+    ) -> list[str]:
+        """Recheck the connection after locking: a queued close may have won.
+
+        Reconnect outside the lock, since connect() acquires that same lock.
+        Connection failures propagate instead of registering orphan listeners.
+        """
+        if not listeners:
+            return []
+        while True:
+            await self.ensure_connected()
+            async with self._connection_lock:
+                if self.connection_state.is_connected:
+                    return await self._subscribe_listeners(
+                        listeners, replay_retained=replay_retained
+                    )
+
+    async def _subscribe_listeners(
+        self,
+        listeners: list[tuple[MqttAddress, ListenerCallback]],
+        *,
+        replay_retained: bool,
+    ) -> list[str]:
+        """Install callbacks before SUBSCRIBE so even pre-SUBACK frames arrive.
+
+        Called under the connection lock. Roll back this batch on failure or
+        cancellation, preserving any existing listeners on the same topics.
+        """
+        topics = dict.fromkeys(address.topic for address, _ in listeners)
+        subscribing = [
+            topic
+            for topic in topics
+            if replay_retained or not self._message_handlers.get_by_topic(topic)
+        ]
+        registered: dict[str, str] = {}
+        try:
+            for address, callback in listeners:
+                handler = (
+                    address.match.only_matching(callback)
+                    if address.match is not None
+                    else callback
+                )
+                listener_id = self._handlers_registry.register(address.topic, handler)
+                self._message_handlers.register(address.topic, listener_id)
+                registered[listener_id] = address.topic
+            for topic in subscribing:
                 await self._client.subscribe(topic)
-            listener_id = self._handlers_registry.register(topic, callback)
-            self._message_handlers.register(topic, listener_id)
-        logger.debug("New listener registered on topic %s", topic)
-        return listener_id
+        except BaseException:
+            for listener_id, topic in registered.items():
+                self._message_handlers.unregister(listener_id, topic)
+                self._handlers_registry.remove(listener_id, topic)
+            raise
+        return list(registered)
 
     async def unregister_listener(
         self, callback_id: str, topic: str | None = None

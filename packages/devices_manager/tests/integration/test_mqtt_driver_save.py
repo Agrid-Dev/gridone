@@ -95,6 +95,7 @@ async def test_a_driver_save_subscribes_each_device_topic_at_most_once(
                 for mac in macs
             }
             await wait_until(lambda: not service._sync_tasks)  # noqa: SLF001
+            assert subscribes == DEVICES
 
             before_save = subscribes
             await service.install_driver_package(
@@ -117,5 +118,5 @@ async def test_a_driver_save_subscribes_each_device_topic_at_most_once(
         finally:
             await service.stop()
 
-    assert saved_with <= DEVICES, f"{saved_with} SUBSCRIBEs for {DEVICES} devices"
+    assert saved_with == DEVICES, f"{saved_with} SUBSCRIBEs for {DEVICES} devices"
     assert not [r for r in caplog.records if "Failed to start sync" in r.getMessage()]

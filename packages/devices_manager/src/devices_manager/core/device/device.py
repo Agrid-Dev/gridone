@@ -395,6 +395,7 @@ class CoreDevice:
             **self.driver.env,
             **self.config,
         }
+        listeners = []
         for attribute in self.attributes.values():
             if attribute.kind == AttributeKind.INTERNAL:
                 continue
@@ -405,9 +406,8 @@ class CoreDevice:
             address = self.transport.build_address(
                 render_struct(attribute_driver.read, context), context
             )
-            await self.transport.register_listener(
-                address, self._make_on_message(codec, attribute)
-            )
+            listeners.append((address, self._make_on_message(codec, attribute)))
+        await self.transport.register_listeners(listeners)
 
     def _make_on_message(
         self, codec: FnCodec, attribute: Attribute
