@@ -55,8 +55,12 @@ vi.mock("@/hooks/useFaultsList", () => ({
   useFaultsList: () => ({ faults, loading: false, error: null }),
 }));
 
-vi.mock("@/hooks/useDevicesList", () => ({
-  useDevicesList: () => ({ devices, loading: false, error: null }),
+const { deviceFleetCalls } = vi.hoisted(() => ({ deviceFleetCalls: vi.fn() }));
+vi.mock("@/hooks/useDeviceFleet", () => ({
+  useDeviceFleet: (...args: unknown[]) => {
+    deviceFleetCalls(...args);
+    return { devices, loading: false, error: null };
+  },
 }));
 
 vi.mock("@/hooks/usePendingAppRequests", () => ({
@@ -126,6 +130,7 @@ beforeEach(() => {
   faults = [];
   devices = [];
   pendingAppRequests = 0;
+  deviceFleetCalls.mockClear();
 });
 afterEach(cleanup);
 
@@ -417,6 +422,16 @@ describe("Sidebar", () => {
     it("renders no devices badge for an empty fleet", () => {
       renderSidebar();
       expect(screen.queryByLabelText(/devices/)).not.toBeInTheDocument();
+    });
+
+    // A count on every page: the light fleet list, refreshed once a minute
+    // (the devices page shares it, at its own pace, when open).
+    it("counts devices from the fleet list, refreshed every minute", () => {
+      renderSidebar();
+      expect(deviceFleetCalls).toHaveBeenCalled();
+      for (const args of deviceFleetCalls.mock.calls) {
+        expect(args).toEqual([undefined, { refetchInterval: 60_000 }]);
+      }
     });
   });
 

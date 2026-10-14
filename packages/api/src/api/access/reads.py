@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from api.access.policy import AccessPolicy
     from devices_manager import DevicesServiceInterface
     from devices_manager.dto import FaultView
-    from devices_manager.dto.device_dto import Device
+    from devices_manager.dto.device_dto import AttributeSelection, Device
     from models.types import DataType, Severity
 
 
@@ -50,11 +50,17 @@ class ScopedDeviceReads:
         return self._policy.is_unrestricted
 
     def list_devices(self, **query: Any) -> list[Device]:  # noqa: ANN401
-        devices = self._dm.list_devices(**query)
         if self._policy.is_unrestricted:
-            return devices
+            return self._dm.list_devices(**query)
+        # Visibility and the attribute filters judge the whole device, so a
+        # selection only trims what is left to return.
+        selection: AttributeSelection | None = query.pop("attribute_selection", None)
+        devices = self._dm.list_devices(**query)
         projected = (self._policy.project_device(d) for d in devices)
-        return [d for d in projected if d is not None and _still_matches(d, query)]
+        visible = [d for d in projected if d is not None and _still_matches(d, query)]
+        if selection is None:
+            return visible
+        return [selection.restrict(d) for d in visible]
 
     def get_device(self, device_id: str) -> Device:
         device = self._policy.project_device(self._dm.get_device(device_id))

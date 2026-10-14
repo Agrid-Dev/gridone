@@ -54,9 +54,9 @@ vi.mock("react-i18next", () =>
   }),
 );
 
-const mockUseDevicesList = vi.fn();
-vi.mock("@/hooks/useDevicesList", () => ({
-  useDevicesList: (...args: unknown[]) => mockUseDevicesList(...args),
+const mockUseDeviceFleet = vi.fn();
+vi.mock("@/hooks/useDeviceFleet", () => ({
+  useDeviceFleet: (...args: unknown[]) => mockUseDeviceFleet(...args),
 }));
 
 const floor = {
@@ -134,7 +134,7 @@ function renderAt(initialEntries: string[] = ["/devices"]) {
  *  undefined) and with no argument for the unfiltered counts. Only the
  *  one-argument calls carry the wiring under test. */
 function lastListFilter(): DevicesFilter | undefined {
-  const calls = mockUseDevicesList.mock.calls.filter((c) => c.length === 1);
+  const calls = mockUseDeviceFleet.mock.calls.filter((c) => c.length === 1);
   return calls.at(-1)?.[0] as DevicesFilter | undefined;
 }
 
@@ -143,7 +143,7 @@ beforeEach(() => {
   localStorage.removeItem("devices.view");
   isAdmin = true;
   granted = null;
-  mockUseDevicesList.mockReturnValue({
+  mockUseDeviceFleet.mockReturnValue({
     devices: [makeDevice("d1", "Alpha")],
     loading: false,
     error: null,
@@ -153,12 +153,12 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   localStorage.removeItem("devices.view");
-  mockUseDevicesList.mockReset();
+  mockUseDeviceFleet.mockReset();
 });
 
 describe("DevicesList — filters", () => {
-  it("renders whatever useDevicesList returns", () => {
-    mockUseDevicesList.mockReturnValue({
+  it("renders whatever useDeviceFleet returns", () => {
+    mockUseDeviceFleet.mockReturnValue({
       devices: [makeDevice("d1", "Alpha"), makeDevice("d2", "Bravo")],
       loading: false,
       error: null,
@@ -169,7 +169,7 @@ describe("DevicesList — filters", () => {
   });
 
   it("always offers type and fault filters, even for a single-type healthy fleet", () => {
-    mockUseDevicesList.mockReturnValue({
+    mockUseDeviceFleet.mockReturnValue({
       devices: [makeDevice("d1", "T1", { type: "thermostat" })],
       loading: false,
       error: null,
@@ -181,7 +181,7 @@ describe("DevicesList — filters", () => {
   });
 
   it("sends every selected type to the server", async () => {
-    mockUseDevicesList.mockReturnValue({
+    mockUseDeviceFleet.mockReturnValue({
       devices: [
         makeDevice("d1", "T1", { type: "thermostat" }),
         makeDevice("d2", "M1", { type: "electricity_meter" }),
@@ -228,7 +228,7 @@ describe("DevicesList — filters", () => {
 
   it("shows the fleet total, not an empty match count, while the filtered list loads", () => {
     const fleet = [makeDevice("d1", "Alpha"), makeDevice("d2", "Bravo")];
-    mockUseDevicesList.mockImplementation((...args: unknown[]) =>
+    mockUseDeviceFleet.mockImplementation((...args: unknown[]) =>
       args.length === 0
         ? { devices: fleet, loading: false, error: null }
         : { devices: [], loading: true, error: null },
@@ -240,7 +240,7 @@ describe("DevicesList — filters", () => {
 
   it("counts matches against the fleet and resets every filter at once", async () => {
     const fleet = [makeDevice("d1", "Alpha"), makeDevice("d2", "Bravo")];
-    mockUseDevicesList.mockImplementation((...args: unknown[]) => ({
+    mockUseDeviceFleet.mockImplementation((...args: unknown[]) => ({
       devices: args.length === 0 ? fleet : [fleet[0]],
       loading: false,
       error: null,
@@ -254,7 +254,7 @@ describe("DevicesList — filters", () => {
 
 describe("DevicesList — other type bucket", () => {
   beforeEach(() => {
-    mockUseDevicesList.mockReturnValue({
+    mockUseDeviceFleet.mockReturnValue({
       devices: [
         makeDevice("d1", "T1", { type: "thermostat" }),
         makeDevice("d3", "M1", { type: "electricity_meter" }),
@@ -334,7 +334,7 @@ describe("DevicesList — cards", () => {
   });
 
   it("sorts devices by name within a group", () => {
-    mockUseDevicesList.mockReturnValue({
+    mockUseDeviceFleet.mockReturnValue({
       devices: [
         makeDevice("d1", "chambre 12", { type: "thermostat" }),
         makeDevice("d2", "Atrium", { type: "thermostat" }),
@@ -361,7 +361,7 @@ describe("DevicesList — cards", () => {
   });
 
   it("shows a stopped unit as idle, even with a configured mode", () => {
-    mockUseDevicesList.mockReturnValue({
+    mockUseDeviceFleet.mockReturnValue({
       devices: [
         makeDevice("d1", "Chambre 102", {
           type: "thermostat",
@@ -384,7 +384,7 @@ describe("DevicesList — cards", () => {
   });
 
   it("summarizes a thermostat: location, setpoint, measured reading, mode", () => {
-    mockUseDevicesList.mockReturnValue({
+    mockUseDeviceFleet.mockReturnValue({
       devices: [
         makeDevice("d1", "Ch. 201", {
           type: "thermostat",
@@ -417,7 +417,7 @@ describe("DevicesList — cards", () => {
   });
 
   it("shows the highest active severity instead of the healthy label", () => {
-    mockUseDevicesList.mockReturnValue({
+    mockUseDeviceFleet.mockReturnValue({
       devices: [
         makeDevice("d1", "Ch. 411", {
           type: "thermostat",
@@ -444,7 +444,7 @@ describe("DevicesList — cards", () => {
   });
 
   it("groups cards under canonical type headings with counts", () => {
-    mockUseDevicesList.mockReturnValue({
+    mockUseDeviceFleet.mockReturnValue({
       devices: [
         makeDevice("d3", "M1", { type: "electricity_meter" }),
         makeDevice("d1", "T1", { type: "thermostat" }),
@@ -471,7 +471,7 @@ describe("DevicesList — cards", () => {
   it("does not fetch history for cards that never became visible", () => {
     // The global IntersectionObserver stub never reports an intersection, so
     // a card rendered off-screen must not mount its sparkline.
-    mockUseDevicesList.mockReturnValue({
+    mockUseDeviceFleet.mockReturnValue({
       devices: [
         makeDevice("d1", "Ch. 201", {
           type: "thermostat",
@@ -488,7 +488,7 @@ describe("DevicesList — cards", () => {
 
 describe("DevicesList — summary", () => {
   it("shows the fleet total and non-zero connection buckets", () => {
-    mockUseDevicesList.mockReturnValue({
+    mockUseDeviceFleet.mockReturnValue({
       devices: [
         makeDevice("d1", "A", {
           attributes: { connection_status: attr("ok") },
@@ -517,7 +517,7 @@ describe("DevicesList — summary", () => {
 
   it("hides connection status from non-admin users", () => {
     isAdmin = false;
-    mockUseDevicesList.mockReturnValue({
+    mockUseDeviceFleet.mockReturnValue({
       devices: [
         makeDevice("d1", "Chambre 101", {
           type: "thermostat",

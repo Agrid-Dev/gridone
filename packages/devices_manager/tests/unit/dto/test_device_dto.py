@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
+from unittest.mock import MagicMock, patch
 
 import pytest
 from pydantic import ValidationError
@@ -13,13 +14,21 @@ from devices_manager.core.device import (
 )
 from devices_manager.core.device.attribute import AttributeKind
 from devices_manager.dto.device_dto import (
+    AttributeSelection,
     Device,
     DeviceCreate,
     core_to_dto,
     dto_to_core,
+    revision_per_driver,
 )
+from devices_manager.dto.presentation_dto import PresentationReference
 from devices_manager.types import DataType
+from models.attribute_metadata import LocalizedText, ValueLabel, WriteConstraints
 from models.types import Severity
+from models.write_rules import AttributeWriteState
+
+# Patched where the DTO module looks it up, at call time.
+_HASH = "devices_manager.dto.device_dto.get_presentation_revision"
 
 
 @pytest.fixture
@@ -362,3 +371,317 @@ class TestDeviceAttributeSerialization:
         assert isinstance(attr, Attribute)
         assert attr.kind == AttributeKind.INTERNAL
         assert attr.current_value == "degraded"
+
+
+# What a selection drops from every attribute it keeps.
+_OMITTED = (
+    "write_constraints",
+    "write_state",
+    "description",
+    "user_confirmation",
+    "default_value",
+)
+_NOW = datetime(2026, 1, 1, tzinfo=UTC)
+_CONSTRAINTS = WriteConstraints(minimum=5, maximum=30, step=0.5)
+
+
+def _rich_attribute(
+    name: str, data_type: DataType, value: object, **fields: object
+) -> Attribute:
+    """An attribute carrying the fields a selection keeps and the ones it drops."""
+    return Attribute.model_validate(
+        {
+            "name": name,
+            "data_type": data_type,
+            "read_write_modes": {"read", "write"},
+            "current_value": value,
+            "last_updated": _NOW,
+            "last_changed": _NOW,
+            "label": LocalizedText(default=f"{name} label"),
+            "description": LocalizedText(default=f"What {name} is"),
+            "user_confirmation": LocalizedText(default=f"Change {name}?"),
+            "write_state": AttributeWriteState(status="ready"),
+            **fields,
+        }
+    )
+
+
+def _fault(name: str, value: str) -> FaultAttribute:
+    return FaultAttribute(
+        name=name,
+        data_type=DataType.STRING,
+        read_write_modes={"read"},
+        current_value=value,
+        healthy_values=["ok"],
+        severity=Severity.ALERT,
+        last_updated=_NOW,
+        last_changed=_NOW,
+        description=LocalizedText(default=f"What {name} means"),
+    )
+
+
+@pytest.fixture
+def rich_device(driver, mock_transport_client) -> CoreDevice:
+    """A device with standard, internal and fault attributes, one fault active.
+
+    ``temperature_setpoint`` is also a driver attribute, so its write state is
+    the guard's projection, as in production.
+    """
+    attributes: dict[str, Attribute] = {
+        "temperature_setpoint": _rich_attribute(
+            "temperature_setpoint",
+            DataType.FLOAT,
+            21.0,
+            unit="°C",
+            write_constraints=_CONSTRAINTS,
+            default_value=20.0,
+        ),
+        "onoff_state": _rich_attribute(
+            "onoff_state",
+            DataType.BOOL,
+            value=True,
+            value_labels=[
+                ValueLabel(value=False, label=LocalizedText(default="Off")),
+                ValueLabel(value=True, label=LocalizedText(default="On")),
+            ],
+            default_value=False,
+        ),
+        "mode": _rich_attribute(
+            "mode",
+            DataType.STRING,
+            "heat",
+            value_options=["heat", "cool"],
+            default_value="heat",
+        ),
+        "connection_status": Attribute(
+            name="connection_status",
+            kind=AttributeKind.INTERNAL,
+            data_type=DataType.STRING,
+            read_write_modes={"read"},
+            current_value="ok",
+        ),
+        "alarm": _fault("alarm", "error"),
+        "filter_alarm": _fault("filter_alarm", "ok"),
+    }
+    return CoreDevice(
+        id="d1",
+        name="D1",
+        attributes=attributes,
+        driver=driver,
+        transport=mock_transport_client,
+        config={},
+    )
+
+
+class TestAttributeSelection:
+    """A listing's selection keeps the named attributes and every attribute of
+    the selected kinds, each without its write contract or texts."""
+
+    @pytest.mark.parametrize(
+        ("selection", "expected"),
+        [
+            pytest.param(
+                AttributeSelection(names=frozenset({"temperature_setpoint", "mode"})),
+                {"temperature_setpoint", "mode"},
+                id="names",
+            ),
+            pytest.param(
+                AttributeSelection(kinds=frozenset({AttributeKind.FAULT})),
+                {"alarm", "filter_alarm"},
+                id="fault-kind",
+            ),
+            pytest.param(
+                AttributeSelection(kinds=frozenset({AttributeKind.INTERNAL})),
+                {"connection_status"},
+                id="internal-kind",
+            ),
+            pytest.param(
+                AttributeSelection(kinds=frozenset({AttributeKind.STANDARD})),
+                {"temperature_setpoint", "onoff_state", "mode"},
+                id="standard-kind",
+            ),
+            pytest.param(
+                AttributeSelection(
+                    names=frozenset({"mode"}),
+                    kinds=frozenset({AttributeKind.FAULT}),
+                ),
+                {"mode", "alarm", "filter_alarm"},
+                id="names-and-kinds",
+            ),
+            pytest.param(
+                AttributeSelection(names=frozenset({"humidity"})),
+                set(),
+                id="name-the-device-lacks",
+            ),
+            pytest.param(AttributeSelection(), set(), id="empty"),
+        ],
+    )
+    def test_keeps_the_named_attributes_and_the_selected_kinds(
+        self, rich_device, selection, expected
+    ):
+        dto = core_to_dto(rich_device, attribute_selection=selection)
+
+        assert set(dto.attributes) == expected
+
+    def test_without_a_selection_every_attribute_comes_whole(self, rich_device):
+        dto = core_to_dto(rich_device)
+
+        assert set(dto.attributes) == set(rich_device.attributes)
+        setpoint = dto.attributes["temperature_setpoint"]
+        assert all(getattr(setpoint, field) is not None for field in _OMITTED)
+
+    def test_a_kept_attribute_loses_its_write_contract_and_texts_only(
+        self, rich_device
+    ):
+        everything = AttributeSelection(names=frozenset(rich_device.attributes))
+
+        dto = core_to_dto(rich_device, attribute_selection=everything)
+
+        # Not vacuous: the live setpoint carries all five, write state included.
+        live_setpoint = rich_device.attributes["temperature_setpoint"]
+        assert all(getattr(live_setpoint, field) is not None for field in _OMITTED)
+        for name, kept in dto.attributes.items():
+            live = rich_device.attributes[name]
+            assert all(getattr(kept, field) is None for field in _OMITTED), name
+            # Value, timestamps, kind, type, unit, label, value labels and
+            # options, severity: everything else is the live attribute's.
+            assert kept.model_dump(exclude=set(_OMITTED)) == live.model_dump(
+                exclude=set(_OMITTED)
+            ), name
+        assert dto.attributes["onoff_state"].value_labels is not None
+        alarm = dto.attributes["alarm"]
+        assert isinstance(alarm, FaultAttribute)
+        assert alarm.is_faulty is True
+
+    def test_the_wire_shape_has_no_write_contract_or_texts(self, rich_device):
+        dto = core_to_dto(
+            rich_device,
+            attribute_selection=AttributeSelection(
+                names=frozenset({"temperature_setpoint"})
+            ),
+        )
+
+        payload = json.loads(dto.model_dump_json())["attributes"]
+        assert set(payload) == {"temperature_setpoint"}
+        setpoint = payload["temperature_setpoint"]
+        assert set(_OMITTED).isdisjoint(setpoint)
+        assert setpoint["current_value"] == 21.0
+        assert setpoint["unit"] == "°C"
+        assert setpoint["label"] == {
+            "default": "temperature_setpoint label",
+            "translations": {},
+        }
+
+    def test_the_live_device_keeps_its_full_attributes(self, rich_device):
+        # Project once up front so the snapshot is what the listing projects.
+        rich_device.project_write_states()
+        before = {name: a.model_dump() for name, a in rich_device.attributes.items()}
+
+        dto = core_to_dto(
+            rich_device,
+            attribute_selection=AttributeSelection(
+                names=frozenset(rich_device.attributes)
+            ),
+        )
+
+        after = {name: a.model_dump() for name, a in rich_device.attributes.items()}
+        assert after == before
+        assert all(
+            dto.attributes[name] is not rich_device.attributes[name]
+            for name in dto.attributes
+        )
+        # The next full read (a device page) still serves the write contract.
+        full = core_to_dto(rich_device).attributes["temperature_setpoint"]
+        assert full.write_constraints == _CONSTRAINTS
+        assert full.write_state is not None
+        assert full.description is not None
+
+    @pytest.mark.parametrize(
+        "selection",
+        [
+            pytest.param(AttributeSelection(), id="empty"),
+            pytest.param(AttributeSelection(names=frozenset({"mode"})), id="no-fault"),
+        ],
+    )
+    def test_is_faulty_reads_the_faults_a_selection_leaves_out(
+        self, rich_device, selection
+    ):
+        dto = core_to_dto(rich_device, attribute_selection=selection)
+
+        assert not any(a.kind == AttributeKind.FAULT for a in dto.attributes.values())
+        assert dto.is_faulty is True
+
+    def test_restrict_trims_a_public_device_and_leaves_it_whole(self, rich_device):
+        full = core_to_dto(rich_device)
+
+        trimmed = AttributeSelection(names=frozenset({"mode"})).restrict(full)
+
+        assert set(trimmed.attributes) == {"mode"}
+        assert trimmed.attributes["mode"].write_state is None
+        assert trimmed.attributes["mode"].current_value == "heat"
+        assert trimmed.model_dump(exclude={"attributes"}) == full.model_dump(
+            exclude={"attributes"}
+        )
+        assert set(full.attributes) == set(rich_device.attributes)
+        assert full.attributes["mode"].write_state is not None
+
+
+class TestPresentationRevisionLookup:
+    """A listing hashes each driver once; ``core_to_dto`` takes its lookup."""
+
+    def test_core_to_dto_uses_the_given_lookup(self, rich_device):
+        lookup = MagicMock(return_value="rev-listing")
+
+        with patch(_HASH, side_effect=AssertionError("hashed despite a lookup")):
+            dto = core_to_dto(rich_device, revision_of=lookup)
+
+        lookup.assert_called_once_with(rich_device.driver)
+        assert dto.presentation_ref == PresentationReference(revision="rev-listing")
+
+    def test_a_lookup_without_revision_leaves_no_presentation(self, rich_device):
+        dto = core_to_dto(rich_device, revision_of=lambda _driver: None)
+
+        assert dto.presentation_ref is None
+
+    def test_without_a_lookup_core_to_dto_hashes_the_driver(self, rich_device):
+        with patch(_HASH, return_value="rev-direct") as hashed:
+            dto = core_to_dto(rich_device)
+
+        hashed.assert_called_once_with(rich_device.driver)
+        assert dto.presentation_ref == PresentationReference(revision="rev-direct")
+
+    def test_revision_per_driver_hashes_each_driver_once(
+        self, driver, thermostat_driver
+    ):
+        with patch(_HASH, side_effect=lambda d: f"rev-{d.id}") as hashed:
+            revision_of = revision_per_driver()
+            revisions = [
+                revision_of(d)
+                for d in (driver, thermostat_driver, driver, thermostat_driver, driver)
+            ]
+
+        assert revisions == [
+            "rev-test_driver",
+            "rev-thermostat_driver",
+            "rev-test_driver",
+            "rev-thermostat_driver",
+            "rev-test_driver",
+        ]
+        assert hashed.call_count == 2
+
+    def test_revision_per_driver_remembers_a_driver_without_presentation(self, driver):
+        with patch(_HASH, return_value=None) as hashed:
+            revision_of = revision_per_driver()
+            assert revision_of(driver) is None
+            assert revision_of(driver) is None
+
+        hashed.assert_called_once_with(driver)
+
+    def test_each_lookup_hashes_afresh(self, driver):
+        # One lookup per listing: a driver edited between two listings is
+        # hashed again by the next one.
+        with patch(_HASH, side_effect=["rev-before-edit", "rev-after-edit"]):
+            first = revision_per_driver()(driver)
+            second = revision_per_driver()(driver)
+
+        assert (first, second) == ("rev-before-edit", "rev-after-edit")

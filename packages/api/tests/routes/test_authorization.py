@@ -89,7 +89,7 @@ from devices_manager.core.device import Attribute
 from devices_manager.core.device.connection_status import AttributeLogs
 from devices_manager.core.presentation.resources import StoredResource
 from devices_manager.dto import FaultView
-from devices_manager.dto.device_dto import Device
+from devices_manager.dto.device_dto import AttributeSelection, Device
 from devices_manager.dto.presentation_dto import UnavailablePresentationResponse
 from devices_manager.types import DataType
 from documents import DocumentCreate, DocumentsService
@@ -2360,6 +2360,148 @@ def test_devices_read_scopes_project_every_read_path(username, path, expected, c
     assert resp.status_code == expected, resp.text
     if check is not None:
         assert check(resp.json()), resp.json()
+
+
+# --- an attribute selection trims what a scope lets through, nothing more ---
+
+# Reads temperatures, on every device.
+TEMPERATURE_READER_ROLE = Role(
+    id="temperature_reader",
+    name="Temperature reader",
+    permissions=[Permission.DEVICES_READ],
+    scopes={Permission.DEVICES_READ: [DeviceScope(attributes=["temperature"])]},
+)
+# Reads the zones, and the thermostats in them.
+ZONE_READER_ROLE = Role(
+    id="zone_reader",
+    name="Zone reader",
+    permissions=[Permission.ASSETS_READ, Permission.DEVICES_READ],
+    scopes={
+        Permission.DEVICES_READ: [
+            DeviceScope(devices=DeviceSelector(types=["thermostat"]))
+        ]
+    },
+)
+_SELECTION_ROLES = {r.id: r for r in (TEMPERATURE_READER_ROLE, ZONE_READER_ROLE)}
+_ZONE_ID = "zone"
+
+
+class _SelectionUsersService(MockUsersService):
+    """The shared users, plus a temperature reader and a zone reader."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        for username, role in (
+            ("temperature-reader", TEMPERATURE_READER_ROLE),
+            ("zone-reader", ZONE_READER_ROLE),
+        ):
+            self._credentials[username] = username
+            self._users[username] = User(
+                id=f"{username}-id", username=username, role=role.id
+            )
+
+    async def find_role(self, role_id: str) -> Role | None:
+        return _SELECTION_ROLES.get(role_id) or await super().find_role(role_id)
+
+
+def _build_selection_devices_app() -> FastAPI:
+    """The scoped devices app, plus the zone tree, over a service that, like
+    the real one, matches the filters on whole devices and only then applies
+    a selection. Both devices sit in one zone."""
+    app = _build_scoped_devices_app()
+    app.dependency_overrides[get_users_service] = _SelectionUsersService
+    devices = [
+        d.model_copy(update={"tags": {"asset_id": [_ZONE_ID]}})
+        for d in (_THERMOSTAT, _ROOM)
+    ]
+
+    def _list_devices(
+        *,
+        attribute: str | None = None,
+        attribute_selection: AttributeSelection | None = None,
+        **_query: object,
+    ) -> list[Device]:
+        matched = [d for d in devices if attribute is None or attribute in d.attributes]
+        if attribute_selection is None:
+            return matched
+        return [attribute_selection.restrict(d) for d in matched]
+
+    app.state.device_manager.list_devices.side_effect = _list_devices
+    assets = AsyncMock()
+    assets.get_tree.return_value = [{"id": _ZONE_ID, "name": "Zone", "children": []}]
+    app.dependency_overrides[get_assets_service] = lambda: assets
+    app.include_router(
+        assets_router, prefix="/assets", dependencies=[Depends(get_current_user_id)]
+    )
+    return app
+
+
+SELECTION_SCENARIOS = [
+    pytest.param(
+        "temperature-reader",
+        "/devices/?include_attributes=temperature&include_attributes=mode"
+        "&include_attributes=humidity",
+        {"thermo": ["temperature"]},
+        id="selection-never-widens-the-scope",
+    ),
+    pytest.param(
+        "temperature-reader",
+        "/devices/?include_attributes=mode",
+        {"thermo": []},
+        id="readable-device-listed-without-attributes",
+    ),
+    pytest.param(
+        "reader",
+        "/devices/?include_attributes=humidity",
+        {"thermo": []},
+        id="unreadable-device-stays-hidden",
+    ),
+    pytest.param(
+        "temperature-reader",
+        "/devices/?attribute=mode&include_attributes=temperature",
+        {},
+        id="filter-on-unreadable-attribute-excludes",
+    ),
+    pytest.param(
+        "temperature-reader",
+        "/devices/?attribute=temperature&include_attributes=mode",
+        {"thermo": []},
+        id="filter-judged-before-the-selection-trims",
+    ),
+    pytest.param(
+        "admin",
+        "/devices/?include_attributes=mode",
+        {"thermo": ["mode"], "room": []},
+        id="admin-selection-passes-through",
+    ),
+]
+
+
+@pytest.mark.parametrize(("username", "path", "expected"), SELECTION_SCENARIOS)
+def test_a_selection_only_trims_what_the_scope_lets_through(username, path, expected):
+    with TestClient(_build_selection_devices_app()) as client:
+        headers = _auth_header(_login(client, username))
+        resp = client.get(path, headers=headers)
+    assert resp.status_code == 200, resp.text
+    assert {d["id"]: sorted(d["attributes"]) for d in resp.json()} == expected
+
+
+@pytest.mark.parametrize(
+    ("username", "expected"),
+    [
+        pytest.param("zone-reader", ["thermo"], id="scoped-names-its-thermostat"),
+        pytest.param("admin", ["thermo", "room"], id="admin-names-both"),
+    ],
+)
+def test_the_zone_tree_names_the_devices_the_scope_lets_through(username, expected):
+    # The tree lists devices with an empty selection: a device must be judged
+    # readable on its attributes before they are all trimmed away.
+    with TestClient(_build_selection_devices_app()) as client:
+        headers = _auth_header(_login(client, username))
+        resp = client.get("/assets/tree-with-devices", headers=headers)
+    assert resp.status_code == 200, resp.text
+    [zone] = resp.json()
+    assert [d["id"] for d in zone["devices"]] == expected
 
 
 # A route serving device data must read through the caller's policy. Walk

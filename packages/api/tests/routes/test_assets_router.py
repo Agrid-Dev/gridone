@@ -36,7 +36,7 @@ from commands import BatchCommandDispatch, CommandsServiceInterface, UnitCommand
 from commands.models import CommandStatus
 from devices_manager import DevicesServiceInterface
 from devices_manager.core.device import Attribute
-from devices_manager.dto.device_dto import Device
+from devices_manager.dto.device_dto import AttributeSelection, Device
 from devices_manager.types import DataType
 from models.errors import InvalidError, NotFoundError
 from models.targets import DevicesFilter
@@ -426,6 +426,35 @@ class TestGetTreeWithDevices:
         linked_ids = {d["id"] for d in node["devices"]}
         # t-b is linked to _CHILD_ASSET_ID, not _ASSET_ID
         assert "t-b" not in linked_ids
+
+    @pytest.mark.asyncio
+    async def test_names_nested_zones_from_device_names_and_tags_only(
+        self, async_client: AsyncClient, assets_service: MagicMock, dm: MagicMock
+    ):
+        assets_service.get_tree.return_value = [
+            {
+                "id": _ASSET_ID,
+                "name": "HQ",
+                "children": [
+                    {"id": _CHILD_ASSET_ID, "name": "Floor 1", "children": []}
+                ],
+            }
+        ]
+        async with async_client as ac:
+            response = await ac.get("/tree-with-devices")
+        assert response.status_code == 200
+        [building] = response.json()
+        assert building["devices"] == [
+            {"id": "t-a", "name": "Thermostat A"},
+            {"id": "l-1", "name": "Light"},
+        ]
+        assert building["children"][0]["devices"] == [
+            {"id": "t-b", "name": "Thermostat B"}
+        ]
+        # No attribute: building them all was the tree's cost on large sites.
+        dm.list_devices.assert_called_once_with(
+            attribute_selection=AttributeSelection()
+        )
 
 
 class TestListAssets:

@@ -10,9 +10,16 @@ vi.mock("@/contexts/GridoneClientContext", () => ({
 }));
 
 // Imported after the client mock is registered.
-import { useDeviceById } from "../useDeviceById";
+import { findDeviceInCachedLists, useDeviceById } from "../useDeviceById";
+import { FLEET_KEY } from "@/pages/devices/standard-devices/fleetAttributes";
 
 const DEVICE = { id: "dev1", name: "Thermostat 1" } as unknown as Device;
+/** The same device as a fleet list holds it: a few attributes only. */
+const FLEET_DEVICE = {
+  id: "dev1",
+  name: "Thermostat 1",
+  attributes: { temperature: { name: "temperature", current_value: 21 } },
+} as unknown as Device;
 
 function setup(seed?: (client: QueryClient) => void) {
   const client = new QueryClient({
@@ -57,5 +64,39 @@ describe("useDeviceById", () => {
     const { result } = setup();
 
     await waitFor(() => expect(result.current.data).toEqual(DEVICE));
+  });
+
+  // Seeded from a fleet list, the device page would miss most attributes
+  // until its own fetch lands.
+  it("fetches rather than render the device a fleet list holds", async () => {
+    get.mockResolvedValue(DEVICE);
+    const { result } = setup((client) =>
+      client.setQueryData(["devices", FLEET_KEY, undefined], [FLEET_DEVICE]),
+    );
+
+    expect(result.current.data).toBeUndefined();
+    await waitFor(() => expect(result.current.data).toEqual(DEVICE));
+    expect(get).toHaveBeenCalledWith("dev1");
+  });
+});
+
+describe("findDeviceInCachedLists", () => {
+  it("skips every fleet list, filtered or not", () => {
+    const client = new QueryClient();
+    client.setQueryData(["devices", FLEET_KEY, undefined], [FLEET_DEVICE]);
+    client.setQueryData(
+      ["devices", FLEET_KEY, { types: ["thermostat"] }],
+      [FLEET_DEVICE],
+    );
+
+    expect(findDeviceInCachedLists(client, "dev1")).toBeUndefined();
+  });
+
+  it("finds the device in a full list cached after a fleet list", () => {
+    const client = new QueryClient();
+    client.setQueryData(["devices", FLEET_KEY, undefined], [FLEET_DEVICE]);
+    client.setQueryData(["devices", undefined], [DEVICE]);
+
+    expect(findDeviceInCachedLists(client, "dev1")?.device).toBe(DEVICE);
   });
 });

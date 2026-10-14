@@ -11088,6 +11088,12 @@ export interface operations {
   list_devices_devices__get: {
     parameters: {
       query?: {
+        /** @description Return only these attributes of each device, without their write contract or descriptions (`GET /devices/{device_id}` has them). */
+        include_attributes?: string[] | null;
+        /** @description Also return every attribute of these kinds, likewise. */
+        include_attribute_kinds?:
+          | components["schemas"]["AttributeKind"][]
+          | null;
         type?: string[] | null;
         ids?: string[] | null;
         tags?: string[] | null;

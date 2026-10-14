@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     from .core.write_preview import DeviceWritePreview
     from .dto import (
         AttributePatch,
+        AttributeSelection,
         Device,
         DeviceCreate,
         DeviceUpdate,
@@ -168,6 +169,7 @@ class DevicesServiceInterface(Protocol):
         search: str | None = None,
         driver_id: str | None = None,
         transport_id: str | None = None,
+        attribute_selection: AttributeSelection | None = None,
     ) -> list[Device]: ...
 
     def get_device(self, device_id: str) -> Device: ...

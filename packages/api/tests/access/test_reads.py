@@ -8,7 +8,7 @@ import pytest
 from api.access import UNRESTRICTED, AccessPolicy, ScopedDeviceReads
 from devices_manager import Attribute, DevicesServiceInterface
 from devices_manager.dto import FaultView
-from devices_manager.dto.device_dto import Device
+from devices_manager.dto.device_dto import AttributeSelection, Device
 from models.errors import NotFoundError
 from models.types import DataType, Severity
 from users.permissions import Permission
@@ -121,6 +121,26 @@ class TestListDevices:
 
         assert devices == [ROOM]
         dm.list_devices.assert_called_once_with(ids=["room"])
+
+    def test_unrestricted_leaves_a_selection_to_the_service(self, dm):
+        selection = AttributeSelection(names=frozenset({"mode"}))
+
+        ScopedDeviceReads(dm, UNRESTRICTED).list_devices(attribute_selection=selection)
+
+        dm.list_devices.assert_called_once_with(attribute_selection=selection)
+
+    def test_scoped_reads_judge_whole_devices_then_trim(self, dm):
+        devices = ScopedDeviceReads(dm, TEMPERATURES_ONLY).list_devices(
+            attribute_selection=AttributeSelection(names=frozenset({"mode"}))
+        )
+
+        # The service lists whole devices: visibility needs every attribute.
+        dm.list_devices.assert_called_once_with()
+        # Both read a temperature, so both stay listed; `mode` is not theirs.
+        assert {d.id: list(d.attributes) for d in devices} == {
+            "thermo": [],
+            "room": [],
+        }
 
 
 class TestGetDevice:

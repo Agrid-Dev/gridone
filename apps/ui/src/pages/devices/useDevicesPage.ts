@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { Device } from "@gridone/sdk";
-import { useDevicesList } from "@/hooks/useDevicesList";
+import { useDeviceFleet } from "@/hooks/useDeviceFleet";
 import { useFilterParams, type Health } from "@/hooks/useFilterParams";
 import { useDeviceZonePath } from "@/hooks/useDeviceZonePath";
 import type { DevicesFilter } from "@/lib/devices";
@@ -47,8 +47,8 @@ type DevicesPage = {
 
 /** Data layer of the devices list page. The list keeps server-side
  *  filtering (URL params → `GET /devices`); filter counts and the fleet
- *  summary come from a second, unfiltered fetch that shares the
- *  `["devices", undefined]` cache the sidebar keeps warm. */
+ *  summary come from a second, unfiltered fetch. Both are fleet lists
+ *  (`useDeviceFleet`), and the unfiltered one shares the sidebar's cache. */
 export function useDevicesPage(): DevicesPage {
   const filter = useFilterParams();
   const selectedTypes = useMemo(
@@ -68,8 +68,8 @@ export function useDevicesPage(): DevicesPage {
     return Object.keys(rest).length === 0 ? undefined : rest;
   }, [filter, otherSelected]);
 
-  const { devices: fetched, loading, error } = useDevicesList(serverFilter);
-  const { devices: allDevices, loading: summaryLoading } = useDevicesList();
+  const { devices: fetched, loading, error } = useDeviceFleet(serverFilter);
+  const { devices: allDevices, loading: summaryLoading } = useDeviceFleet();
   const zonePathOf = useDeviceZonePath();
 
   const groups = useMemo(() => {

@@ -7,7 +7,7 @@ import { usePermissions } from "@/contexts/AuthContext";
 import { useDeviceViews } from "@/hooks/useDeviceViews";
 import { DevicesTabs } from "./DevicesTabs";
 import { GroupError } from "@/components/group-command/GroupError";
-import { useDevicesList } from "@/hooks/useDevicesList";
+import { useDeviceFleet } from "@/hooks/useDeviceFleet";
 import {
   groupMembers,
   groupTagValue,
@@ -17,7 +17,7 @@ export default function ViewsListPage() {
   const { t } = useTranslation(["devices", "common"]);
   const can = usePermissions();
   const views = useDeviceViews();
-  const members = useDevicesList();
+  const members = useDeviceFleet();
   return (
     <section className="space-y-4">
       <ResourceHeader

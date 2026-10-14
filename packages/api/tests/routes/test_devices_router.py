@@ -35,7 +35,7 @@ from devices_manager.core.device.connection_status_attribute import (
     CONNECTION_STATUS_ATTR,
 )
 from devices_manager.core.write_preview import DeviceWritePreview
-from devices_manager.dto.device_dto import Device
+from devices_manager.dto.device_dto import AttributeSelection, Device
 from devices_manager.types import ConnectionStatus, DataType
 from models.attribute_metadata import LocalizedText
 from models.command_confirmation import UIConfirmationContext
@@ -449,6 +449,127 @@ class TestListDevices:
             driver_id=None,
             transport_id=None,
         )
+
+
+# The kwargs every device listing forwards when no filter is given.
+_NO_FILTERS = {
+    "attribute": None,
+    "ids": None,
+    "types": None,
+    "tags": None,
+    "is_faulty": None,
+    "search": None,
+    "driver_id": None,
+    "transport_id": None,
+}
+
+
+class TestListDevicesAttributeSelection:
+    """``include_attributes`` and ``include_attribute_kinds`` make one
+    selection, forwarded beside the filters by the list route only."""
+
+    @pytest.mark.parametrize(
+        ("params", "selection"),
+        [
+            pytest.param(
+                [("include_attributes", "temperature"), ("include_attributes", "mode")],
+                AttributeSelection(names=frozenset({"temperature", "mode"})),
+                id="names",
+            ),
+            pytest.param(
+                [
+                    ("include_attribute_kinds", "fault"),
+                    ("include_attribute_kinds", "internal"),
+                ],
+                AttributeSelection(
+                    kinds=frozenset({AttributeKind.FAULT, AttributeKind.INTERNAL})
+                ),
+                id="kinds-only",
+            ),
+            pytest.param(
+                [
+                    ("include_attributes", "temperature"),
+                    ("include_attribute_kinds", "fault"),
+                ],
+                AttributeSelection(
+                    names=frozenset({"temperature"}),
+                    kinds=frozenset({AttributeKind.FAULT}),
+                ),
+                id="names-and-kinds",
+            ),
+        ],
+    )
+    def test_selection_forwarded_to_service(
+        self,
+        client: TestClient,
+        dm: MagicMock,
+        params: list[tuple[str, str]],
+        selection: AttributeSelection,
+    ):
+        response = client.get("/", params=params)  # ty: ignore[invalid-argument-type]
+
+        assert response.status_code == 200
+        dm.list_devices.assert_called_once_with(
+            **_NO_FILTERS, attribute_selection=selection
+        )
+
+    def test_selection_forwarded_beside_the_filters(
+        self, client: TestClient, dm: MagicMock
+    ):
+        client.get(
+            "/",
+            params=[  # ty: ignore[invalid-argument-type]
+                ("type", "thermostat"),
+                ("attribute", "mode"),
+                ("include_attributes", "temperature"),
+            ],
+        )
+
+        dm.list_devices.assert_called_once_with(
+            **{**_NO_FILTERS, "types": ["thermostat"], "attribute": "mode"},
+            attribute_selection=AttributeSelection(names=frozenset({"temperature"})),
+        )
+
+    def test_no_selection_without_either_parameter(
+        self, client: TestClient, dm: MagicMock
+    ):
+        client.get("/")
+
+        dm.list_devices.assert_called_once_with(**_NO_FILTERS)
+
+    def test_unknown_kind_is_422(self, client: TestClient, dm: MagicMock):
+        response = client.get("/", params={"include_attribute_kinds": "bogus"})
+
+        assert response.status_code == 422
+        dm.list_devices.assert_not_called()
+
+    @pytest.mark.parametrize(
+        ("path", "extra"),
+        [
+            pytest.param("/attributes", [], id="coverage"),
+            pytest.param("/tags", [], id="tags"),
+            pytest.param("/tag-groups", [("tag_key", "floor")], id="tag-groups"),
+        ],
+    )
+    def test_other_listings_read_every_attribute(
+        self,
+        client: TestClient,
+        dm: MagicMock,
+        path: str,
+        extra: list[tuple[str, str]],
+    ):
+        # Coverage counts and tag facets judge every attribute of the set.
+        response = client.get(
+            path,
+            params=[  # ty: ignore[invalid-argument-type]
+                ("include_attributes", "temperature"),
+                ("include_attribute_kinds", "fault"),
+                *extra,
+            ],
+        )
+
+        assert response.status_code == 200
+        dm.list_devices.assert_called_once_with(**_NO_FILTERS)
 
 
 # ---------------------------------------------------------------------------
