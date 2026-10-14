@@ -30,6 +30,13 @@
     "empty": "Aucun appareil n'utilise ce driver pour le moment.",
     "error": "Impossible de charger les appareils."
   },
+  "discoverySection": {
+    "title": "Découverte",
+    "description": "Activez la découverte sur les réseaux utilisant le protocole de ce driver : les appareils correspondants sont importés automatiquement.",
+    "empty": "Aucun réseau n'utilise le protocole de ce driver.",
+    "error": "Impossible de charger les réseaux.",
+    "updateError": "Impossible de mettre à jour l'état de la découverte"
+  },
   "actions": {
     "create": "Nouveau driver",
     "delete": "Supprimer",
