@@ -1669,9 +1669,12 @@ class TestDevicesServiceListDevicesSelection:
             set(d.attributes) == {"temperature", "connection_status"} for d in listed
         )
         assert all(a.write_state is None for d in listed for a in d.attributes.values())
-        # A device read on its own is served whole.
-        assert "humidity" in dm.get_device("t0").attributes
-        assert dm.get_device("t0").attributes["temperature"].write_state is not None
+        # A device read on its own is served whole; a read-only attribute
+        # has no write state to serve.
+        whole = dm.get_device("t0").attributes
+        assert "humidity" in whole
+        assert whole["temperature"].write_state is None
+        assert whole["temperature_setpoint"].write_state is not None
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(

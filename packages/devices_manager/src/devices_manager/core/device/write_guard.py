@@ -351,7 +351,9 @@ class WriteGuard:
         changed: dict[str, AttributeWriteState] = {}
         for name in names:
             spec = self._driver.attributes.get(name)
-            if spec is None:
+            # A read-only attribute without a support condition has nothing to
+            # say: `read_write_modes` already states it cannot be written.
+            if spec is None or (spec.write is None and spec.supported_when is None):
                 continue
             state = project_write_state(spec, self.known, budget=budget)
             if self._states.get(name) != state:

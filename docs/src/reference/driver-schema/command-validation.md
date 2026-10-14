@@ -123,9 +123,11 @@ a changed context produces `mapping_changed`.
 
 ## API and UI
 
-Every device attribute exposes `write_state`: status, resolved numeric constraints,
+Every writable attribute exposes `write_state`: status, resolved numeric constraints,
 options with availability and reasons, warnings, missing-dependency flag and whether
-a candidate-specific preview is needed. Device DTOs include `write_state_revision`.
+a candidate-specific preview is needed. A read-only attribute carries one only when
+it declares `supported_when`, to report its support; unset fields are omitted from
+the payload. Device DTOs include `write_state_revision`.
 
 `POST /devices/{id}/commands/preview` accepts the same attribute/value body as command
 submission. It returns eligibility, normalized candidate, reasons, warnings and a

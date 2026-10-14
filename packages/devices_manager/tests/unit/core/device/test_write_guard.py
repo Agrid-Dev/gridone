@@ -475,3 +475,25 @@ def test_shared_capability_inputs_are_resolved_once_per_traversal():
     stores.guard._values = resolver  # noqa: SLF001
     assert stores.guard.known("level_15") == 1
     assert resolver.call_count == len(attributes)
+
+
+def test_project_skips_read_only_attributes_without_a_support_condition():
+    # `read_write_modes` already says a sensor is not writable; only a support
+    # condition gives a read-only attribute something to report.
+    driver = build_driver(
+        spec("sensor", write=None),
+        spec(
+            "feature",
+            write=None,
+            supported_when={"op": "eq", "left": {"attribute": "lock"}, "right": 0},
+        ),
+        spec("lock"),
+    )
+    guard = Stores(driver).guard
+
+    projected = guard.project()
+
+    assert set(projected) == {"feature", "lock"}
+    assert guard.state("sensor") is None
+    assert projected["feature"].support == "unknown"
+    assert guard.evaluate("sensor", 1).reasons[0].code == "not_writable"
