@@ -713,6 +713,46 @@ class TestOneSubscribePerTopic:
         assert _listening(mqtt_client, "updData/AA") == set()
 
     @pytest.mark.asyncio
+    async def test_a_listener_leaves_at_once_even_when_its_caller_is_cancelled(
+        self, mqtt_client, mock_aiomqtt_client
+    ):
+        """A read's listener leaves in its ``finally``. If the poll task is
+        cancelled while that ``finally`` waits behind another topic's SUBACK,
+        the listener must be gone all the same."""
+        await mqtt_client.connect()
+        callback = Mock()
+        listener_id = await mqtt_client.register_listener(
+            MqttAddress(topic="updData/AA"), callback
+        )
+        subscribing = asyncio.Event()
+        suback = asyncio.Event()
+
+        async def subscribe(*_args: object, **_kwargs: object) -> None:
+            subscribing.set()
+            await suback.wait()
+
+        mock_aiomqtt_client.subscribe.side_effect = subscribe
+        async with asyncio.timeout(5):
+            # Another device's first listener holds the lock until its SUBACK.
+            joining = asyncio.create_task(
+                mqtt_client.register_listener(MqttAddress(topic="updData/BB"), Mock())
+            )
+            await subscribing.wait()
+            leaving = asyncio.create_task(
+                mqtt_client.unregister_listener(listener_id, "updData/AA")
+            )
+            await _yield_to_others()
+            leaving.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await leaving
+            suback.set()
+            await joining
+
+        assert _listening(mqtt_client, "updData/AA") == set()
+        await _deliver(mqtt_client, _message("updData/AA", "42"))
+        callback.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_a_subscribe_never_overlaps_an_unsubscribe_of_its_topic(
         self, mqtt_client, mock_aiomqtt_client
     ):

@@ -204,10 +204,12 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
     async def unregister_listener(
         self, callback_id: str, topic: str | None = None
     ) -> None:
-        # Under the same lock: an UNSUBSCRIBE must not drop a topic that
+        # Gone at once, before any wait: a caller cancelled while queued for the
+        # lock (a read whose poll task stops) must not leave its listener behind.
+        self._message_handlers.unregister(callback_id, topic)
+        # Decided under the lock: an UNSUBSCRIBE must not drop a topic that
         # another listener has just subscribed again.
         async with self._connection_lock:
-            self._message_handlers.unregister(callback_id, topic)
             if (
                 topic
                 and not self._message_handlers.get_by_topic(topic)
