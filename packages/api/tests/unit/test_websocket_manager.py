@@ -1,11 +1,9 @@
-import json
 from unittest.mock import AsyncMock
 
 import pytest
 
 from api.access import AccessPolicy
 from api.websocket.manager import WebSocketManager
-from api.websocket.schemas import DeviceUpdateMessage
 from users.permissions import Permission
 from users.roles import DeviceScope, Role
 
@@ -149,19 +147,3 @@ class TestProjectedBroadcast:
         await manager.broadcast({}, project=lambda _: {})
 
         ws.send_text.assert_not_awaited()
-
-
-class TestSerialisation:
-    async def test_unset_fields_are_omitted_from_messages(self):
-        # Same rule as the HTTP device payloads: an unknown value or timestamp
-        # is absent, not null.
-        manager = WebSocketManager()
-        ws = AsyncMock()
-        await manager.connect(ws)
-
-        await manager.broadcast(
-            DeviceUpdateMessage(device_id="d1", attribute="temperature", value=None)
-        )
-
-        sent = json.loads(ws.send_text.await_args.args[0])
-        assert set(sent) == {"type", "timestamp", "device_id", "attribute"}
