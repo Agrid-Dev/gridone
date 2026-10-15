@@ -49,7 +49,7 @@ from models.pagination import Page, PaginationParams
 from models.resource_conflict import ResourceConflictCode, ResourceConflictError
 from models.targets import DevicesFilter
 from models.types import SortOrder
-from models.write_rules import WriteReason
+from models.write_rules import AttributeWriteState, WriteReason
 from users.permissions import Permission
 
 # ---------------------------------------------------------------------------
@@ -477,14 +477,7 @@ class TestListDeviceAttributes:
             "data_types": ["float"],
             "device_count": 3,
             "writable_count": 0,
-            "label": None,
-            "unit": None,
-            "value_labels": None,
-            "value_options": None,
-            "write_constraints": None,
-            "write_state": None,
-            "default_value": None,
-        }
+        }  # unset metadata is omitted, not null
         assert by_name["setpoint"]["writable_count"] == 1
 
     def test_same_filters_as_list_devices(self, client: TestClient, dm: MagicMock):
@@ -723,8 +716,8 @@ class TestCreateDevicesBatch:
         assert response.status_code == 207
         body = response.json()
         assert body[0]["device"]["id"] == "new-id"
-        assert body[0]["error"] is None
-        assert body[1]["device"] is None
+        assert "error" not in body[0]
+        assert "device" not in body[1]
         assert body[1]["error"] is not None
 
     @pytest.mark.asyncio
@@ -749,7 +742,7 @@ class TestCreateDevicesBatch:
             )
         assert response.status_code == 422
         body = response.json()
-        assert all(item["device"] is None for item in body)
+        assert all("device" not in item for item in body)
 
     @pytest.mark.asyncio
     async def test_empty_batch_returns_422(
@@ -2000,3 +1993,81 @@ def test_attribute_coverage_combines_server_options_and_only_common_limits(clien
     assert state["candidate_required"]
     assert [option["value"] for option in state["options"]] == [22, 23]
     assert all(option["available"] for option in state["options"])
+
+
+# ---------------------------------------------------------------------------
+# Device payloads omit unset fields
+# ---------------------------------------------------------------------------
+
+
+def _nulls(node: object, path: str = "") -> list[str]:
+    """Paths of every null in a JSON document."""
+    if node is None:
+        return [path]
+    if isinstance(node, dict):
+        return [p for k, v in node.items() for p in _nulls(v, f"{path}.{k}")]
+    if isinstance(node, list):
+        return [p for i, v in enumerate(node) for p in _nulls(v, f"{path}[{i}]")]
+    return []
+
+
+class TestDevicePayloadsOmitUnsetFields:
+    """An attribute carries what it has: no `null` for a text, a unit or a
+    write state it does not have, on every route that serves devices. The
+    omission is native (exclude_none), not a serialiser callback per attribute,
+    which was a third of the cost of listing a large site."""
+
+    @pytest.fixture
+    def unknown_device(self) -> Device:
+        setpoint = Attribute.create(
+            "temperature_setpoint", DataType.FLOAT, {"read", "write"}
+        )
+        setpoint.write_state = AttributeWriteState(
+            status="blocked", reasons=[WriteReason(code="locked")]
+        )
+        return _DEVICE.model_copy(
+            update={
+                "attributes": {
+                    "temperature": Attribute.create(
+                        "temperature", DataType.FLOAT, {"read"}, unit="°C"
+                    ),
+                    "temperature_setpoint": setpoint,
+                }
+            }
+        )
+
+    def test_listed_and_single_devices_carry_no_null(
+        self, client: TestClient, dm: MagicMock, unknown_device: Device
+    ):
+        dm.list_devices.return_value = [unknown_device]
+        dm.list_devices.side_effect = None
+        dm.get_device.return_value = unknown_device
+        dm.get_device.side_effect = None
+
+        listed = client.get("/").json()
+        single = client.get(f"/{unknown_device.id}").json()
+
+        assert _nulls(listed) == []
+        assert _nulls(single) == []
+        temperature = single["attributes"]["temperature"]
+        assert temperature["unit"] == "°C"
+        # Unknown value and unset metadata are absent, not null.
+        assert "current_value" not in temperature
+        assert "description" not in temperature
+        assert "write_state" not in temperature
+        assert single["attributes"]["temperature_setpoint"]["write_state"] == {
+            "status": "blocked",
+            "support": "supported",
+            "reasons": [{"code": "locked"}],
+            "warnings": [],
+            "missing_dependencies": False,
+            "missing_attributes": [],
+            "candidate_required": False,
+        }
+
+    def test_a_known_value_is_kept(self, client: TestClient, dm: MagicMock):
+        dm.get_device.return_value = _DEVICE
+
+        payload = client.get(f"/{_DEVICE.id}").json()
+
+        assert payload["attributes"][CONNECTION_STATUS_ATTR]["current_value"] == "idle"

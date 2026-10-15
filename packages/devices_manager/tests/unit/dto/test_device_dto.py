@@ -561,7 +561,8 @@ class TestAttributeSelection:
             ),
         )
 
-        payload = json.loads(dto.model_dump_json())["attributes"]
+        # The API serves devices with exclude_none: unset fields are absent.
+        payload = json.loads(dto.model_dump_json(exclude_none=True))["attributes"]
         assert set(payload) == {"temperature_setpoint"}
         setpoint = payload["temperature_setpoint"]
         assert set(_OMITTED).isdisjoint(setpoint)

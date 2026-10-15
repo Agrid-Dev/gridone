@@ -4,11 +4,13 @@ from typing import Annotated, Any, Literal
 from pydantic import (
     BaseModel,
     Discriminator,
+    GetJsonSchemaHandler,
     Tag,
     computed_field,
-    model_serializer,
     model_validator,
 )
+from pydantic.json_schema import JsonSchemaValue
+from pydantic_core import CoreSchema
 
 from devices_manager.core.utils.cast import cast
 from devices_manager.types import (
@@ -28,25 +30,11 @@ from models.expressions import Scalar
 from models.types import Severity
 from models.write_rules import AttributeWriteState, WriteReason
 
-# Optional fields dropped from payloads when unset, so an attribute that
-# declares none of them serializes exactly as it did before they existed.
-_OMITTED_WHEN_NONE = (
-    "value_options",
-    "label",
-    "description",
-    "user_confirmation",
-    "group",
-    "unit",
-    "value_labels",
-    "write_constraints",
-    "write_state",
-    "default_value",
-    "raw_value",
-    "resolution_error",
-)
-
 
 class Attribute(BaseModel):
+    """Every optional field defaults to None, and the API omits unset fields
+    from its payloads: an attribute carries what it has, nothing else."""
+
     kind: Literal[AttributeKind.STANDARD, AttributeKind.INTERNAL] = (
         AttributeKind.STANDARD
     )
@@ -54,7 +42,7 @@ class Attribute(BaseModel):
     name: str
     data_type: DataType
     read_write_modes: set[ReadWriteMode]
-    current_value: AttributeValueType | None
+    current_value: AttributeValueType | None = None
     last_updated: datetime | None = None
     last_changed: datetime | None = None
     value_options: list[AttributeValueType] | None = None
@@ -71,13 +59,13 @@ class Attribute(BaseModel):
     raw_value: Scalar | None = None
     resolution_error: WriteReason | None = None
 
-    @model_serializer(mode="wrap")
-    def _serialize(self, handler: Any) -> dict[str, Any]:  # noqa: ANN401
-        data = handler(self)
-        for name in _OMITTED_WHEN_NONE:
-            if data.get(name) is None:
-                data.pop(name, None)
-        return data
+    @classmethod
+    def __get_pydantic_json_schema__(
+        cls, core_schema: CoreSchema, handler: GetJsonSchemaHandler
+    ) -> JsonSchemaValue:
+        # On the wire an attribute stays an open object, as the serialiser this
+        # model used to carry declared it; typing it in the SDK is its own change.
+        return {"type": "object", "additionalProperties": True}
 
     def ensure_type(
         self,

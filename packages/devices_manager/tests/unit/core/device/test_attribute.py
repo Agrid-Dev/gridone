@@ -342,14 +342,34 @@ def _annotated_attribute() -> Attribute:
     )
 
 
+_METADATA_KEYS = {
+    "value_options",
+    "label",
+    "description",
+    "user_confirmation",
+    "group",
+    "unit",
+    "value_labels",
+    "write_constraints",
+    "default_value",
+    "write_state",
+    "raw_value",
+    "resolution_error",
+}
+
+
 @pytest.mark.parametrize("mode", ["python", "json"])
-def test_attribute_without_metadata_serializes_exactly_as_before(mode):
-    """No new key appears on attributes of drivers that declare no metadata."""
+def test_unset_metadata_is_none_in_the_model_and_omitted_on_request(mode):
+    """The model keeps every field; the API serves attributes with exclude_none,
+    so a driver that declares no metadata adds no key to its payloads."""
     attr = Attribute.create("temperature", DataType.FLOAT, {"read"}, value=21.5)
-    assert set(attr.model_dump(mode=mode)) == _PLAIN_ATTRIBUTE_KEYS
+    dumped = attr.model_dump(mode=mode)
+    assert set(dumped) == _PLAIN_ATTRIBUTE_KEYS | _METADATA_KEYS
+    assert all(dumped[key] is None for key in _METADATA_KEYS)
+    assert set(attr.model_dump(mode=mode, exclude_none=True)) == _PLAIN_ATTRIBUTE_KEYS
 
 
-def test_fault_attribute_without_metadata_serializes_exactly_as_before():
+def test_fault_attribute_without_metadata_adds_only_its_own_fields():
     attr = FaultAttribute(
         name="alarm",
         data_type=DataType.BOOL,
@@ -359,7 +379,7 @@ def test_fault_attribute_without_metadata_serializes_exactly_as_before():
         last_updated=_NOW,
         last_changed=_NOW,
     )
-    assert set(attr.model_dump()) == _PLAIN_ATTRIBUTE_KEYS | {
+    assert set(attr.model_dump(exclude_none=True)) == _PLAIN_ATTRIBUTE_KEYS | {
         "severity",
         "healthy_values",
         "is_faulty",
@@ -395,8 +415,10 @@ def test_attribute_metadata_serializes_when_set():
 
 
 def test_partially_set_metadata_omits_only_the_unset_fields():
-    attr = Attribute.create("fan_speed", DataType.INT, {"read", "write"}, unit="rpm")
-    dumped = attr.model_dump()
+    attr = Attribute.create(
+        "fan_speed", DataType.INT, {"read", "write"}, value=900, unit="rpm"
+    )
+    dumped = attr.model_dump(exclude_none=True)
     assert dumped["unit"] == "rpm"
     assert set(dumped) == _PLAIN_ATTRIBUTE_KEYS | {"unit"}
 
@@ -412,10 +434,10 @@ def test_value_labels_serialize_when_set_and_round_trip():
         ValueLabel(value=False, label=LocalizedText(default="Stopped")),
         ValueLabel(value=True, label=LocalizedText(default="Running")),
     ]
-    attr = Attribute.create("running", DataType.BOOL, {"read"}).model_copy(
+    attr = Attribute.create("running", DataType.BOOL, {"read"}, value=True).model_copy(
         update={"value_labels": labels}
     )
-    dumped = attr.model_dump(mode="json")
+    dumped = attr.model_dump(mode="json", exclude_none=True)
     assert set(dumped) == _PLAIN_ATTRIBUTE_KEYS | {"value_labels"}
     assert dumped["value_labels"] == [
         {"value": False, "label": {"default": "Stopped", "translations": {}}},
