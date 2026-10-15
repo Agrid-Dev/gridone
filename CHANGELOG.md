@@ -1,3 +1,9 @@
+## v0.314.0 (2026-10-15)
+
+### Feat
+
+- **devices_manager**: make electricity meter energy optional (#808)
+
 ## v0.313.2 (2026-10-15)
 
 ## v0.313.1 (2026-10-14)
