@@ -111,21 +111,16 @@ describe("fleet leads", () => {
       },
     ],
     [
-      "meter: power, then counted energy in its declared unit",
+      "meter: power, then its index in its declared unit, never a leftover energy",
       DeviceType.ElectricityMeter,
-      { active_power: 240, energy: { value: 12345, unit: "kWh" } },
       {
-        primary: { value: "240 W", label: `${L}.power` },
-        secondary: { value: "12,345 kWh", label: `${L}.energy` },
+        active_power: 240,
+        energy: 812,
+        index: { value: 12345, unit: "kWh" },
       },
-    ],
-    [
-      "meter without energy: its index instead",
-      DeviceType.ElectricityMeter,
-      { active_power: 240, index: 812 },
       {
         primary: { value: "240 W", label: `${L}.power` },
-        secondary: { value: "812", label: `${L}.index` },
+        secondary: { value: "12,345 kWh", label: `${L}.index` },
       },
     ],
     [

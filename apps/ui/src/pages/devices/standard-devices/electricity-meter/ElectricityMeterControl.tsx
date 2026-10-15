@@ -51,13 +51,6 @@ export function ElectricityMeterControl({ device }: StandardControlProps) {
           unit={unit("reactive_power")}
         />
         <Metric
-          label={t("controls.electricityMeter.energy", {
-            defaultValue: "Energy",
-          })}
-          value={fmt(a.energy)}
-          unit={unit("energy")}
-        />
-        <Metric
           label={t("controls.electricityMeter.index", {
             defaultValue: "Index",
           })}

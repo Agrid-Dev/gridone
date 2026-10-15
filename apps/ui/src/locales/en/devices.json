@@ -87,7 +87,6 @@
         "supplyAir": "supply air",
         "outlet": "outlet",
         "power": "power",
-        "energy": "energy",
         "index": "index",
         "speed": "speed",
         "runState": {
