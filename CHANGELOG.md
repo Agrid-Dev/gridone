@@ -1,3 +1,9 @@
+## v0.315.0 (2026-10-15)
+
+### Feat
+
+- **devices_manager**: require index on electricity meters (#809)
+
 ## v0.314.0 (2026-10-15)
 
 ### Feat
