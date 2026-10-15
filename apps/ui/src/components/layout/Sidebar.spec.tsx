@@ -20,6 +20,7 @@ vi.mock("react-i18next", () =>
     "app.apps": "Apps",
     "app.users": "Users",
     "app.building": "Building",
+    "app.groups": "Groups",
     "nav.main": "Main navigation",
     "nav.configuration": "Configuration",
     "nav.backToSupervision": "Back to supervision",
@@ -111,6 +112,7 @@ const CONFIGURATION_LINKS = [
   "Drivers",
   "Networks",
   "Building",
+  "Groups",
   "Users",
 ];
 
@@ -166,6 +168,7 @@ describe("Sidebar", () => {
       ["drivers:read", "Drivers", "/drivers"],
       ["transports:read", "Networks", "/transports"],
       ["assets:write", "Building", "/profile/edit"],
+      ["devices:write", "Groups", "/groups"],
       ["users:read", "Users", "/users"],
     ])(
       "opens Configuration on the only page %s grants, and lists that page alone",
@@ -429,6 +432,9 @@ describe("Sidebar", () => {
       "/drivers/d1",
       "/transports/new",
       "/profile/edit",
+      "/groups",
+      "/groups/new",
+      "/groups/v1/edit",
       "/users",
     ])(
       "swaps the supervision entries for the configuration ones on %s, with no title",
@@ -453,6 +459,9 @@ describe("Sidebar", () => {
       // A dashboard whose id merely starts like the management page.
       "/dashboards/managed",
       "/devices/d1",
+      // A group is consulted and commanded here; only its form is configuration.
+      "/devices/views",
+      "/devices/views/v1",
     ])("keeps supervision on %s", (path) => {
       renderSidebar(false, path);
       expect(screen.getByRole("link", { name: "Devices" })).toBeInTheDocument();
@@ -482,6 +491,20 @@ describe("Sidebar", () => {
         "aria-current",
         "page",
       );
+    });
+
+    it("treats the former group form addresses as configuration, keeping the way back", () => {
+      renderSidebar(false, "/devices/views/v1");
+      cleanup();
+      // They redirect to Configuration › Groups: remembering them as the way
+      // back would send the user straight back into configuration.
+      for (const path of ["/devices/views/new", "/devices/views/v1/edit"]) {
+        renderSidebar(false, path);
+        expect(
+          screen.getByRole("link", { name: "Back to supervision" }),
+        ).toHaveAttribute("href", "/devices/views/v1");
+        cleanup();
+      }
     });
 
     it("leads back home when this tab has visited no supervision page", () => {
@@ -517,8 +540,15 @@ describe("Sidebar", () => {
         expect(screen.getByText("Integration").nextElementSibling).toBe(
           screen.getByRole("link", { name: /Apps/ }),
         );
+        const building = screen.getByRole("link", { name: "Building" });
+        const groups = screen.getByRole("link", { name: "Groups" });
         expect(screen.getByText("Organization").nextElementSibling).toBe(
-          screen.getByRole("link", { name: "Building" }),
+          building,
+        );
+        expect(building.nextElementSibling).toBe(groups);
+        expect(groups).toHaveAttribute("href", "/groups");
+        expect(groups.nextElementSibling).toBe(
+          screen.getByRole("link", { name: "Users" }),
         );
         expect(screen.getByRole("link", { name: "Users" })).toHaveAttribute(
           "href",
@@ -554,6 +584,14 @@ describe("Sidebar", () => {
         ).not.toBeInTheDocument();
       },
     );
+
+    it("hides Groups without devices:write, the permission to edit a group", () => {
+      permissions.can = (permission) => permission !== "devices:write";
+      renderSidebar(false, CONFIGURATION_PATH);
+      expect(
+        screen.queryByRole("link", { name: "Groups" }),
+      ).not.toBeInTheDocument();
+    });
 
     it("hides Building without assets:write, the home page's gate", () => {
       permissions.can = (permission) => permission !== "assets:write";

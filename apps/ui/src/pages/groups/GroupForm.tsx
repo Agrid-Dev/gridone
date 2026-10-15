@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import type { Device, DeviceView } from "@gridone/sdk";
@@ -11,29 +12,36 @@ import { useGroupForm } from "./useGroupForm";
 import { GroupError } from "@/components/group-command/GroupError";
 import { GroupMembershipError } from "@/components/group-command/groupMembership";
 
-export function GroupForm({ view }: { view?: DeviceView }) {
+type GroupFormProps = {
+  view?: DeviceView;
+  /** Devices to pre-check in a new group. */
+  initialIds?: string[];
+  actions?: ReactNode;
+};
+
+export function GroupForm(props: GroupFormProps) {
   const { t } = useTranslation("devices");
   const members = useDevicesList();
   if (members.loading) return <p role="status">{t("presentation.loading")}</p>;
   if (members.error) return <GroupError error={members.error} />;
-  return <GroupEditor devices={members.devices} view={view} />;
+  return <GroupEditor devices={members.devices} {...props} />;
 }
 
 function GroupEditor({
   devices,
   view,
-}: {
-  devices: Device[];
-  view?: DeviceView;
-}) {
+  initialIds,
+  actions,
+}: GroupFormProps & { devices: Device[] }) {
   const { t } = useTranslation("devices");
-  const editor = useGroupForm(devices, view);
+  const editor = useGroupForm(devices, view, initialIds);
   const { form, state, save } = editor;
   return (
     <section className="mx-auto max-w-4xl space-y-6">
       <ResourceHeader
         title={t(view ? "groups.edit" : "groups.create")}
         caption={t("groups.formCaption")}
+        actions={actions}
       />
       <form onSubmit={editor.submit} className="space-y-6">
         <fieldset
@@ -169,15 +177,7 @@ function GroupEditor({
             variant="outline"
             disabled={save.isPending}
           >
-            <Link
-              to={
-                editor.savedId
-                  ? `/devices/views/${editor.savedId}`
-                  : "/devices/views"
-              }
-            >
-              {t("groups.cancel")}
-            </Link>
+            <Link to="/groups">{t("groups.cancel")}</Link>
           </Button>
           <Button type="submit" disabled={save.isPending}>
             {t("groups.save")}
@@ -187,7 +187,7 @@ function GroupEditor({
       {!view && (
         <p className="text-sm text-muted-foreground">
           {t("groups.advancedHint")}{" "}
-          <Link className="underline" to="/devices/views/new?advanced=1">
+          <Link className="underline" to="/groups/new?advanced=1">
             {t("views.createAdvanced")}
           </Link>
         </p>

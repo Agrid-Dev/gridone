@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { NotFoundFallback } from "@/components/fallbacks/NotFound";
 import { usePermissions } from "@/contexts/AuthContext";
-import { ResourceDeleteButton } from "@/components/ResourceDeleteButton";
 import { BackLink } from "@/components/BackLink";
 import { TargetPresenter } from "../commands/presenters/TargetPresenter";
 import { TagGroupControls } from "./TagGroupControls";
@@ -36,26 +35,11 @@ function ViewDetails({ id }: { id: string }) {
         caption={view.description}
         actions={
           can("devices:write") && (
-            <>
-              <Button asChild variant="outline">
-                <Link to={`/devices/views/${id}/edit`}>
-                  {t(detail.isGroup ? "groups.edit" : "views.edit")}
-                </Link>
-              </Button>
-              <ResourceDeleteButton
-                onDelete={detail.deleteView}
-                isDeleting={detail.remove.isPending}
-                confirmTitle={t("common:deletion.title", {
-                  name: view.name || view.id,
-                })}
-                confirmDetails={t(
-                  detail.isGroup
-                    ? "groups.deleteDescription"
-                    : "views.deleteDescription",
-                  { name: view.name || view.id },
-                )}
-              />
-            </>
+            <Button asChild variant="outline">
+              <Link to={`/groups/${id}/edit`}>
+                {t("groups.editInConfiguration")}
+              </Link>
+            </Button>
           )
         }
       />
@@ -137,11 +121,8 @@ function ViewDetails({ id }: { id: string }) {
             <p className="rounded-lg border border-dashed p-6 text-muted-foreground">
               {t(detail.isGroup ? "groups.empty" : "views.empty")}
               {detail.isGroup && can("devices:write") && (
-                <Link
-                  className="ml-2 underline"
-                  to={`/devices/views/${id}/edit`}
-                >
-                  {t("groups.chooseDevices")}
+                <Link className="ml-2 underline" to={`/groups/${id}/edit`}>
+                  {t("groups.editInConfiguration")}
                 </Link>
               )}
             </p>

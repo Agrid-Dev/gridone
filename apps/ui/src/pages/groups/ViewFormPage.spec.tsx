@@ -17,6 +17,7 @@ const api = vi.hoisted(() => ({
   get: vi.fn(),
   listTags: vi.fn(),
   update: vi.fn(),
+  delete: vi.fn(),
   bulkTags: vi.fn(),
 }));
 vi.mock("@/contexts/GridoneClientContext", () => ({
@@ -27,7 +28,9 @@ vi.mock("@/contexts/GridoneClientContext", () => ({
   }),
 }));
 vi.mock("@/contexts/AuthContext", () => ({ usePermissions: () => () => true }));
-vi.mock("react-i18next", () => createI18nMock({}));
+vi.mock("react-i18next", () =>
+  createI18nMock({ "groups.selectedEquipment": "{{count}} selected" }),
+);
 beforeEach(() => {
   vi.resetAllMocks();
   api.drivers.mockResolvedValue([{ id: "driver" }, { id: "different" }]);
@@ -64,7 +67,7 @@ beforeEach(() => {
   );
 });
 afterEach(cleanup);
-function setup(path = "/devices/views/new?advanced=1") {
+function setup(path = "/groups/new?advanced=1") {
   const cache = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -72,12 +75,9 @@ function setup(path = "/devices/views/new?advanced=1") {
     <MemoryRouter initialEntries={[path]}>
       <QueryClientProvider client={cache}>
         <Routes>
-          <Route path="/devices/views/new" element={<ViewFormPage />} />
-          <Route
-            path="/devices/views/:viewId/edit"
-            element={<ViewFormPage />}
-          />
-          <Route path="/devices/views/:viewId" element={<p>Saved view</p>} />
+          <Route path="/groups/new" element={<ViewFormPage />} />
+          <Route path="/groups/:viewId/edit" element={<ViewFormPage />} />
+          <Route path="/groups" element={<p>Groups list</p>} />
         </Routes>
       </QueryClientProvider>
     </MemoryRouter>,
@@ -97,7 +97,7 @@ describe("saved view form", () => {
       target: { value: "Étage, Pièce" },
     });
     fireEvent.click(screen.getByRole("button", { name: "views.save" }));
-    await screen.findByText("Saved view");
+    await screen.findByText("Groups list");
     expect(api.create).toHaveBeenCalledWith({
       name: "Building",
       description: null,
@@ -118,13 +118,13 @@ describe("saved view form", () => {
       },
       group_by: ["ecs"],
     });
-    setup("/devices/views/group/edit");
+    setup("/groups/group/edit");
     await screen.findByDisplayValue("East");
     fireEvent.change(screen.getByLabelText("views.fields.name"), {
       target: { value: "Comfort" },
     });
     fireEvent.click(screen.getByRole("button", { name: "views.save" }));
-    await screen.findByText("Saved view");
+    await screen.findByText("Groups list");
     expect(api.update).toHaveBeenCalledWith("group", {
       name: "Comfort",
       description: null,
@@ -156,7 +156,7 @@ describe("saved view form", () => {
 
 describe("create a group by choosing devices", () => {
   it("opens with a name and devices, and saves a tag-backed group with mixed drivers", async () => {
-    setup("/devices/views/new");
+    setup("/groups/new");
     await screen.findByRole("checkbox", { name: "Compatible" });
     expect(
       screen.queryByLabelText("views.fields.tags"),
@@ -176,7 +176,7 @@ describe("create a group by choosing devices", () => {
       screen.getAllByRole("button", { name: "groups.removeMember" }),
     ).toHaveLength(2);
     fireEvent.click(screen.getByRole("button", { name: "groups.save" }));
-    await screen.findByText("Saved view");
+    await screen.findByText("Groups list");
     expect(api.create).toHaveBeenCalledWith({
       name: "Thermostats étage 2",
       description: null,
@@ -200,7 +200,7 @@ describe("create a group by choosing devices", () => {
       filter: { tags: { group: ["comfort"] } },
       group_by: [],
     });
-    setup("/devices/views/group/edit");
+    setup("/groups/group/edit");
     expect(
       await screen.findByRole("checkbox", { name: "Compatible" }),
     ).toBeChecked();
@@ -213,7 +213,7 @@ describe("create a group by choosing devices", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Compatible" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Incompatible" }));
     fireEvent.click(screen.getByRole("button", { name: "groups.save" }));
-    await screen.findByText("Saved view");
+    await screen.findByText("Groups list");
     expect(api.create).not.toHaveBeenCalled();
     expect(api.bulkTags.mock.calls.map(([body]) => body)).toEqual([
       {
@@ -239,7 +239,7 @@ describe("create a group by choosing devices", () => {
 
   it("retains the selection after a partial failure and retries without creating a duplicate group", async () => {
     api.bulkTags.mockResolvedValueOnce([{ device_id: "a", status: "failed" }]);
-    setup("/devices/views/new");
+    setup("/groups/new");
     await screen.findByRole("checkbox", { name: "Compatible" });
     fireEvent.change(screen.getByLabelText("groups.name"), {
       target: { value: "Comfort" },
@@ -248,33 +248,146 @@ describe("create a group by choosing devices", () => {
     fireEvent.click(screen.getByRole("button", { name: "groups.save" }));
     await screen.findByText("groups.membersSaveFailed");
     expect(screen.getByRole("checkbox", { name: "Compatible" })).toBeChecked();
-    expect(screen.queryByText("Saved view")).not.toBeInTheDocument();
+    expect(screen.queryByText("Groups list")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "groups.save" }));
-    await screen.findByText("Saved view");
+    await screen.findByText("Groups list");
     expect(api.create).toHaveBeenCalledTimes(1);
     expect(api.bulkTags).toHaveBeenCalledTimes(2);
     expect(api.update).toHaveBeenCalledWith("created", expect.any(Object));
   });
 
   it("can create an empty group without an unrestricted tag mutation", async () => {
-    setup("/devices/views/new");
+    setup("/groups/new");
     await screen.findByRole("checkbox", { name: "Compatible" });
     fireEvent.change(screen.getByLabelText("groups.name"), {
       target: { value: "Future group" },
     });
     fireEvent.click(screen.getByRole("button", { name: "groups.save" }));
-    await screen.findByText("Saved view");
+    await screen.findByText("Groups list");
     expect(api.bulkTags).not.toHaveBeenCalled();
     expect(api.create.mock.calls[0][0].filter.tags.group).toHaveLength(1);
   });
 
   it("requires a name before saving", async () => {
-    setup("/devices/views/new");
+    setup("/groups/new");
     await screen.findByRole("checkbox", { name: "Compatible" });
     fireEvent.click(screen.getByRole("button", { name: "groups.save" }));
     await waitFor(() =>
       expect(screen.getByText("groups.nameRequired")).toBeInTheDocument(),
     );
     expect(api.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("start a group from a selection of devices", () => {
+  it("pre-checks the devices in the address and ignores unknown ones", async () => {
+    setup("/groups/new?device_id=a&device_id=ghost");
+    expect(
+      await screen.findByRole("checkbox", { name: "Compatible" }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole("checkbox", { name: "Incompatible" }),
+    ).not.toBeChecked();
+    expect(screen.getByText("1 selected")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("groups.name"), {
+      target: { value: "Selection" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "groups.save" }));
+    await screen.findByText("Groups list");
+    const value = api.create.mock.calls[0][0].filter.tags.group[0];
+    expect(api.bulkTags).toHaveBeenCalledExactlyOnceWith({
+      target: { ids: ["a"] },
+      key: "group",
+      values: [value],
+      operation: "add",
+    });
+  });
+
+  it("keeps an existing group's own members, whatever the address says", async () => {
+    api.get.mockResolvedValue({
+      id: "group",
+      name: "Comfort",
+      filter: { tags: { group: ["comfort"] } },
+      group_by: [],
+    });
+    setup("/groups/group/edit?device_id=b");
+    expect(
+      await screen.findByRole("checkbox", { name: "Compatible" }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole("checkbox", { name: "Incompatible" }),
+    ).not.toBeChecked();
+  });
+});
+
+describe("delete from the edit page", () => {
+  const comfort = {
+    id: "group",
+    name: "Comfort",
+    filter: { tags: { group: ["comfort"] } },
+    group_by: [],
+  };
+  async function confirmDelete() {
+    fireEvent.click(
+      await screen.findByRole("button", { name: "common.delete" }),
+    );
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "common.delete" }).at(-1)!,
+    );
+  }
+
+  it("offers no deletion while creating", async () => {
+    setup("/groups/new");
+    await screen.findByRole("checkbox", { name: "Compatible" });
+    expect(
+      screen.queryByRole("button", { name: "common.delete" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("deletes a view's display settings with no device mutation, back to the list", async () => {
+    api.get.mockResolvedValue({
+      id: "group",
+      name: "East",
+      description: "",
+      filter: { tags: { ecs: ["east"] } },
+      group_by: ["ecs"],
+    });
+    api.delete.mockResolvedValue(undefined);
+    setup("/groups/group/edit");
+    await screen.findByDisplayValue("East");
+    await confirmDelete();
+    await screen.findByText("Groups list");
+    expect(api.delete).toHaveBeenCalledWith("group");
+    expect(api.bulkTags).not.toHaveBeenCalled();
+  });
+
+  it("removes only the group's tag before deleting its display entry", async () => {
+    api.get.mockResolvedValue(comfort);
+    api.delete.mockResolvedValue(undefined);
+    setup("/groups/group/edit");
+    await screen.findByDisplayValue("Comfort");
+    await confirmDelete();
+    await screen.findByText("Groups list");
+    expect(api.bulkTags).toHaveBeenCalledExactlyOnceWith({
+      target: { ids: ["a"] },
+      key: "group",
+      values: ["comfort"],
+      operation: "remove",
+    });
+    expect(api.delete).toHaveBeenCalledWith("group");
+    expect(api.bulkTags.mock.invocationCallOrder[0]).toBeLessThan(
+      api.delete.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("keeps the group when removing a member fails during deletion", async () => {
+    api.get.mockResolvedValue(comfort);
+    api.bulkTags.mockResolvedValue([{ device_id: "a", status: "failed" }]);
+    setup("/groups/group/edit");
+    await screen.findByDisplayValue("Comfort");
+    await confirmDelete();
+    await screen.findByRole("alert");
+    expect(api.delete).not.toHaveBeenCalled();
+    expect(screen.queryByText("Groups list")).not.toBeInTheDocument();
   });
 });

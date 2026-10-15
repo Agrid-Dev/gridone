@@ -68,20 +68,18 @@ describe("saved views", () => {
     );
   });
 
-  it("does not offer view creation to viewers, including in the empty state", async () => {
+  it("shows viewers nothing but the tabs and the groups, including in the empty state", async () => {
     api.canWrite = false;
     api.list.mockResolvedValue([]);
     setup();
     await screen.findByText("groups.noGroups");
     expect(
-      screen.queryByRole("link", { name: "groups.create" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("link", { name: /empty.new/ }),
-    ).not.toBeInTheDocument();
+      screen.getAllByRole("link").map((link) => link.getAttribute("href")),
+    ).toEqual(["/devices", "/devices/views"]);
+    expect(screen.queryByText(/groups.manageHint/)).not.toBeInTheDocument();
   });
 
-  it("makes group creation the primary action and shows real member counts", async () => {
+  it("sends writers to Configuration to manage groups, never creating here, and shows real member counts", async () => {
     api.list.mockResolvedValue([
       {
         id: "comfort",
@@ -95,13 +93,33 @@ describe("saved views", () => {
       { id: "b", tags: { group: ["other"] } },
     ]);
     setup();
-    expect(screen.getByRole("link", { name: "groups.create" })).toHaveAttribute(
-      "href",
-      "/devices/views/new",
-    );
     await screen.findByText("1 devices");
+    const [header, hint] = screen.getAllByRole("link", {
+      name: "groups.manage",
+    });
+    expect(header).toHaveAttribute("href", "/groups");
+    expect(header).not.toHaveClass("bg-primary");
+    expect(hint).toHaveAttribute("href", "/groups");
+    expect(hint.parentElement).toHaveTextContent("groups.manageHint");
     expect(screen.getByRole("link", { name: /Comfort/ })).not.toHaveTextContent(
       "comfort:",
     );
+    for (const link of screen.getAllByRole("link"))
+      expect(link.getAttribute("href")).not.toMatch(/\/new|\/edit/);
+  });
+
+  it("points writers to Configuration from the empty state, never to a form", async () => {
+    api.list.mockResolvedValue([]);
+    setup();
+    await screen.findByText("groups.noGroups");
+    expect(
+      screen
+        .getAllByRole("link", { name: "groups.manage" })
+        .map((link) => link.getAttribute("href")),
+    ).toEqual(["/groups", "/groups"]);
+    expect(screen.getByText(/groups.manageHint/)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /empty.create/ }),
+    ).not.toBeInTheDocument();
   });
 });

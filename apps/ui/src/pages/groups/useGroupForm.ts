@@ -23,7 +23,13 @@ const schema = z.object({
   driverId: z.string(),
 });
 
-export function useGroupForm(devices: Device[], view?: DeviceView) {
+/** `initialIds` pre-checks devices of a new group (a selection made in the
+ *  device list); ids that match no device are dropped. */
+export function useGroupForm(
+  devices: Device[],
+  view?: DeviceView,
+  initialIds: string[] = [],
+) {
   const client = useGridoneClient();
   const cache = useQueryClient();
   const navigate = useNavigate();
@@ -37,7 +43,9 @@ export function useGroupForm(devices: Device[], view?: DeviceView) {
     defaultValues: {
       name: view?.name ?? "",
       description: view?.description ?? "",
-      ids: view ? groupMembers(devices, value).map((device) => device.id) : [],
+      ids: view
+        ? groupMembers(devices, value).map((device) => device.id)
+        : initialIds.filter((id) => devices.some((device) => device.id === id)),
       search: "",
       driverId: "",
     },
@@ -73,7 +81,7 @@ export function useGroupForm(devices: Device[], view?: DeviceView) {
       await saveGroupMembers(client, value, data.ids);
       return created ?? client.deviceViews.update(id, body);
     },
-    onSuccess: (saved) => navigate(`/devices/views/${saved.id}`),
+    onSuccess: () => navigate("/groups"),
     onSettled: () => {
       void cache.invalidateQueries({ queryKey: viewsKey });
       void cache.invalidateQueries({ queryKey: ["devices"] });
@@ -82,5 +90,5 @@ export function useGroupForm(devices: Device[], view?: DeviceView) {
     },
   });
   const submit = form.handleSubmit((data) => save.mutate(data));
-  return { form, state, visible, driverIds, save, submit, savedId };
+  return { form, state, visible, driverIds, save, submit };
 }
