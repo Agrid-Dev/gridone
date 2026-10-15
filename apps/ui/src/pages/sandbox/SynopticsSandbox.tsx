@@ -17,8 +17,6 @@ import {
   AirExtractorSynoptic,
   type AirExtractorValues,
 } from "../devices/standard-devices/air-extractor";
-import AwhpFigure from "../devices/standard-devices/awhp/AwhpFigure";
-import type { AwhpAttributes } from "@/lib/devices";
 import { symbolSchemas, type Projection } from "@gridone/sdk";
 import {
   Body,
@@ -144,94 +142,6 @@ const EXTRACTOR_FAN_FAILED: AirExtractorValues = {
 const EXTRACTOR_MINIMAL: AirExtractorValues = {
   onoffState: true,
 };
-
-// A reversible unit heating a 45° loop on a 7° day, every sensor reported.
-const AWHP_HEATING: AwhpAttributes = {
-  onoffState: true,
-  unitRunStatus: "running",
-  mode: "heat",
-  inletTemperature: 40.2,
-  outletTemperature: 45.1,
-  setpointTemperature: 45,
-  outdoorTemperature: 7.4,
-  compressorSuctionTemperature: 2.1,
-  compressorSuctionPressure: 7.6,
-  compressorDischargeTemperature: 71.8,
-  compressorDischargePressure: 29.4,
-  condenserSaturatedRefrigerantTemperature: 48.3,
-  condenserRefrigerantPressure: 29.4,
-  evaporatorSaturatedRefrigerantTemperature: -2.9,
-  evaporatorRefrigerantPressure: 7.6,
-};
-
-// The same unit chilling a 7° loop on a 32° day.
-const AWHP_COOLING: AwhpAttributes = {
-  ...AWHP_HEATING,
-  mode: "cool",
-  inletTemperature: 12.3,
-  outletTemperature: 7.2,
-  setpointTemperature: 7,
-  outdoorTemperature: 31.6,
-  compressorSuctionTemperature: 9.8,
-  compressorSuctionPressure: 9.5,
-  compressorDischargeTemperature: 84.6,
-  compressorDischargePressure: 35.1,
-  condenserSaturatedRefrigerantTemperature: 53,
-  condenserRefrigerantPressure: 35.1,
-  evaporatorSaturatedRefrigerantTemperature: 4.1,
-  evaporatorRefrigerantPressure: 9.5,
-};
-
-// A chiller with the required attributes only: no refrigerant sensors, so
-// their tags must not show.
-const AWHP_MINIMAL: AwhpAttributes = {
-  ...AWHP_COOLING,
-  outdoorTemperature: null,
-  compressorSuctionTemperature: null,
-  compressorSuctionPressure: null,
-  compressorDischargeTemperature: null,
-  compressorDischargePressure: null,
-  condenserSaturatedRefrigerantTemperature: null,
-  condenserRefrigerantPressure: null,
-  evaporatorSaturatedRefrigerantTemperature: null,
-  evaporatorRefrigerantPressure: null,
-};
-
-function HeatPumpUnit({
-  title,
-  initial,
-}: {
-  title: string;
-  initial: AwhpAttributes;
-}) {
-  const [values, setValues] = useState<AwhpAttributes>(initial);
-  const toggleRunning = (on: boolean) =>
-    setValues((current) => ({ ...current, onoffState: on }));
-  const flipMode = () =>
-    setValues((current) => ({
-      ...current,
-      mode: current.mode === "heat" ? "cool" : "heat",
-    }));
-
-  return (
-    <SandboxUnit
-      title={title}
-      running={values.onoffState ?? false}
-      onToggleRunning={toggleRunning}
-    >
-      <div className="py-4">
-        <AwhpFigure values={values} className="max-w-xl" />
-        <button
-          type="button"
-          className="mt-2 text-xs text-muted-foreground underline"
-          onClick={flipMode}
-        >
-          mode: {values.mode}
-        </button>
-      </div>
-    </SandboxUnit>
-  );
-}
 
 function DoubleFluxUnit({
   title,
@@ -582,18 +492,6 @@ export default function SynopticsSandbox() {
       <SymbolKitPlate />
       <IsometricPlate />
       <HydronicSymbolSheets />
-      <HeatPumpUnit
-        title="PAC 01 — air-to-water heat pump, heating (every sensor)"
-        initial={AWHP_HEATING}
-      />
-      <HeatPumpUnit
-        title="PAC 02 — air-to-water heat pump, cooling"
-        initial={AWHP_COOLING}
-      />
-      <HeatPumpUnit
-        title="PAC 03 — required attributes only (no refrigerant sensors)"
-        initial={AWHP_MINIMAL}
-      />
       <DoubleFluxUnit
         title="CTA 01 — double flux, heating (both coils, pressure sensors)"
         initial={HEATING_UNIT}
