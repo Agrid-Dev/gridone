@@ -11,7 +11,7 @@ from documents import (
     FolderCreate,
     FolderUpdate,
 )
-from documents.models import hidden_folder_ids
+from documents.models import hidden_folder_ids, hiding_folders, with_hidden_by
 
 
 @pytest.mark.parametrize(
@@ -114,3 +114,36 @@ def test_hidden_folders_are_archived_ones_and_everything_below():
     }
     assert hidden_folder_ids([_folder("plans"), _folder("level", "plans")]) == set()
     assert hidden_folder_ids([]) == set()
+
+
+def test_each_hidden_folder_names_its_nearest_archived_folder():
+    folders = [
+        _folder("cupboard", "room"),
+        _folder("room", "level", archived=True),
+        _folder("level", "plans"),
+        _folder("plans", archived=True),
+        _folder("notices"),
+        # Its parent is not in the list: it starts a tree of its own.
+        _folder("orphan", "gone", archived=True),
+        _folder("orphan child", "orphan"),
+    ]
+    assert hiding_folders(folders) == {
+        "plans": "plans",
+        "level": "plans",
+        "room": "room",
+        "cupboard": "room",
+        "orphan": "orphan",
+        "orphan child": "orphan",
+    }
+    located = {folder.id: folder.hidden_by for folder in with_hidden_by(folders)}
+    assert located == {
+        "cupboard": "room",
+        "room": "room",
+        "level": "plans",
+        "plans": "plans",
+        "notices": None,
+        "orphan": "orphan",
+        "orphan child": "orphan",
+    }
+    # The input folders are left as storage returned them.
+    assert all(folder.hidden_by is None for folder in folders)

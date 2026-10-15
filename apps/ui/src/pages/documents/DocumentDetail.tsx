@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { usePermissions } from "@/contexts/AuthContext";
 import { markResourceDeleted } from "@/lib/navigation";
-import { archivedAncestor, folderPath, indexFolders } from "./folderTree";
+import { folderPath, hidingFolder, indexFolders } from "./folderTree";
 import {
   documentSize,
   folderLink,
@@ -30,7 +30,7 @@ export default function DocumentDetail() {
   const navigate = useNavigate();
   const index = indexFolders(folders.data ?? []);
   const path = folderPath(document.folder_id, index);
-  const hiddenBy = archivedAncestor(document.folder_id, index);
+  const hiddenBy = hidingFolder(document.folder_id, index);
   const viewable = !!viewableType(document);
   return (
     <section className="space-y-6">

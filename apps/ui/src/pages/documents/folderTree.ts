@@ -39,15 +39,14 @@ export function folderPath(
   return path;
 }
 
-/** The archived folder that hides this one: itself, or its nearest archived
- *  ancestor. Its contents leave search and the asset or device cards. */
-export function archivedAncestor(
+/** The archived folder that hides this one, as the server reports it in
+ *  `hidden_by`. Its contents leave search and the asset or device cards. */
+export function hidingFolder(
   folderId: string | null | undefined,
   index: FolderIndex,
 ): Folder | undefined {
-  return folderPath(folderId, index)
-    .reverse()
-    .find((folder) => folder.archived_at);
+  const hiddenBy = folderId ? index.get(folderId)?.hidden_by : undefined;
+  return hiddenBy ? index.get(hiddenBy) : undefined;
 }
 
 /** Active folders filed directly in *parentId* (null: the top level). */
@@ -85,7 +84,7 @@ export function folderOptions(
     .map((folder) => ({
       value: folder.id,
       path: folderPath(folder.id, index).map((f) => f.name),
-      hidden: !!archivedAncestor(folder.id, index),
+      hidden: !!folder.hidden_by,
     }))
     .filter((option) => !option.hidden || option.value === keep)
     .sort((a, b) => comparePaths(a.path, b.path));

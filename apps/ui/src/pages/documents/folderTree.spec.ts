@@ -1,24 +1,27 @@
 import { describe, expect, it } from "vitest";
 import type { Folder } from "@gridone/sdk";
 import {
-  archivedAncestor,
   archivedFolders,
   childFolders,
   folderOptions,
   folderPath,
+  hidingFolder,
   indexFolders,
 } from "./folderTree";
 
+/** *hidden_by* is what the server reports: the folder itself when archived. */
 function folder(
   id: string,
   parent_id: string | null = null,
   archived = false,
+  hidden_by: string | null = archived ? id : null,
 ): Folder {
   return {
     id,
     name: id,
     parent_id,
     archived_at: archived ? "2026-10-14T00:00:00Z" : null,
+    hidden_by,
     created_by: "admin",
     created_at: "2026-10-12T00:00:00Z",
     updated_at: "2026-10-12T00:00:00Z",
@@ -30,7 +33,7 @@ const folders = [
   folder("Level 10", "Plans"),
   folder("Level 2", "Plans"),
   folder("Old", null, true),
-  folder("Old room", "Old"),
+  folder("Old room", "Old", false, "Old"),
   folder("Old cupboard", "Old room", true),
 ];
 const index = indexFolders(folders);
@@ -45,10 +48,12 @@ describe("folder tree", () => {
     expect(folderPath("deleted", index)).toEqual([]);
   });
 
-  it("names the archived folder that hides another, the nearest first", () => {
-    expect(archivedAncestor("Old cupboard", index)?.id).toBe("Old cupboard");
-    expect(archivedAncestor("Old room", index)?.id).toBe("Old");
-    expect(archivedAncestor("Level 2", index)).toBeUndefined();
+  it("reads the archived folder that hides another from the server", () => {
+    expect(hidingFolder("Old cupboard", index)?.id).toBe("Old cupboard");
+    expect(hidingFolder("Old room", index)?.id).toBe("Old");
+    expect(hidingFolder("Level 2", index)).toBeUndefined();
+    expect(hidingFolder("deleted", index)).toBeUndefined();
+    expect(hidingFolder(null, index)).toBeUndefined();
   });
 
   it("lists active children in natural order and every archived folder", () => {

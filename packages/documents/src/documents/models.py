@@ -38,6 +38,9 @@ class FolderUpdate(BaseModel):
 class Folder(FolderCreate):
     id: str
     archived_at: datetime | None = None
+    # The archived folder that hides this one: itself, or its nearest archived
+    # ancestor. Set by the service from the whole tree; storage leaves it empty.
+    hidden_by: str | None = None
     created_by: str
     created_at: datetime
     updated_at: datetime
@@ -127,22 +130,43 @@ class DocumentFilters(BaseModel):
         )
 
 
-def hidden_folder_ids(folders: Iterable[Folder]) -> frozenset[str]:
-    """Return the archived folders and every folder below one of them.
+def hiding_folders(folders: Iterable[Folder]) -> dict[str, str]:
+    """Map each hidden folder to the archived folder that hides it.
 
+    That is the folder itself when archived, else its nearest archived ancestor.
     Archiving a folder hides its whole subtree without touching the descendants'
     own archive state, so restoring the folder brings the view back as it was.
+    The walk goes down from the top level; a folder whose parent is unknown
+    starts a tree of its own.
     """
-    children: defaultdict[str | None, list[str]] = defaultdict(list)
-    pending: list[str] = []
+    folders = list(folders)
+    known = {folder.id for folder in folders}
+    children: defaultdict[str | None, list[Folder]] = defaultdict(list)
     for folder in folders:
-        children[folder.parent_id].append(folder.id)
-        if folder.archived_at is not None:
-            pending.append(folder.id)
-    hidden: set[str] = set()
+        parent_id = folder.parent_id if folder.parent_id in known else None
+        children[parent_id].append(folder)
+    hiders: dict[str, str] = {}
+    pending: list[tuple[str | None, str | None]] = [(None, None)]
     while pending:
-        folder_id = pending.pop()
-        if folder_id not in hidden:
-            hidden.add(folder_id)
-            pending.extend(children[folder_id])
-    return frozenset(hidden)
+        parent_id, inherited = pending.pop()
+        for folder in children[parent_id]:
+            hider = folder.id if folder.archived_at is not None else inherited
+            if hider is not None:
+                hiders[folder.id] = hider
+            pending.append((folder.id, hider))
+    return hiders
+
+
+def hidden_folder_ids(folders: Iterable[Folder]) -> frozenset[str]:
+    """Return the archived folders and every folder below one of them."""
+    return frozenset(hiding_folders(folders))
+
+
+def with_hidden_by(folders: Iterable[Folder]) -> list[Folder]:
+    """Return *folders* with ``hidden_by`` set from the tree they form."""
+    folders = list(folders)
+    hiders = hiding_folders(folders)
+    return [
+        folder.model_copy(update={"hidden_by": hiders.get(folder.id)})
+        for folder in folders
+    ]

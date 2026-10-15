@@ -22,7 +22,7 @@ import { usePermissions } from "@/contexts/AuthContext";
 import { downloadBlob, openBlankTab, showBlob } from "@/lib/download";
 import { serverErrorMessage } from "@/lib/serverErrorMessage";
 import {
-  archivedAncestor,
+  hidingFolder,
   archivedFolders,
   childFolders,
   folderPath,
@@ -336,7 +336,7 @@ export function useDocumentsBrowser() {
   const index = useMemo(() => indexFolders(folders), [folders]);
   const { view, folderId } = filtering;
   const browsing = view === "browse";
-  const hiddenBy = browsing ? archivedAncestor(folderId, index) : undefined;
+  const hiddenBy = browsing ? hidingFolder(folderId, index) : undefined;
   return {
     ...filtering,
     index,

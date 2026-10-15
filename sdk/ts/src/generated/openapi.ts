@@ -5350,6 +5350,8 @@ export interface components {
       id: string;
       /** Archived At */
       archived_at?: string | null;
+      /** Hidden By */
+      hidden_by?: string | null;
       /** Created By */
       created_by: string;
       /**

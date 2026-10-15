@@ -173,8 +173,64 @@ async def test_folder_mutations_delegate_with_new_ids_and_timestamps(service):
     assert created.created_at == created.updated_at
     assert created.archived_at is None
     patch = FolderUpdate(archived=True)
-    await svc.update_folder(created.id, patch)
-    assert storage.update_folder.await_args.args[:2] == (created.id, patch)
+    stored = _folder("level", "plans")
+    storage.update_folder.return_value = stored
+    storage.list_folders.return_value = [_folder("plans", archived=True), stored]
+    updated = await svc.update_folder(stored.id, patch)
+    assert storage.update_folder.await_args.args[:2] == (stored.id, patch)
+    assert updated.hidden_by == "plans"
+    assert stored.hidden_by is None
     await svc.delete_folder(created.id)
     storage.delete_folder.assert_awaited_once_with(created.id)
+    storage.list_folders.return_value = []
     assert await svc.list_folders() == []
+
+
+async def test_list_folders_says_which_archived_folder_hides_each(service):
+    svc, storage, _ = service
+    storage.list_folders.return_value = [
+        _folder("plans", archived=True),
+        _folder("level", "plans"),
+        _folder("notices"),
+    ]
+    hidden_by = {f.id: f.hidden_by for f in await svc.list_folders()}
+    assert hidden_by == {"plans": "plans", "level": "plans", "notices": None}
+
+
+async def test_nothing_is_filed_in_a_hidden_folder(service, document):
+    svc, storage, _ = service
+    storage.list_folders.return_value = [
+        _folder("plans", archived=True),
+        _folder("level", "plans"),
+    ]
+    with pytest.raises(InvalidError, match="archived"):
+        await svc.create(
+            DocumentCreate(name="Notice", folder_id="level"),
+            filename="notice.txt",
+            data=b"notice",
+            created_by="author",
+        )
+    with pytest.raises(InvalidError, match="archived"):
+        await svc.create_folder(
+            FolderCreate(name="Sub", parent_id="plans"), created_by="author"
+        )
+    storage.get.return_value = document
+    with pytest.raises(InvalidError, match="archived"):
+        await svc.update("doc", DocumentUpdate(folder_id="level"))
+    storage.create.assert_not_awaited()
+    storage.create_folder.assert_not_awaited()
+    storage.update.assert_not_awaited()
+
+
+async def test_a_document_in_a_hidden_folder_can_be_saved_in_place(service, document):
+    svc, storage, _ = service
+    storage.list_folders.return_value = [_folder("plans", archived=True)]
+    storage.get.return_value = document.model_copy(update={"folder_id": "plans"})
+    patch = DocumentUpdate(name="Renamed", folder_id="plans")
+    await svc.update("doc", patch)
+    storage.update.assert_awaited_once()
+    # A patch that leaves the folder alone never reads the document first.
+    storage.get.reset_mock()
+    await svc.update("doc", DocumentUpdate(name="Again"))
+    await svc.update("doc", DocumentUpdate(folder_id=None))
+    storage.get.assert_not_awaited()

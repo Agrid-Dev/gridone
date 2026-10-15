@@ -34,6 +34,17 @@ async def _upload(
     )
 
 
+async def _linked(
+    svc: DocumentsService, name: str, folder_id: str, asset_id: str
+) -> Document:
+    return await svc.create(
+        DocumentCreate(name=name, folder_id=folder_id, asset_ids=[asset_id]),
+        filename="notice.txt",
+        data=b"notice",
+        created_by="author",
+    )
+
+
 async def _names(svc: DocumentsService, filters: DocumentFilters) -> set[str]:
     return {document.name for document in (await svc.list(filters=filters)).items}
 
@@ -160,6 +171,8 @@ async def check_subfolders_block_deletion_and_archive_dates_stick(
         # The parent holds nothing but a subfolder: active, then archived.
         with pytest.raises(ConflictError):
             await svc.delete_folder(parent.id)
+        # Filed before the child is archived: nothing lands in it afterwards.
+        documents.append(await _linked(svc, f"Hidden {suffix}", child.id, suffix))
         await svc.update_folder(child.id, FolderUpdate(archived=True))
         with pytest.raises(ConflictError):
             await svc.delete_folder(parent.id)
@@ -184,17 +197,7 @@ async def check_subfolders_block_deletion_and_archive_dates_stick(
 
         # An asset card spans folders: the archived child's documents leave it,
         # the parent's and the top level's stay.
-        for name, folder_id in [("Shown", parent.id), ("Hidden", child.id)]:
-            documents.append(
-                await svc.create(
-                    DocumentCreate(
-                        name=f"{name} {suffix}", folder_id=folder_id, asset_ids=[suffix]
-                    ),
-                    filename="notice.txt",
-                    data=b"notice",
-                    created_by="author",
-                )
-            )
+        documents.append(await _linked(svc, f"Shown {suffix}", parent.id, suffix))
         assert await _names(svc, DocumentFilters(asset_id=suffix)) == {
             f"Top v2 {suffix}",
             f"Shown {suffix}",
@@ -207,5 +210,72 @@ async def check_subfolders_block_deletion_and_archive_dates_stick(
             with contextlib.suppress(NotFoundError):
                 await svc.delete(document.id)
         for folder in (child, parent):
+            with contextlib.suppress(NotFoundError, ConflictError):
+                await svc.delete_folder(folder.id)
+
+
+async def check_hidden_folders_are_read_only(svc: DocumentsService) -> None:
+    """Nothing new lands in a folder that an archived folder hides.
+
+    Each folder also says which archived folder hides it, so no client has to
+    walk the tree again.
+    """
+    suffix = gen_id()
+    plans = await svc.create_folder(
+        FolderCreate(name=f"Plans {suffix}"), created_by="author"
+    )
+    level = await svc.create_folder(
+        FolderCreate(name=f"Level {suffix}", parent_id=plans.id), created_by="author"
+    )
+    open_folder = await svc.create_folder(
+        FolderCreate(name=f"Open {suffix}"), created_by="author"
+    )
+    folders = (level, plans, open_folder)
+    documents: list[Document] = []
+    try:
+        filed = await _upload(svc, f"Filed {suffix}", level.id)
+        loose = await _upload(svc, f"Loose {suffix}", open_folder.id)
+        documents += [filed, loose]
+        assert plans.hidden_by is None
+
+        archived = await svc.update_folder(plans.id, FolderUpdate(archived=True))
+        assert archived.hidden_by == plans.id
+        hidden_by = {f.id: f.hidden_by for f in await svc.list_folders()}
+        assert hidden_by[plans.id] == plans.id
+        assert hidden_by[level.id] == plans.id
+        assert hidden_by[open_folder.id] is None
+
+        # Upload, move or create a sub-folder: refused in the folder and below.
+        for target in (plans.id, level.id):
+            with pytest.raises(InvalidError, match="archived"):
+                await _upload(svc, f"New {suffix}", target)
+            with pytest.raises(InvalidError, match="archived"):
+                await svc.update(loose.id, DocumentUpdate(folder_id=target))
+            with pytest.raises(InvalidError, match="archived"):
+                await svc.create_folder(
+                    FolderCreate(name=f"Sub {suffix}", parent_id=target),
+                    created_by="author",
+                )
+        assert await _names(svc, DocumentFilters(folder_id=level.id)) == {filed.name}
+        assert (await svc.get(loose.id)).folder_id == open_folder.id
+
+        # What is already there can still be saved in place, or moved out.
+        kept = await svc.update(
+            filed.id, DocumentUpdate(name=f"Kept {suffix}", folder_id=level.id)
+        )
+        assert kept.folder_id == level.id
+        moved = await svc.update(filed.id, DocumentUpdate(folder_id=open_folder.id))
+        assert moved.folder_id == open_folder.id
+
+        # Restoring the folder opens it again.
+        restored = await svc.update_folder(plans.id, FolderUpdate(archived=False))
+        assert restored.hidden_by is None
+        back = await svc.update(filed.id, DocumentUpdate(folder_id=level.id))
+        assert back.folder_id == level.id
+    finally:
+        for document in documents:
+            with contextlib.suppress(NotFoundError):
+                await svc.delete(document.id)
+        for folder in folders:
             with contextlib.suppress(NotFoundError, ConflictError):
                 await svc.delete_folder(folder.id)

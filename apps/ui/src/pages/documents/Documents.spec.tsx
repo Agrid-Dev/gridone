@@ -99,17 +99,20 @@ const policy: DocumentUploadPolicy = {
   extensions: [".txt", ".pdf"],
 };
 
+/** *hidden_by* is what the server reports: the folder itself when archived. */
 function folder(
   id: string,
   name: string,
   parent_id: string | null = null,
   archived_at: string | null = null,
+  hidden_by: string | null = archived_at ? id : null,
 ): Folder {
   return {
     id,
     name,
     parent_id,
     archived_at,
+    hidden_by,
     created_by: "admin",
     created_at: "2026-10-12T00:00:00Z",
     updated_at: "2026-10-12T00:00:00Z",
@@ -553,7 +556,7 @@ describe("document folders", () => {
   it("opens a folder an archived folder hides read-only, with a way to restore it", async () => {
     api.documents.listFolders.mockResolvedValue([
       old,
-      folder("oldchild", "Old child", "old"),
+      folder("oldchild", "Old child", "old", null, "old"),
     ]);
     const user = setup("/documents?folder=oldchild");
     expect(await screen.findByText("Archived folder")).toBeInTheDocument();
@@ -672,8 +675,8 @@ describe("document folders", () => {
 
 describe("document folders, independent spec", () => {
   const level2 = folder("level2", "Level 2", "plans");
-  const oldChild = folder("oldchild", "Old child", "old");
-  const oldOther = folder("oldother", "Old other", "old");
+  const oldChild = folder("oldchild", "Old child", "old", null, "old");
+  const oldOther = folder("oldother", "Old other", "old", null, "old");
 
   it("clears a search back to the folder it was started from", async () => {
     api.documents.listFolders.mockResolvedValue([plans]);

@@ -15,7 +15,10 @@ reads never select the binary payload.
 - Archive documents and folders instead of deleting them. An archived folder hides
   its whole subtree from lists that span folders (search, asset/equipment links)
   without changing the descendants' own state; browsing a folder or listing the
-  archives shows documents wherever they are filed.
+  archives shows documents wherever they are filed. A hidden folder is read-only:
+  the service refuses to upload, move or create a sub-folder into it, while what
+  is already there can still be edited in place or moved out. Each folder reports
+  the archived folder that hides it (`hidden_by`), so clients never walk the tree.
 - Store the document ID, name, original filename, validated media type, size,
   opaque author ID and creation/update timestamps.
 - Persist files across restarts with PostgreSQL; failed uploads leave no entry.

@@ -6,6 +6,7 @@ import asyncpg
 import pytest
 from documents_folder_scenarios import (
     check_folders_and_archives,
+    check_hidden_folders_are_read_only,
     check_subfolders_block_deletion_and_archive_dates_stick,
 )
 
@@ -153,5 +154,14 @@ async def test_subfolders_block_deletion_and_archive_dates_stick():
     await svc.start()
     try:
         await check_subfolders_block_deletion_and_archive_dates_stick(svc)
+    finally:
+        await svc.stop()
+
+
+async def test_hidden_folders_are_read_only():
+    svc = DocumentsService(URL)
+    await svc.start()
+    try:
+        await check_hidden_folders_are_read_only(svc)
     finally:
         await svc.stop()
