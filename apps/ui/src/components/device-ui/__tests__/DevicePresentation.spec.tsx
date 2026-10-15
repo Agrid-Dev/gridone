@@ -63,6 +63,12 @@ vi.mock("@/components/AttributeDependencies", () => ({
 
 afterEach(cleanup);
 
+/** The driver's help texts, as the runtime resolves them in French. */
+const descriptions: Record<string, string> = {
+  temperature_setpoint: "Consigne de base avant décalage local",
+  setpoint_effective: "Setpoint the device regulates to",
+};
+
 const attributes: Record<string, AttributeLike> = {
   temperature_setpoint: {
     name: "temperature_setpoint",
@@ -71,10 +77,6 @@ const attributes: Record<string, AttributeLike> = {
     current_value: 21,
     unit: "°C",
     write_constraints: { step: 0.5, minimum: 16, maximum: 30 },
-    description: {
-      default: "Base setpoint before any local offset",
-      translations: { fr: "Consigne de base avant décalage local" },
-    },
   },
   setpoint_effective: {
     name: "setpoint_effective",
@@ -82,7 +84,6 @@ const attributes: Record<string, AttributeLike> = {
     read_write_modes: ["read"],
     current_value: 17,
     unit: "°C",
-    description: { default: "Setpoint the device regulates to" },
   },
   temperature: {
     name: "temperature",
@@ -253,6 +254,7 @@ function fakeRuntime(
   };
   const runtime: DeviceUiRuntime = {
     reportsWrites: true,
+    attributeDescription: (name) => descriptions[name],
     readControl: (id) => (document.controls[id] ? base(id) : undefined),
     setValue,
     activate,
@@ -613,20 +615,10 @@ describe("DevicePresentation", () => {
 
   it("uses driver attribute labels when a measurement has no explicit label", () => {
     const { runtime } = fakeRuntime();
-    renderPresentation(runtime, {
-      subject: {
-        ...device,
-        attributes: {
-          ...device.attributes,
-          temperature: {
-            ...attributes.temperature,
-            label: {
-              default: "Room sensor",
-              translations: { en: "Ambient temperature" },
-            },
-          },
-        },
-      } as Device,
+    renderPresentation({
+      ...runtime,
+      attributeLabel: (name) =>
+        name === "temperature" ? "Ambient temperature" : name,
     });
     expect(screen.getByText("Ambient temperature")).toBeInTheDocument();
   });

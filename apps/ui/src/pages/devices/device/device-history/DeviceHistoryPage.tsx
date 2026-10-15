@@ -52,6 +52,7 @@ export default function DeviceHistoryPage() {
   return (
     <DeviceHistoryProvider
       deviceId={device.id}
+      device={device}
       deviceName={device.name || device.id}
       attributes={attributes}
       standardAttributeNames={standardNames}

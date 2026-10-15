@@ -10,8 +10,10 @@ vi.mock("react-i18next", () =>
   ),
 );
 
+/** The driver-document path is covered with the registry, in
+ *  `contexts/DriverLabelsContext.spec.tsx`. */
 describe("useAttributeLabel", () => {
-  it("prefers the driver's declared label, resolved in the current language", () => {
+  it("prefers a label the server resolved, in the current language", () => {
     const { result } = renderHook(() => useAttributeLabel());
     expect(
       result.current("temperature", {
@@ -31,5 +33,12 @@ describe("useAttributeLabel", () => {
     expect(result.current("temperature")).toBe("Température");
     expect(result.current("temperature", { label: null })).toBe("Température");
     expect(result.current("fan_speed")).toBe("Fan Speed");
+  });
+
+  it("answers from the catalog for a device when no registry is mounted", () => {
+    const { result } = renderHook(() => useAttributeLabel());
+    expect(
+      result.current("temperature", { driver_id: "d", driver_revision: "r" }),
+    ).toBe("Température");
   });
 });

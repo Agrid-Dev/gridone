@@ -320,8 +320,7 @@ export function TriggerTitle({ trigger }: { trigger: Trigger }) {
     const device = catalog.devices.find((item) => item.id === deviceId);
     const values = {
       device: device?.name ?? (deviceId || "—"),
-      attribute:
-        attributeLabel(attribute, device?.attributes?.[attribute]) || "—",
+      attribute: attributeLabel(attribute, device) || "—",
     };
     const condition = isCondition(params.condition) ? params.condition : null;
     return condition ? (
@@ -561,7 +560,7 @@ function WriteTitle({ action }: { action: Action }) {
   return (
     <>
       <span className="font-semibold leading-5 text-foreground">
-        {attributeLabel(attribute, device?.attributes?.[attribute]) || "—"} →{" "}
+        {attributeLabel(attribute, device) || "—"} →{" "}
         {write ? formatValue(write.value) : "—"}
       </span>
       <span className="text-[13px] leading-5 text-muted-foreground">

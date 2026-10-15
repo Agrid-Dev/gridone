@@ -45,8 +45,6 @@ export type AttributeLike = {
   write_constraints?: WriteConstraints | null;
   write_state?: AttributeWriteState | null;
   default_value?: Scalar | null;
-  label?: LocalizedText | null;
-  description?: LocalizedText | null;
   group?: string | null;
   unit?: string | null;
 };

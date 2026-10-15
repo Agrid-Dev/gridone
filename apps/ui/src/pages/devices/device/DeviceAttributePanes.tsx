@@ -27,9 +27,9 @@ import {
   type AttributeFields,
 } from "@/lib/faults";
 import { attributeUnit } from "@/lib/attributeUnits";
-import { localize } from "@/lib/localizedText";
 import { cn, compactTimeAgo } from "@/lib/utils";
 import { toLabel } from "@/lib/textFormat";
+import { useAttributeDescription } from "@/hooks/useAttributeDescription";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
 import { useCanSeeConnectionStatus } from "@/hooks/useCanSeeConnectionStatus";
 
@@ -148,12 +148,11 @@ function AttributeRow({
   device: Device;
   attribute: AttributeFields;
 }) {
-  const { t, i18n } = useTranslation("devices");
+  const { t } = useTranslation("devices");
   const labelFor = useAttributeLabel();
-  const label = labelFor(attribute.name, attribute);
-  const description = attribute.description
-    ? localize(attribute.description, i18n.language)
-    : null;
+  const describe = useAttributeDescription();
+  const label = labelFor(attribute.name, device);
+  const description = describe(attribute.name, device) ?? null;
 
   const fault = isFaultAttribute(attribute) ? attribute : null;
   const isFaulty = fault?.is_faulty ?? false;

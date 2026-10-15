@@ -484,7 +484,7 @@ const FanOutChartView: FC<{
   const manyAttributes = new Set(plotted.map((s) => s.attributeName)).size > 1;
   const label = (s: Plotted) => {
     const device = deviceName(s.deviceId);
-    const attribute = attributeLabel(s.attributeName, attributeOf(s));
+    const attribute = attributeLabel(s.attributeName, deviceOf(s.deviceId));
     if (manyDevices && !manyAttributes) return device;
     if (manyAttributes && !manyDevices) return attribute;
     const name = `${device} — ${attribute}`;

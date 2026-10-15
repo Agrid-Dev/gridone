@@ -212,7 +212,7 @@ const Row: FC<{
     item.label ??
     (labelBy === "device"
       ? device?.name || item.device_id
-      : labelFor(item.attribute, attribute));
+      : labelFor(item.attribute, device));
   const href = item.link ? `/devices/${item.device_id}` : undefined;
 
   if (isLoading)

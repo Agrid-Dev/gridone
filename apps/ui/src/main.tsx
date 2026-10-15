@@ -8,6 +8,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import { GridoneClientProvider } from "./contexts/GridoneClientContext";
 import { AuthProvider } from "./contexts/AuthContext";
 import { DeviceProvider } from "./contexts/DeviceContext";
+import { DriverLabelsProvider } from "./contexts/DriverLabelsContext";
 import "./index.css";
 import "./i18n";
 
@@ -27,11 +28,13 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <BrowserRouter>
           <GridoneClientProvider>
             <AuthProvider>
-              <DeviceProvider>
-                <AttributeConfirmationProvider>
-                  <App />
-                </AttributeConfirmationProvider>
-              </DeviceProvider>
+              <DriverLabelsProvider>
+                <DeviceProvider>
+                  <AttributeConfirmationProvider>
+                    <App />
+                  </AttributeConfirmationProvider>
+                </DeviceProvider>
+              </DriverLabelsProvider>
             </AuthProvider>
           </GridoneClientProvider>
         </BrowserRouter>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo } from "react";
 import type { Device, ResolvedOption, WriteReason } from "@gridone/sdk";
 import { useAttributeCommandRuntime } from "@/hooks/useAttributeCommandRuntime";
+import { useAttributeDescription } from "@/hooks/useAttributeDescription";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
 import { deviceAttributes } from "@/lib/devices";
 import { judgeWith, type Scalar } from "../conditions";
@@ -44,7 +45,10 @@ export type DeviceUiRuntime = {
   deviceId?: string;
   /** Writes sent through this runtime report their progress on each control. */
   reportsWrites?: boolean;
+  /** How the subject's driver names an attribute, in the current language. */
   attributeLabel?(attribute: string): string;
+  /** The driver's help text for an attribute, if it declares one. */
+  attributeDescription?(attribute: string): string | undefined;
   /** A group can require an explicit absolute target for mixed values. */
   chooseValue?(id: string): void;
   valueLabel?(attribute: string): string | undefined;
@@ -78,6 +82,7 @@ export function useDeviceControlRuntime(
 ): DeviceUiRuntime & { busy: boolean } {
   const runtime = useAttributeCommandRuntime(device.id, debounceMs);
   const labelFor = useAttributeLabel();
+  const describe = useAttributeDescription();
 
   const attributes = deviceAttributes(device) as Record<string, AttributeLike>;
   useEffect(() => {
@@ -181,8 +186,12 @@ export function useDeviceControlRuntime(
   );
 
   const attributeLabel = useCallback(
-    (name: string) => labelFor(name, attributes[name]),
-    [labelFor, attributes],
+    (name: string) => labelFor(name, device),
+    [labelFor, device],
+  );
+  const attributeDescription = useCallback(
+    (name: string) => describe(name, device),
+    [describe, device],
   );
   const busy = runtime.busy;
   return useMemo(
@@ -190,6 +199,7 @@ export function useDeviceControlRuntime(
       deviceId: device.id,
       reportsWrites: canWrite,
       attributeLabel,
+      attributeDescription,
       readControl,
       setValue,
       activate,
@@ -200,6 +210,7 @@ export function useDeviceControlRuntime(
       device.id,
       canWrite,
       attributeLabel,
+      attributeDescription,
       readControl,
       setValue,
       activate,

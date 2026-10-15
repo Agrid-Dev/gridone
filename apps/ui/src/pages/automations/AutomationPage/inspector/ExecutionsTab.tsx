@@ -180,7 +180,7 @@ function ExecutionDetail({
         {context?.device_id && (
           <Row label={t("panel.executions.event")}>
             {device?.name ?? context.device_id} ·{" "}
-            {attributeLabel(attribute, device?.attributes?.[attribute])} :{" "}
+            {attributeLabel(attribute, device)} :{" "}
             <strong>
               {context.has_previous
                 ? `${formatValue(context.previous_value as CellValue)} → `

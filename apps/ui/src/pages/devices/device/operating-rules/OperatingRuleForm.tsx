@@ -164,9 +164,9 @@ export function OperatingRuleForm({
                           {t("missing", { id: field.value.attribute })}
                         </SelectItem>
                       )}
-                      {writable.map(([name, attribute]) => (
+                      {writable.map(([name]) => (
                         <SelectItem key={name} value={name}>
-                          {attributeLabel(name, attribute)}
+                          {attributeLabel(name, device)}
                         </SelectItem>
                       ))}
                     </SelectContent>

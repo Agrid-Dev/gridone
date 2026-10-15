@@ -7,26 +7,26 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui";
-import { localize } from "../face";
-import type { AttributeLike } from "../runtime";
+import type { DeviceUiRuntime } from "../runtime";
 
 /** One attribute description to show: `caption` names what it explains. */
 export type DescriptionEntry = { caption: string; text: string };
 
 /**
- * The descriptions declared by the attributes behind a widget row, resolved
- * in `language`, in the given order; attributes without a description (or
- * unresolved bindings) are skipped, so an empty result means "no hint".
+ * The descriptions the driver declares for the attributes behind a widget
+ * row, as the runtime resolves them, in the given order; attributes without
+ * a description (or unresolved bindings) are skipped, so an empty result
+ * means "no hint".
  */
 export function describedAttributes(
-  entries: readonly { caption: string; attribute: AttributeLike | null }[],
-  language: string,
+  entries: readonly { caption: string; attribute: string | null }[],
+  describe: DeviceUiRuntime["attributeDescription"],
 ): DescriptionEntry[] {
-  return entries.flatMap(({ caption, attribute }) =>
-    attribute?.description
-      ? [{ caption, text: localize(attribute.description, language) }]
-      : [],
-  );
+  if (!describe) return [];
+  return entries.flatMap(({ caption, attribute }) => {
+    const text = attribute ? describe(attribute) : undefined;
+    return text ? [{ caption, text }] : [];
+  });
 }
 
 /**

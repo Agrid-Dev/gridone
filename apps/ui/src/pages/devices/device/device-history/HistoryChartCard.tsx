@@ -5,7 +5,6 @@ import TimeSeriesChart, {
   type Series,
 } from "@/components/charts/TimeSeriesChart";
 import { seriesUnit } from "@/components/charts/TimeSeriesChart/seriesUnit";
-import { useAttributeLabel } from "@/hooks/useAttributeLabel";
 import { useValueLabel } from "@/hooks/useValueLabel";
 import { attributeValueLabel } from "@/lib/attributeValueLabel";
 import { type MergedRow } from "@/lib/mergeTimeSeries";
@@ -33,11 +32,11 @@ export function HistoryChartCard() {
     selectedAttributes,
     dataTypes,
     attributes,
+    attributeLabel,
     chartRows,
     panelOrder,
     setPanelOrder,
   } = useDeviceHistoryContext();
-  const labelFor = useAttributeLabel();
   const booleanLabel = useValueLabel();
 
   const timestamps = useMemo(
@@ -60,11 +59,11 @@ export function HistoryChartCard() {
     () =>
       (name: string): Series => ({
         key: name,
-        label: labelFor(name, attributes[name]),
+        label: attributeLabel(name),
         semanticKey: name,
         unit: attributes[name]?.unit,
       }),
-    [labelFor, attributes],
+    [attributeLabel, attributes],
   );
 
   const lineSeries = useMemo(

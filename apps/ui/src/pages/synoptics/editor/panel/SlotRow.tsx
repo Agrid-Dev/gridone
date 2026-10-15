@@ -151,9 +151,7 @@ export function SlotRow({
   const attributeNames = Object.keys(attributes)
     .filter((name) => name !== "connection_status")
     .sort((a, b) =>
-      attributeLabel(a, attributes[a]).localeCompare(
-        attributeLabel(b, attributes[b]),
-      ),
+      attributeLabel(a, device).localeCompare(attributeLabel(b, device)),
     );
 
   const patch = (fields: Partial<AttributeSlot>, field: string) => {
@@ -176,7 +174,7 @@ export function SlotRow({
             <SelectItem value={NONE}>{t("editor.slot.none")}</SelectItem>
             {attributeNames.map((name) => (
               <SelectItem key={name} value={attrValue(name)}>
-                {attributeLabel(name, attributes[name])}
+                {attributeLabel(name, device)}
               </SelectItem>
             ))}
             {mode.startsWith("attr:") &&
