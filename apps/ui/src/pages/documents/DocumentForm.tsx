@@ -6,6 +6,7 @@ import { ResourceHeader } from "@/components/ResourceHeader";
 import { FieldShell } from "@/components/forms/controllers/FieldShell";
 import { InputController } from "@/components/forms/controllers/InputController";
 import { MultiSelectController } from "@/components/forms/controllers/MultiSelectController";
+import { SelectController } from "@/components/forms/controllers/SelectController";
 import { ServerErrorAlert } from "@/components/forms/schema-form/ServerErrorAlert";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -20,10 +21,8 @@ import { useDocumentForm } from "./useDocumentForm";
 export function DocumentForm({ document }: { document?: Document }) {
   const { t, i18n } = useTranslation("documents");
   const policy = useDocumentUploadPolicy();
-  const { form, options, choicesLoading, selectFile, submit } = useDocumentForm(
-    policy,
-    document,
-  );
+  const { form, options, choicesLoading, cancelTo, selectFile, submit } =
+    useDocumentForm(policy, document);
   const { errors, isSubmitting } = form.formState;
   return (
     <section className="space-y-6">
@@ -77,6 +76,15 @@ export function DocumentForm({ document }: { document?: Document }) {
                 label={t("name")}
                 required
               />
+              <SelectController
+                name="folder_id"
+                control={form.control}
+                label={t("folder")}
+                options={options.folder_id}
+                allowEmpty
+                emptyValue={null}
+                emptyLabel={t("noFolder")}
+              />
               <div className="grid gap-6 sm:grid-cols-2">
                 {(["asset_ids", "device_ids"] as const).map((key) => (
                   <MultiSelectController
@@ -101,9 +109,7 @@ export function DocumentForm({ document }: { document?: Document }) {
           </CardContent>
           <CardFooter className="justify-end gap-3 border-t pt-6">
             <Button asChild variant="outline" disabled={isSubmitting}>
-              <Link to={document ? `/documents/${document.id}` : "/documents"}>
-                {t("cancel")}
-              </Link>
+              <Link to={cancelTo}>{t("cancel")}</Link>
             </Button>
             <Button type="submit" disabled={isSubmitting || choicesLoading}>
               {isSubmitting ? t("saving") : t(document ? "save" : "upload")}

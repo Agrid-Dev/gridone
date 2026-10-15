@@ -9,6 +9,16 @@ reads never select the binary payload.
 
 - Upload one non-empty file, list/search documents by name with pagination,
   retrieve metadata, download original bytes, rename and delete.
+- File documents in nested folders, move them between folders or back to the
+  top level. Folders are created, renamed, archived and restored; only an empty
+  folder (archived contents included) can be deleted, which the database enforces.
+- Archive documents and folders instead of deleting them. An archived folder hides
+  its whole subtree from lists that span folders (search, asset/equipment links)
+  without changing the descendants' own state; browsing a folder or listing the
+  archives shows documents wherever they are filed. A hidden folder is read-only:
+  the service refuses to upload, move or create a sub-folder into it, while what
+  is already there can still be edited in place or moved out. Each folder reports
+  the archived folder that hides it (`hidden_by`), so clients never walk the tree.
 - Store the document ID, name, original filename, validated media type, size,
   opaque author ID and creation/update timestamps.
 - Persist files across restarts with PostgreSQL; failed uploads leave no entry.
@@ -21,8 +31,9 @@ reads never select the binary payload.
   This service has no knowledge of roles or permissions and does not import
   the assets or devices services.
 
-Per-document sharing, folders, versions, replacement,
-previews, public links and content search are outside this first version.
+Per-document sharing, moving folders, versions, replacement, public links and
+content search are out of scope. The service never renders a file: the UI asks
+the browser to display PDF, image and text documents from their original bytes.
 Deleting an asset or equipment keeps the document and its now-unavailable link.
 An upgrade migration removes sharing metadata from earlier PR installations
 without changing the files or their asset/equipment links.

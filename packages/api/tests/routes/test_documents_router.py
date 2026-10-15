@@ -22,8 +22,11 @@ from documents import (
     DocumentCreate,
     DocumentsService,
     DocumentTooLargeError,
+    Folder,
+    FolderCreate,
+    FolderUpdate,
 )
-from models.errors import NotFoundError
+from models.errors import ConflictError, NotFoundError
 from models.pagination import Page
 from users.roles import find_builtin_role
 
@@ -46,9 +49,23 @@ def document():
 
 
 @pytest.fixture
-def context(document, admin_token_payload):
+def folder():
+    now = datetime.now(UTC)
+    return Folder(
+        id="f" * 16,
+        name="Plans",
+        created_by="admin",
+        created_at=now,
+        updated_at=now,
+    )
+
+
+@pytest.fixture
+def context(document, folder, admin_token_payload):
     svc = AsyncMock(spec=DocumentsService)
     svc.create.return_value = svc.get.return_value = svc.update.return_value = document
+    svc.list_folders.return_value = [folder]
+    svc.create_folder.return_value = svc.update_folder.return_value = folder
     svc.list.return_value = Page(items=[document], total=1, page=1, size=50)
     svc.get_content.return_value = DocumentContent(document, b"notice")
     assets = AsyncMock(spec=AssetsService)
@@ -224,7 +241,13 @@ def test_openapi_documents_typed_multipart_fields(context):
     reference = body["content"]["multipart/form-data"]["schema"]["$ref"]
     fields = schema["components"]["schemas"][reference.rsplit("/", 1)[1]]
     assert set(fields["required"]) == {"file", "name"}
-    assert set(fields["properties"]) == {"file", "name", "asset_ids", "device_ids"}
+    assert set(fields["properties"]) == {
+        "file",
+        "name",
+        "folder_id",
+        "asset_ids",
+        "device_ids",
+    }
     assert (
         fields["properties"]["file"]["contentMediaType"] == "application/octet-stream"
     )
@@ -233,3 +256,76 @@ def test_openapi_documents_typed_multipart_fields(context):
     assert name_schema["maxLength"] == 255
     assert fields["properties"]["asset_ids"]["type"] == "array"
     assert fields["properties"]["device_ids"]["maxItems"] == 200
+
+
+def test_folder_routes_delegate_and_are_not_taken_for_documents(
+    context, admin_token_payload
+):
+    client, svc, *_ = context
+    listed = client.get("/documents/folders")
+    assert listed.status_code == 200
+    assert [f["name"] for f in listed.json()] == ["Plans"]
+    svc.get.assert_not_awaited()
+    created = client.post(
+        "/documents/folders", json={"name": " Plans ", "parent_id": "root"}
+    )
+    assert created.status_code == 201
+    assert svc.create_folder.await_args.args[0] == FolderCreate(
+        name="Plans", parent_id="root"
+    )
+    assert svc.create_folder.await_args.kwargs == {
+        "created_by": admin_token_payload.sub
+    }
+    patched = client.patch("/documents/folders/plans", json={"archived": True})
+    assert patched.status_code == 200
+    assert svc.update_folder.await_args.args == ("plans", FolderUpdate(archived=True))
+    assert client.delete("/documents/folders/plans").status_code == 204
+    svc.delete_folder.assert_awaited_once_with("plans")
+
+
+@pytest.mark.parametrize(
+    "body", [{"name": None}, {"archived": None}, {"parent_id": "elsewhere"}]
+)
+def test_folder_patch_rejects_nulls_and_moves(context, body):
+    client, svc, *_ = context
+    assert client.patch("/documents/folders/plans", json=body).status_code == 422
+    svc.update_folder.assert_not_awaited()
+
+
+def test_deleting_a_folder_that_still_holds_something_is_a_conflict(context):
+    client, svc, *_ = context
+    svc.delete_folder.side_effect = ConflictError("The folder is not empty.")
+    response = client.delete("/documents/folders/plans")
+    assert response.status_code == 409
+    assert response.json() == {"detail": "The folder is not empty."}
+
+
+def test_upload_files_into_a_folder(context):
+    client, svc, *_ = context
+    response = upload(client, {"name": "Notice", "folder_id": "plans"})
+    assert response.status_code == 201, response.text
+    assert svc.create.call_args.args[0] == DocumentCreate(
+        name="Notice", folder_id="plans"
+    )
+
+
+def test_patch_with_a_null_folder_moves_to_the_top_level(context):
+    client, svc, *_ = context
+    response = client.patch("/documents/a", json={"folder_id": None})
+    assert response.status_code == 200
+    patch = svc.update.call_args.args[1]
+    assert patch.model_fields_set == {"folder_id"}
+    assert patch.folder_id is None
+
+
+def test_list_reads_folder_and_archive_filters(context):
+    client, svc, *_ = context
+    assert client.get("/documents?folder_id=plans&archived=true").status_code == 200
+    filters = svc.list.call_args.kwargs["filters"]
+    assert filters.folder_id == "plans"
+    assert filters.archived is True
+    assert filters.top_level is False
+    assert client.get("/documents?top_level=true").status_code == 200
+    assert svc.list.call_args.kwargs["filters"].top_level is True
+    both = client.get("/documents?folder_id=plans&top_level=true")
+    assert both.status_code == 422

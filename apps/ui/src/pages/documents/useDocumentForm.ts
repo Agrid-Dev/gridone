@@ -11,10 +11,18 @@ import type {
   DocumentUploadPolicy,
 } from "@gridone/sdk";
 import { serverErrorMessage } from "@/lib/serverErrorMessage";
-import { useDocumentActions, useDocumentChoices } from "./useDocuments";
+import { folderOptions } from "./folderTree";
+import {
+  folderLink,
+  useDocumentActions,
+  useDocumentChoices,
+  useDocumentFolders,
+} from "./useDocuments";
 
 export interface DocumentFormValues {
   name: string;
+  /** Null files the document at the top level. */
+  folder_id: string | null;
   asset_ids: string[];
   device_ids: string[];
   file?: File;
@@ -23,6 +31,7 @@ export interface DocumentFormValues {
 function metadata(values: DocumentFormValues): DocumentCreate {
   return {
     name: values.name.trim(),
+    folder_id: values.folder_id,
     asset_ids: values.asset_ids,
     device_ids: values.device_ids,
   };
@@ -35,6 +44,8 @@ function changedMetadata(
 ): DocumentUpdate {
   const patch: DocumentUpdate = {};
   if (before.name !== after.name) patch.name = after.name;
+  if ((before.folder_id ?? null) !== (after.folder_id ?? null))
+    patch.folder_id = after.folder_id ?? null;
   for (const key of ["asset_ids", "device_ids"] as const) {
     if (JSON.stringify(before[key]) !== JSON.stringify(after[key]))
       patch[key] = after[key];
@@ -64,10 +75,15 @@ export function useDocumentForm(
   const [search] = useSearchParams();
   const actions = useDocumentActions();
   const choices = useDocumentChoices();
+  const folders = useDocumentFolders();
+  const initialFolder = document
+    ? (document.folder_id ?? null)
+    : search.get("folder") || null;
   const schema = useMemo(() => {
     return z
       .object({
         name: z.string().trim().min(1).max(255),
+        folder_id: z.string().min(1).max(128).nullable(),
         asset_ids: z.array(z.string().min(1).max(128)).max(200),
         device_ids: z.array(z.string().min(1).max(128)).max(200),
         file: z.instanceof(File).optional(),
@@ -100,6 +116,7 @@ export function useDocumentForm(
     resolver: zodResolver(schema),
     defaultValues: {
       name: document?.name ?? "",
+      folder_id: initialFolder,
       asset_ids:
         document?.asset_ids ??
         (search.get("asset_id") ? [search.get("asset_id")!] : []),
@@ -111,6 +128,14 @@ export function useDocumentForm(
   const assetIds = useWatch({ control: form.control, name: "asset_ids" });
   const deviceIds = useWatch({ control: form.control, name: "device_ids" });
   const options = {
+    folder_id: folderOptions(folders.data ?? [], initialFolder).map(
+      ({ value, path, hidden }) => ({
+        value,
+        label: hidden
+          ? `${path.join(" › ")} (${t("archivedLabel")})`
+          : path.join(" › "),
+      }),
+    ),
     asset_ids: optionsWithMissing(choices.assets, assetIds, t("unavailable")),
     device_ids: optionsWithMissing(
       choices.devices,
@@ -145,7 +170,10 @@ export function useDocumentForm(
   return {
     form,
     options,
-    choicesLoading: choices.loading,
+    choicesLoading: choices.loading || folders.isLoading,
+    cancelTo: document
+      ? `/documents/${encodeURIComponent(document.id)}`
+      : folderLink(initialFolder),
     selectFile,
     submit,
   };

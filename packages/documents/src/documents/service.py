@@ -1,4 +1,5 @@
 import asyncio
+import builtins
 from datetime import UTC, datetime
 
 from documents.models import (
@@ -7,6 +8,12 @@ from documents.models import (
     DocumentCreate,
     DocumentFilters,
     DocumentUpdate,
+    Folder,
+    FolderCreate,
+    FolderUpdate,
+    hidden_folder_ids,
+    hiding_folders,
+    with_hidden_by,
 )
 from documents.storage import build_storage
 from documents.storage.protocol import DocumentsStorage
@@ -52,6 +59,7 @@ class DocumentsService:
         if not data:
             msg = "The document is empty."
             raise InvalidError(msg)
+        await self._check_open(metadata.folder_id)
         filename = safe_filename(filename)
         media_type = await asyncio.to_thread(validate_file, filename, data)
         now = datetime.now(UTC)
@@ -73,8 +81,18 @@ class DocumentsService:
         filters: DocumentFilters | None = None,
         pagination: PaginationParams | None = None,
     ) -> Page[Document]:
+        filters = filters or DocumentFilters()
+        # The archive rule needs the whole folder table, read on every spanning
+        # list. Fine for operator folders (tens to hundreds), and it keeps the
+        # rule in one place for every backend instead of a recursive query
+        # that only PostgreSQL would run.
+        hidden = (
+            hidden_folder_ids(await self._backend.list_folders())
+            if filters.spans_folders
+            else frozenset()
+        )
         return await self._backend.list(
-            filters or DocumentFilters(), pagination or PaginationParams()
+            filters, pagination or PaginationParams(), hidden_folder_ids=hidden
         )
 
     async def get(self, document_id: str) -> Document:
@@ -92,7 +110,49 @@ class DocumentsService:
         return content
 
     async def update(self, document_id: str, patch: DocumentUpdate) -> Document:
+        if "folder_id" in patch.model_fields_set and patch.folder_id is not None:
+            current = await self.get(document_id)
+            # Saving a document where it already is stays possible.
+            if patch.folder_id != current.folder_id:
+                await self._check_open(patch.folder_id)
         return await self._backend.update(document_id, patch, datetime.now(UTC))
 
     async def delete(self, document_id: str) -> None:
         await self._backend.delete(document_id)
+
+    async def list_folders(self) -> builtins.list[Folder]:
+        return with_hidden_by(await self._backend.list_folders())
+
+    async def create_folder(self, folder: FolderCreate, *, created_by: str) -> Folder:
+        # A new folder is never hidden: its parent is open and it is active.
+        await self._check_open(folder.parent_id)
+        now = datetime.now(UTC)
+        return await self._backend.create_folder(
+            Folder(
+                **folder.model_dump(),
+                id=gen_id(),
+                created_by=created_by,
+                created_at=now,
+                updated_at=now,
+            )
+        )
+
+    async def update_folder(self, folder_id: str, patch: FolderUpdate) -> Folder:
+        folder = await self._backend.update_folder(folder_id, patch, datetime.now(UTC))
+        hidden_by = hiding_folders(await self._backend.list_folders()).get(folder.id)
+        return folder.model_copy(update={"hidden_by": hidden_by})
+
+    async def delete_folder(self, folder_id: str) -> None:
+        await self._backend.delete_folder(folder_id)
+
+    async def _check_open(self, folder_id: str | None) -> None:
+        """Refuse to file anything in a folder that an archived folder hides.
+
+        Such a folder is read-only: what lands in it would leave search and the
+        asset or device cards at once. An unknown folder is left to storage.
+        """
+        if folder_id is None:
+            return
+        if folder_id in hidden_folder_ids(await self._backend.list_folders()):
+            msg = "The folder is archived."
+            raise InvalidError(msg)

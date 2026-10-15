@@ -129,3 +129,70 @@ it("uploads, filters, renames and removes documents through the real SDK and API
     status: 404,
   });
 });
+
+it("files documents in nested folders, hides an archived folder's contents from search and keeps a non-empty folder", async () => {
+  const admin = await makeAdminClient();
+  const suffix = String(Date.now());
+  const plans = await admin.documents.createFolder({ name: `Plans ${suffix}` });
+  cleanup.push(() => admin.documents.deleteFolder(plans.id));
+  const level = await admin.documents.createFolder({
+    name: "Level 1",
+    parent_id: plans.id,
+  });
+  cleanup.push(() => admin.documents.deleteFolder(level.id));
+  const filed = await admin.documents.create(
+    { name: `Ground floor plan ${suffix}`, folder_id: level.id },
+    new Blob(["plan"]),
+    "plan.txt",
+  );
+  cleanup.push(() => admin.documents.delete(filed.id));
+  const top = await admin.documents.create(
+    { name: `Notice ${suffix}` },
+    new Blob(["notice"]),
+    "notice.txt",
+  );
+  cleanup.push(() => admin.documents.delete(top.id));
+  expect(filed.folder_id).toBe(level.id);
+  expect(top.folder_id ?? null).toBeNull();
+  const ids = async (params: Parameters<typeof admin.documents.list>[0]) =>
+    (await admin.documents.list(params)).items.map((document) => document.id);
+
+  expect(await ids({ folder_id: level.id })).toEqual([filed.id]);
+  expect(await ids({ top_level: true, q: suffix })).toEqual([top.id]);
+  expect((await ids({ q: suffix })).sort()).toEqual([filed.id, top.id].sort());
+
+  // Archiving the parent hides its whole subtree from search, not from browsing.
+  const archived = await admin.documents.updateFolder(plans.id, {
+    archived: true,
+  });
+  expect(archived.archived_at).not.toBeNull();
+  expect(await ids({ q: suffix })).toEqual([top.id]);
+  expect(await ids({ folder_id: level.id })).toEqual([filed.id]);
+  await expect(admin.documents.deleteFolder(plans.id)).rejects.toMatchObject({
+    status: 409,
+  });
+
+  await admin.documents.updateFolder(plans.id, { archived: false });
+  const moved = await admin.documents.update(filed.id, {
+    folder_id: null,
+    archived: true,
+  });
+  expect(moved.folder_id).toBeNull();
+  expect(moved.archived_at).not.toBeNull();
+  expect(await ids({ archived: true, q: suffix })).toEqual([filed.id]);
+  expect(await ids({ q: suffix })).toEqual([top.id]);
+
+  // Empty now: both folders go, and a deleted folder cannot receive uploads.
+  await admin.documents.deleteFolder(level.id);
+  await admin.documents.deleteFolder(plans.id);
+  expect(
+    (await admin.documents.listFolders()).some((f) => f.id === plans.id),
+  ).toBe(false);
+  await expect(
+    admin.documents.create(
+      { name: "Ghost", folder_id: plans.id },
+      new Blob(["ghost"]),
+      "ghost.txt",
+    ),
+  ).rejects.toMatchObject({ status: 422 });
+});

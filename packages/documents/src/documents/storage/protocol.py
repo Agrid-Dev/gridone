@@ -1,3 +1,4 @@
+import builtins
 from datetime import datetime
 from typing import Protocol
 
@@ -6,6 +7,8 @@ from documents.models import (
     DocumentContent,
     DocumentFilters,
     DocumentUpdate,
+    Folder,
+    FolderUpdate,
 )
 from models.pagination import Page, PaginationParams
 
@@ -18,9 +21,16 @@ class DocumentsStorage(Protocol):
         self,
         filters: DocumentFilters,
         pagination: PaginationParams,
+        hidden_folder_ids: frozenset[str] = frozenset(),
     ) -> Page[Document]: ...
     async def update(
         self, document_id: str, patch: DocumentUpdate, updated_at: datetime
     ) -> Document: ...
     async def delete(self, document_id: str) -> None: ...
+    async def list_folders(self) -> builtins.list[Folder]: ...
+    async def create_folder(self, folder: Folder) -> Folder: ...
+    async def update_folder(
+        self, folder_id: str, patch: FolderUpdate, updated_at: datetime
+    ) -> Folder: ...
+    async def delete_folder(self, folder_id: str) -> None: ...
     async def close(self) -> None: ...

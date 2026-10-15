@@ -327,6 +327,42 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/documents/folders": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Folders */
+    get: operations["list_folders_documents_folders_get"];
+    put?: never;
+    /** Create Folder */
+    post: operations["create_folder_documents_folders_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/documents/folders/{folder_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Delete Folder */
+    delete: operations["delete_folder_documents_folders__folder_id__delete"];
+    options?: never;
+    head?: never;
+    /** Update Folder */
+    patch: operations["update_folder_documents_folders__folder_id__patch"];
+    trace?: never;
+  };
   "/documents": {
     parameters: {
       query?: never;
@@ -3341,6 +3377,7 @@ export interface components {
       asset_ids?: components["schemas"]["Reference"][];
       /** Device Ids */
       device_ids?: components["schemas"]["Reference"][];
+      folder_id?: components["schemas"]["Reference"] | null;
     };
     /** Body_oauth2_token_auth_token_post */
     Body_oauth2_token_auth_token_post: {
@@ -4882,6 +4919,7 @@ export interface components {
     /** Document */
     Document: {
       name: components["schemas"]["Name"];
+      folder_id?: components["schemas"]["Reference"] | null;
       /** Asset Ids */
       asset_ids?: components["schemas"]["Reference"][];
       /** Device Ids */
@@ -4894,6 +4932,8 @@ export interface components {
       media_type: string;
       /** Size */
       size: number;
+      /** Archived At */
+      archived_at?: string | null;
       /** Created By */
       created_by: string;
       /**
@@ -4914,16 +4954,30 @@ export interface components {
        * @default
        */
       q?: string;
+      folder_id?: components["schemas"]["Reference"] | null;
+      /**
+       * Top Level
+       * @default false
+       */
+      top_level?: boolean;
+      /**
+       * Archived
+       * @default false
+       */
+      archived?: boolean;
       asset_id?: components["schemas"]["Reference"] | null;
       device_id?: components["schemas"]["Reference"] | null;
     };
     /** DocumentUpdate */
     DocumentUpdate: {
       name?: components["schemas"]["Name"] | null;
+      folder_id?: components["schemas"]["Reference"] | null;
       /** Asset Ids */
       asset_ids?: components["schemas"]["Reference"][] | null;
       /** Device Ids */
       device_ids?: components["schemas"]["Reference"][] | null;
+      /** Archived */
+      archived?: boolean | null;
     };
     /** DocumentUploadPolicy */
     DocumentUploadPolicy: {
@@ -5288,6 +5342,40 @@ export interface components {
       | "chilled_return"
       | "condenser_supply"
       | "condenser_return";
+    /** Folder */
+    Folder: {
+      name: components["schemas"]["Name"];
+      parent_id?: components["schemas"]["Reference"] | null;
+      /** Id */
+      id: string;
+      /** Archived At */
+      archived_at?: string | null;
+      /** Hidden By */
+      hidden_by?: string | null;
+      /** Created By */
+      created_by: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /** FolderCreate */
+    FolderCreate: {
+      name: components["schemas"]["Name"];
+      parent_id?: components["schemas"]["Reference"] | null;
+    };
+    /** FolderUpdate */
+    FolderUpdate: {
+      name?: components["schemas"]["Name"] | null;
+      /** Archived */
+      archived?: boolean | null;
+    };
     /**
      * Formatter
      * @description How a measurement is displayed; every field is optional.
@@ -9501,6 +9589,123 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["DocumentUploadPolicy"];
+        };
+      };
+    };
+  };
+  list_folders_documents_folders_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Folder"][];
+        };
+      };
+    };
+  };
+  create_folder_documents_folders_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["FolderCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Folder"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_folder_documents_folders__folder_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        folder_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_folder_documents_folders__folder_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        folder_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["FolderUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Folder"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };

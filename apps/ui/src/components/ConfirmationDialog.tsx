@@ -23,6 +23,9 @@ export type ConfirmationDialogProps = {
   /** Shown when the server gives no message of its own. Defaults to the
    *  deletion wording, so any other action passes its own. */
   errorLabel?: string;
+  /** Wording for a refusal the caller knows better than the server, e.g. a
+   *  translated conflict. Undefined falls back to the usual messages. */
+  describeError?: (error: unknown) => string | undefined;
   children?: ReactNode;
   icon?: ReactNode;
   onCloseAutoFocus?: (event: Event) => void;
@@ -37,6 +40,7 @@ export function ConfirmationDialog({
   label,
   pendingLabel,
   errorLabel,
+  describeError,
   children,
   icon,
   onCloseAutoFocus,
@@ -46,6 +50,7 @@ export function ConfirmationDialog({
     onConfirm,
     onOpenChange,
     errorLabel,
+    describeError,
   );
   return (
     <AlertDialog open={open} onOpenChange={changeOpen}>

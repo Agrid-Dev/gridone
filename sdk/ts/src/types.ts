@@ -426,6 +426,9 @@ export type WriteExpression = Schemas["Expression-Input"];
 // Uploaded documents
 export type Document = Schemas["Document"];
 export type DocumentCreate = Pick<Document, "name"> &
-  Partial<Pick<Document, "asset_ids" | "device_ids">>;
+  Partial<Pick<Document, "folder_id" | "asset_ids" | "device_ids">>;
 export type DocumentUpdate = Schemas["DocumentUpdate"];
 export type DocumentUploadPolicy = Schemas["DocumentUploadPolicy"];
+export type Folder = Schemas["Folder"];
+export type FolderCreate = Schemas["FolderCreate"];
+export type FolderUpdate = Schemas["FolderUpdate"];

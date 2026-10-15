@@ -34,6 +34,29 @@ describe("ResourceHeader", () => {
     expect(row).not.toContainElement(screen.getByText("A caption"));
   });
 
+  // A path such as a folder's parents sits on the title's line, before it, and
+  // stays outside the heading: a heading cannot hold a navigation landmark.
+  it("draws a breadcrumb on the title's line, before the heading", () => {
+    render(
+      <ResourceHeader
+        breadcrumb={
+          <nav aria-label="Path">
+            <a href="/documents">Documents</a>
+          </nav>
+        }
+        title="Plans"
+        actions={<button>Add</button>}
+      />,
+    );
+    const heading = screen.getByRole("heading", { name: "Plans" });
+    const path = screen.getByRole("navigation", { name: "Path" });
+    expect(heading.parentElement).toContainElement(path);
+    expect(heading).not.toContainElement(path);
+    expect(
+      path.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it("never renders a back link or back-arrow glyph", () => {
     const { container } = render(<ResourceHeader title="acme.rtu" />);
     expect(container.querySelector("a")).toBeNull();
