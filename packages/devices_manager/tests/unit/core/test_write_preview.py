@@ -26,6 +26,15 @@ def test_preview_uses_write_contract_without_changing_values(
     assert device.get_attribute("temperature_setpoint").current_value == before
 
 
+def test_preview_names_the_attribute_the_way_the_driver_does(device):
+    """The device attribute carries no label (ADR 0008): the preview reads the
+    driver's wording so a confirmation dialog can still name the attribute."""
+    spec = device.driver.attributes["temperature_setpoint"]
+    spec.label = LocalizedText(default="Setpoint", translations={"fr": "Consigne"})
+    preview = preview_write(device, "temperature_setpoint", 23)
+    assert preview.attribute_label == spec.label
+
+
 def test_preview_projects_user_confirmation_through_public_device_path(device):
     spec = device.driver.attributes["temperature_setpoint"]
     spec.user_confirmation = LocalizedText(

@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from unittest.mock import MagicMock
 
 import pytest
@@ -11,11 +12,14 @@ from api.targets import (
 )
 from devices_manager import DevicesServiceInterface
 from devices_manager.core.device import Attribute
+from devices_manager.dto import AttributeLabels, DriverLabels
 from devices_manager.dto.device_dto import Device
 from devices_manager.types import DataType
 from models.attribute_metadata import LocalizedText, ValueLabel, WriteConstraints
 from models.errors import InvalidError
 from models.targets import AttributeTarget, DevicesFilter
+
+_NO_LABELS = DriverLabels(revision="rev")
 
 
 def _device(
@@ -75,12 +79,15 @@ def _make_dm(devices: list[Device]) -> MagicMock:
         return list(results)
 
     dm.list_devices.side_effect = _list_devices
+    dm.get_driver_labels.return_value = _NO_LABELS
     return dm
 
 
 class TestComputeAttributeCoverage:
     def test_counts_devices_and_writables(self):
-        coverage = compute_attribute_coverage([_THERMO_1, _THERMO_2, _METER])
+        coverage = compute_attribute_coverage(
+            [_THERMO_1, _THERMO_2, _METER], _labels_of()
+        )
         by_name = {c.attribute: c for c in coverage}
         assert by_name["temperature"].device_count == 2
         assert by_name["temperature"].data_types == [DataType.FLOAT]
@@ -88,12 +95,12 @@ class TestComputeAttributeCoverage:
         assert by_name["energy"].device_count == 1
 
     def test_mixed_data_types_reported(self):
-        coverage = compute_attribute_coverage([_THERMO_1, _BOOL_THERMO])
+        coverage = compute_attribute_coverage([_THERMO_1, _BOOL_THERMO], _labels_of())
         by_name = {c.attribute: c for c in coverage}
         assert by_name["temperature"].data_types == [DataType.BOOL, DataType.FLOAT]
 
     def test_empty(self):
-        assert compute_attribute_coverage([]) == []
+        assert compute_attribute_coverage([], _labels_of()) == []
 
 
 class TestCompositeTargetResolver:
@@ -235,8 +242,10 @@ class TestGroupDevicesByTag:
         }
 
 
-def _coverage_device(attribute: Attribute | None) -> Device:
-    return _device("device", {attribute.name: attribute} if attribute else {})
+def _coverage_device(attribute: Attribute | None, driver_id: str = "drv") -> Device:
+    return _device(
+        "device", {attribute.name: attribute} if attribute else {}
+    ).model_copy(update={"driver_id": driver_id})
 
 
 def attribute(**overrides: object) -> Attribute:
@@ -244,11 +253,22 @@ def attribute(**overrides: object) -> Attribute:
         "setpoint",
         DataType.FLOAT,
         {"read", "write"},
-        label=LocalizedText(default="Setpoint", translations={"fr": "Consigne"}),
         unit="°C",
         value_options=[19, 20, 21],
         write_constraints=WriteConstraints(minimum=19, maximum=21, step=0.5),
     ).model_copy(update=overrides)
+
+
+_SETPOINT_LABEL = LocalizedText(default="Setpoint", translations={"fr": "Consigne"})
+_SETPOINT_LABELS = DriverLabels(
+    revision="rev", attributes={"setpoint": AttributeLabels(label=_SETPOINT_LABEL)}
+)
+
+
+def _labels_of(**documents: DriverLabels) -> Callable[[str], DriverLabels]:
+    """A labels lookup serving ``documents`` by driver id, an empty document
+    for any other driver."""
+    return lambda driver_id: documents.get(driver_id, _NO_LABELS)
 
 
 _VALUE_LABELS = [
@@ -266,9 +286,14 @@ def bool_attribute(value_labels: list[ValueLabel] | None = _VALUE_LABELS) -> Att
 def test_metadata_agrees_and_absent_attribute_does_not_veto():
     first = attribute()
     (row,) = compute_attribute_coverage(
-        [_coverage_device(first), _coverage_device(attribute()), _coverage_device(None)]
+        [
+            _coverage_device(first),
+            _coverage_device(attribute()),
+            _coverage_device(None),
+        ],
+        _labels_of(drv=_SETPOINT_LABELS),
     )
-    assert row.label == first.label
+    assert row.label == _SETPOINT_LABEL
     assert row.unit == "°C"
     assert row.value_options == [19, 20, 21]
     assert row.write_constraints == first.write_constraints
@@ -278,13 +303,11 @@ def test_metadata_agrees_and_absent_attribute_does_not_veto():
 @pytest.mark.parametrize(
     ("field", "value"),
     [
-        ("label", LocalizedText(default="Target")),
         ("unit", "°F"),
         ("value_options", [19, 20]),
         ("value_options", [21, 20, 19]),
         ("value_options", []),
         ("write_constraints", WriteConstraints(minimum=18)),
-        ("label", None),
         ("unit", None),
         ("value_options", None),
         ("write_constraints", None),
@@ -292,15 +315,62 @@ def test_metadata_agrees_and_absent_attribute_does_not_veto():
 )
 def test_disagreement_or_missing_metadata_is_null(field, value):
     (row,) = compute_attribute_coverage(
-        [_coverage_device(attribute()), _coverage_device(attribute(**{field: value}))]
+        [_coverage_device(attribute()), _coverage_device(attribute(**{field: value}))],
+        _labels_of(),
     )
     assert getattr(row, field) is None
     assert row.device_count == 2
 
 
+def test_label_is_the_drivers_read_once_per_driver():
+    """Device attributes carry no label (ADR 0008): the row's label is unified
+    over the drivers of the presenting devices, each document read once."""
+    documents = MagicMock(
+        side_effect=_labels_of(a=_SETPOINT_LABELS, b=_SETPOINT_LABELS)
+    )
+    (row,) = compute_attribute_coverage(
+        [
+            _coverage_device(attribute(), driver_id="a"),
+            _coverage_device(attribute(), driver_id="a"),
+            _coverage_device(attribute(), driver_id="b"),
+        ],
+        documents,
+    )
+    assert row.label == _SETPOINT_LABEL
+    assert sorted(call.args[0] for call in documents.call_args_list) == ["a", "b"]
+
+
+@pytest.mark.parametrize(
+    "other",
+    [
+        pytest.param(
+            DriverLabels(
+                revision="rev",
+                attributes={
+                    "setpoint": AttributeLabels(label=LocalizedText(default="Target"))
+                },
+            ),
+            id="disagrees",
+        ),
+        pytest.param(_NO_LABELS, id="declares-none"),
+    ],
+)
+def test_label_is_null_when_the_drivers_disagree_or_one_declares_none(other):
+    (row,) = compute_attribute_coverage(
+        [
+            _coverage_device(attribute(), driver_id="a"),
+            _coverage_device(attribute(), driver_id="b"),
+        ],
+        _labels_of(a=_SETPOINT_LABELS, b=other),
+    )
+    assert row.label is None
+    assert row.device_count == 2
+
+
 def test_all_metadata_absent():
     (row,) = compute_attribute_coverage(
-        [_coverage_device(Attribute.create("value", DataType.FLOAT, {"read"}))]
+        [_coverage_device(Attribute.create("value", DataType.FLOAT, {"read"}))],
+        _labels_of(),
     )
     assert row.label is row.unit is row.value_options is row.write_constraints is None
     assert row.value_labels is None
@@ -309,7 +379,8 @@ def test_all_metadata_absent():
 
 def test_value_labels_kept_when_devices_agree():
     (row,) = compute_attribute_coverage(
-        [_coverage_device(bool_attribute()), _coverage_device(bool_attribute())]
+        [_coverage_device(bool_attribute()), _coverage_device(bool_attribute())],
+        _labels_of(),
     )
     assert row.value_labels == _VALUE_LABELS
 
@@ -326,7 +397,8 @@ def test_value_labels_kept_when_devices_agree():
 )
 def test_value_labels_null_on_disagreement_or_missing(other):
     (row,) = compute_attribute_coverage(
-        [_coverage_device(bool_attribute()), _coverage_device(bool_attribute(other))]
+        [_coverage_device(bool_attribute()), _coverage_device(bool_attribute(other))],
+        _labels_of(),
     )
     assert row.value_labels is None
 
@@ -334,21 +406,24 @@ def test_value_labels_null_on_disagreement_or_missing(other):
 def test_read_only_devices_count_in_exposure_but_do_not_veto_presentation():
     read_only = attribute(unit="°F").model_copy(update={"read_write_modes": {"read"}})
     (row,) = compute_attribute_coverage(
-        [_coverage_device(attribute()), _coverage_device(read_only)]
+        [_coverage_device(attribute()), _coverage_device(read_only, driver_id="other")],
+        _labels_of(drv=_SETPOINT_LABELS),
     )
     assert row.device_count == 2
     assert row.writable_count == 1
     assert row.unit == "°C"
+    assert row.label == _SETPOINT_LABEL
 
 
 def test_presentation_falls_back_to_exposing_devices_when_none_is_writable():
     read_only = attribute().model_copy(update={"read_write_modes": {"read"}})
     (row,) = compute_attribute_coverage(
-        [_coverage_device(read_only), _coverage_device(read_only)]
+        [_coverage_device(read_only), _coverage_device(read_only)],
+        _labels_of(drv=_SETPOINT_LABELS),
     )
     assert row.writable_count == 0
     assert row.unit == "°C"
-    assert row.label == read_only.label
+    assert row.label == _SETPOINT_LABEL
 
 
 def test_writable_devices_still_veto_each_other():
@@ -359,7 +434,8 @@ def test_writable_devices_still_veto_each_other():
             _coverage_device(
                 attribute(unit="K").model_copy(update={"read_write_modes": {"read"}})
             ),
-        ]
+        ],
+        _labels_of(),
     )
     assert row.device_count == 3
     assert row.writable_count == 2

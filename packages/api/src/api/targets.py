@@ -24,12 +24,17 @@ from models.targets import (
 from models.write_rules import AttributeWriteState, ResolvedOption
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Callable, Iterable
 
     from api.access import ScopedDeviceReads
     from devices_manager import DevicesServiceInterface
+    from devices_manager.dto import DriverLabels
     from devices_manager.dto.device_dto import Device
+    from models.attribute_metadata import LocalizedText
     from models.targets import TargetResolver
+
+type DriverLabelsOf = Callable[[str], DriverLabels]
+"""The labels document of a driver, by driver id."""
 
 
 def resolve_devices(
@@ -39,7 +44,9 @@ def resolve_devices(
     return dm.list_devices(**devices.model_dump(exclude_none=True))
 
 
-def compute_attribute_coverage(devices: list[Device]) -> list[AttributeCoverage]:
+def compute_attribute_coverage(
+    devices: list[Device], driver_labels: DriverLabelsOf
+) -> list[AttributeCoverage]:
     """Count exposure and retain presentation only when the devices agree.
 
     Counts cover every device exposing the attribute; presentation unifies over
@@ -51,8 +58,10 @@ def compute_attribute_coverage(devices: list[Device]) -> list[AttributeCoverage]
     Devices without the attribute do not participate in metadata unification.
     Missing metadata on a presenting device counts as disagreement. Options
     must have the same values in the same order; no partial option list is
-    presented as the driver's contract.
+    presented as the driver's contract. The label is the driver's (ADR 0008):
+    ``driver_labels`` is asked once per driver of the presenting devices.
     """
+    label_of = _AttributeLabelLookup(driver_labels)
     by_name: dict[str, list[Device]] = {}
     for device in devices:
         for name in device.attributes:
@@ -69,7 +78,7 @@ def compute_attribute_coverage(devices: list[Device]) -> list[AttributeCoverage]
                 data_types=sorted({d.attributes[name].data_type for d in exposing}),
                 device_count=len(exposing),
                 writable_count=len(writable),
-                label=_unanimous([d.attributes[name].label for d in presenting]),
+                label=_unanimous([label_of(d.driver_id, name) for d in presenting]),
                 unit=_unanimous([d.attributes[name].unit for d in presenting]),
                 value_labels=_unanimous(
                     [d.attributes[name].value_labels for d in presenting]
@@ -89,6 +98,20 @@ def compute_attribute_coverage(devices: list[Device]) -> list[AttributeCoverage]
             )
         )
     return coverage
+
+
+class _AttributeLabelLookup:
+    """Read each driver's labels document once per coverage computation."""
+
+    def __init__(self, driver_labels: DriverLabelsOf) -> None:
+        self._driver_labels = driver_labels
+        self._documents: dict[str, DriverLabels] = {}
+
+    def __call__(self, driver_id: str, attribute: str) -> LocalizedText | None:
+        if driver_id not in self._documents:
+            self._documents[driver_id] = self._driver_labels(driver_id)
+        labels = self._documents[driver_id].attributes.get(attribute)
+        return labels.label if labels is not None else None
 
 
 def _aggregate_write_states(
@@ -215,7 +238,7 @@ class CompositeTargetResolver:
         self, devices: DevicesFilter
     ) -> list[AttributeCoverage]:
         matched = resolve_devices(self._dm, devices)
-        return compute_attribute_coverage(matched)
+        return compute_attribute_coverage(matched, self._dm.get_driver_labels)
 
 
 async def validate_targets(

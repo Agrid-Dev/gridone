@@ -102,11 +102,10 @@ class AttributeListener(Protocol):
 
 
 def _metadata_kwargs(attribute_driver: AttributeDriver) -> dict[str, Any]:
-    """Presentation metadata and write constraints, projected verbatim from
-    the driver onto the runtime attribute."""
+    """Display metadata and write constraints, projected verbatim from the
+    driver onto the runtime attribute. Labels and descriptions are not: the
+    driver's labels document serves them once per driver (ADR 0008)."""
     return {
-        "label": attribute_driver.label,
-        "description": attribute_driver.description,
         "user_confirmation": attribute_driver.user_confirmation,
         "group": attribute_driver.group,
         "unit": attribute_driver.unit,

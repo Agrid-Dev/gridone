@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
     from api.access.policy import AccessPolicy
     from devices_manager import DevicesServiceInterface
-    from devices_manager.dto import FaultView
+    from devices_manager.dto import DriverLabels, FaultView
     from devices_manager.dto.device_dto import AttributeSelection, Device
     from models.types import DataType, Severity
 
@@ -81,6 +81,10 @@ class ScopedDeviceReads:
             msg = f"Attribute '{attribute}' not found on device '{device_id}'"
             raise NotFoundError(msg)
         return device
+
+    def get_driver_labels(self, driver_id: str) -> DriverLabels:
+        """A driver's labels are not sensitive: every caller reads them whole."""
+        return self._dm.get_driver_labels(driver_id)
 
     def list_faults(
         self, *, severity: Severity | None = None, device_id: str | None = None
