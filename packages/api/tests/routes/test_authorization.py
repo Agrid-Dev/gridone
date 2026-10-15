@@ -92,7 +92,7 @@ from devices_manager.dto import FaultView
 from devices_manager.dto.device_dto import AttributeSelection, Device
 from devices_manager.dto.presentation_dto import UnavailablePresentationResponse
 from devices_manager.types import DataType
-from documents import DocumentCreate, DocumentsService
+from documents import DocumentCreate, DocumentsService, FolderCreate
 from models.errors import NotFoundError
 from models.metadata import ResourceMetadata
 from models.operating_rules import OperatingRule
@@ -157,6 +157,8 @@ def documents_app():
             created_by="admin",
         )
         app.state.document_id = document.id
+        folder = await svc.create_folder(FolderCreate(name="Plans"), created_by="admin")
+        app.state.folder_id = folder.id
         yield
         await svc.stop()
 
@@ -189,12 +191,17 @@ def documents_app():
         "create",
         "update",
         "delete",
+        "folders",
+        "create_folder",
+        "update_folder",
+        "delete_folder",
     ],
 )
 def test_documents_global_permissions(documents_app, username, kind):
     with TestClient(documents_app) as client:
         headers = _auth_header(_login(client, username)) if username else {}
         document_id = documents_app.state.document_id
+        folder_id = documents_app.state.folder_id
         path = {
             "list": "/documents",
             "policy": "/documents/upload-policy",
@@ -203,8 +210,18 @@ def test_documents_global_permissions(documents_app, username, kind):
             "create": "/documents",
             "update": f"/documents/{document_id}",
             "delete": f"/documents/{document_id}",
+            "folders": "/documents/folders",
+            "create_folder": "/documents/folders",
+            "update_folder": f"/documents/folders/{folder_id}",
+            "delete_folder": f"/documents/folders/{folder_id}",
         }[kind]
-        if kind == "create":
+        if kind == "create_folder":
+            response = client.post(path, headers=headers, json={"name": "Notices"})
+        elif kind == "update_folder":
+            response = client.patch(path, headers=headers, json={"archived": True})
+        elif kind == "delete_folder":
+            response = client.delete(path, headers=headers)
+        elif kind == "create":
             response = client.post(
                 path,
                 headers=headers,
@@ -220,12 +237,25 @@ def test_documents_global_permissions(documents_app, username, kind):
         if username is None:
             expected = 401
         elif username == "reader" or (
-            kind in {"create", "update", "delete"}
+            kind
+            in {
+                "create",
+                "update",
+                "delete",
+                "create_folder",
+                "update_folder",
+                "delete_folder",
+            }
             and username not in {"admin", "integrator"}
         ):
             expected = 403
         else:
-            expected = {"create": 201, "delete": 204}.get(kind, 200)
+            expected = {
+                "create": 201,
+                "delete": 204,
+                "create_folder": 201,
+                "delete_folder": 204,
+            }.get(kind, 200)
         assert response.status_code == expected, response.text
         if kind == "list" and expected == 200:
             assert response.json()["total"] == 1

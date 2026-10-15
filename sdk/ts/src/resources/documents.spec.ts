@@ -12,6 +12,8 @@ describe("documents", () => {
       device_ids: ["boiler", "chiller"],
     },
     { name: "Notice", asset_ids: [], device_ids: [] },
+    { name: "Notice", folder_id: "plans" },
+    { name: "Notice", folder_id: null },
   ])(
     "uploads typed form fields and the original filename without overriding the multipart boundary: %j",
     async (metadata) => {
@@ -36,6 +38,10 @@ describe("documents", () => {
       expect(form.getAll("asset_ids")).toEqual(metadata.asset_ids ?? []);
       expect(form.getAll("device_ids")).toEqual(metadata.device_ids ?? []);
       expect(form.has("metadata")).toBe(false);
+      // A null folder must never travel as the string "null".
+      expect(form.getAll("folder_id")).toEqual(
+        metadata.folder_id ? [metadata.folder_id] : [],
+      );
       expect((form.get("file") as File).name).toBe("été.txt");
       expect(await (form.get("file") as File).text()).toBe("notice");
     },
@@ -63,6 +69,32 @@ describe("documents", () => {
     expect(request).toHaveBeenLastCalledWith("DELETE", "/documents/a%2Fb");
     await documents.uploadPolicy();
     expect(request).toHaveBeenLastCalledWith("GET", "/documents/upload-policy");
+    await documents.list({ folder_id: "plans", archived: true });
+    expect(request).toHaveBeenLastCalledWith("GET", "/documents", {
+      searchParams: { folder_id: "plans", archived: true },
+    });
+  });
+
+  it("manages folders and safely encodes their ids", async () => {
+    const request = vi.fn<RequestFn>().mockResolvedValue({});
+    const documents = new DocumentsResource(request as RequestFn);
+    await documents.listFolders();
+    expect(request).toHaveBeenLastCalledWith("GET", "/documents/folders");
+    await documents.createFolder({ name: "Plans", parent_id: "root" });
+    expect(request).toHaveBeenLastCalledWith("POST", "/documents/folders", {
+      body: { name: "Plans", parent_id: "root" },
+    });
+    await documents.updateFolder("a/b", { archived: true });
+    expect(request).toHaveBeenLastCalledWith(
+      "PATCH",
+      "/documents/folders/a%2Fb",
+      { body: { archived: true } },
+    );
+    await documents.deleteFolder("a/b");
+    expect(request).toHaveBeenLastCalledWith(
+      "DELETE",
+      "/documents/folders/a%2Fb",
+    );
   });
 
   it("returns original binary bytes from a download", async () => {

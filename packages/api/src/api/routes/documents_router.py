@@ -22,8 +22,11 @@ from documents import (
     DocumentsService,
     DocumentTooLargeError,
     DocumentUpdate,
+    Folder,
+    FolderCreate,
+    FolderUpdate,
 )
-from documents.models import Name, References
+from documents.models import Name, Reference, References
 from documents.validation import MEDIA_TYPES
 from models.errors import InvalidError, NotFoundError
 from models.pagination import PaginationParams
@@ -64,6 +67,31 @@ def upload_policy() -> DocumentUploadPolicy:
     )
 
 
+# Declared before /{document_id}, which would otherwise capture "folders".
+@router.get("/folders", dependencies=_read)
+async def list_folders(svc: _Service) -> list[Folder]:
+    return await svc.list_folders()
+
+
+@router.post("/folders", status_code=201)
+async def create_folder(
+    folder: FolderCreate,
+    svc: _Service,
+    user_id: Annotated[str, Depends(require_permission(Permission.DOCUMENTS_WRITE))],
+) -> Folder:
+    return await svc.create_folder(folder, created_by=user_id)
+
+
+@router.patch("/folders/{folder_id}", dependencies=_write)
+async def update_folder(folder_id: str, patch: FolderUpdate, svc: _Service) -> Folder:
+    return await svc.update_folder(folder_id, patch)
+
+
+@router.delete("/folders/{folder_id}", dependencies=_write, status_code=204)
+async def delete_folder(folder_id: str, svc: _Service) -> None:
+    await svc.delete_folder(folder_id)
+
+
 @router.get("", dependencies=_read)
 async def list_documents(
     request: Request,
@@ -86,12 +114,15 @@ async def create_document(
     user_id: Annotated[str, Depends(require_permission(Permission.DOCUMENTS_WRITE))],
     assets: Annotated[AssetsService, Depends(get_assets_service)],
     devices: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
+    folder_id: Annotated[Reference | None, Form()] = None,
 ) -> Document:
     data = await file.read(MAX_DOCUMENT_BYTES + 1)
     if len(data) > MAX_DOCUMENT_BYTES:
         msg = "Document exceeds the upload size limit."
         raise DocumentTooLargeError(msg)
-    metadata = DocumentCreate(name=name, asset_ids=asset_ids, device_ids=device_ids)
+    metadata = DocumentCreate(
+        name=name, folder_id=folder_id, asset_ids=asset_ids, device_ids=device_ids
+    )
     await validate_references(metadata, assets, devices)
     return await svc.create(
         metadata,

@@ -4,6 +4,10 @@ from pathlib import Path
 
 import asyncpg
 import pytest
+from documents_folder_scenarios import (
+    check_folders_and_archives,
+    check_subfolders_block_deletion_and_archive_dates_stick,
+)
 
 from documents import DocumentCreate, DocumentFilters, DocumentsService, DocumentUpdate
 from documents.storage import build_storage
@@ -132,4 +136,22 @@ async def test_upgrade_from_early_sharing_schema_preserves_files_and_links():
         await connection.close()
         await svc.start()
         await svc.delete(document.id)
+        await svc.stop()
+
+
+async def test_folders_and_archives_follow_the_shared_rules():
+    svc = DocumentsService(URL)
+    await svc.start()
+    try:
+        await check_folders_and_archives(svc)
+    finally:
+        await svc.stop()
+
+
+async def test_subfolders_block_deletion_and_archive_dates_stick():
+    svc = DocumentsService(URL)
+    await svc.start()
+    try:
+        await check_subfolders_block_deletion_and_archive_dates_stick(svc)
+    finally:
         await svc.stop()

@@ -1,8 +1,12 @@
 from datetime import UTC, datetime
 
 import pytest
+from documents_folder_scenarios import (
+    check_folders_and_archives,
+    check_subfolders_block_deletion_and_archive_dates_stick,
+)
 
-from documents import DocumentFilters, DocumentUpdate
+from documents import DocumentFilters, DocumentsService, DocumentUpdate
 from documents.storage.memory import MemoryStorage
 from models.errors import ConflictError, NotFoundError
 from models.pagination import PaginationParams
@@ -79,3 +83,21 @@ async def test_roundtrip_copies_partial_update_and_delete(document):
             document.id, DocumentUpdate(name="Gone"), datetime.now(UTC)
         )
     await storage.close()
+
+
+async def test_folders_and_archives_follow_the_shared_rules():
+    svc = DocumentsService(None)
+    await svc.start()
+    try:
+        await check_folders_and_archives(svc)
+    finally:
+        await svc.stop()
+
+
+async def test_subfolders_block_deletion_and_archive_dates_stick():
+    svc = DocumentsService(None)
+    await svc.start()
+    try:
+        await check_subfolders_block_deletion_and_archive_dates_stick(svc)
+    finally:
+        await svc.stop()

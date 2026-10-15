@@ -1,4 +1,5 @@
 import asyncio
+import builtins
 from datetime import UTC, datetime
 
 from documents.models import (
@@ -7,6 +8,10 @@ from documents.models import (
     DocumentCreate,
     DocumentFilters,
     DocumentUpdate,
+    Folder,
+    FolderCreate,
+    FolderUpdate,
+    hidden_folder_ids,
 )
 from documents.storage import build_storage
 from documents.storage.protocol import DocumentsStorage
@@ -73,8 +78,14 @@ class DocumentsService:
         filters: DocumentFilters | None = None,
         pagination: PaginationParams | None = None,
     ) -> Page[Document]:
+        filters = filters or DocumentFilters()
+        hidden = (
+            hidden_folder_ids(await self._backend.list_folders())
+            if filters.spans_folders
+            else frozenset()
+        )
         return await self._backend.list(
-            filters or DocumentFilters(), pagination or PaginationParams()
+            filters, pagination or PaginationParams(), hidden_folder_ids=hidden
         )
 
     async def get(self, document_id: str) -> Document:
@@ -96,3 +107,24 @@ class DocumentsService:
 
     async def delete(self, document_id: str) -> None:
         await self._backend.delete(document_id)
+
+    async def list_folders(self) -> builtins.list[Folder]:
+        return await self._backend.list_folders()
+
+    async def create_folder(self, folder: FolderCreate, *, created_by: str) -> Folder:
+        now = datetime.now(UTC)
+        return await self._backend.create_folder(
+            Folder(
+                **folder.model_dump(),
+                id=gen_id(),
+                created_by=created_by,
+                created_at=now,
+                updated_at=now,
+            )
+        )
+
+    async def update_folder(self, folder_id: str, patch: FolderUpdate) -> Folder:
+        return await self._backend.update_folder(folder_id, patch, datetime.now(UTC))
+
+    async def delete_folder(self, folder_id: str) -> None:
+        await self._backend.delete_folder(folder_id)

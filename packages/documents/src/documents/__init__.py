@@ -4,6 +4,9 @@ from documents.models import (
     DocumentCreate,
     DocumentFilters,
     DocumentUpdate,
+    Folder,
+    FolderCreate,
+    FolderUpdate,
 )
 from documents.service import (
     MAX_DOCUMENT_BYTES,
@@ -20,4 +23,7 @@ __all__ = [
     "DocumentTooLargeError",
     "DocumentUpdate",
     "DocumentsService",
+    "Folder",
+    "FolderCreate",
+    "FolderUpdate",
 ]

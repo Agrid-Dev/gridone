@@ -4,6 +4,9 @@ import { cn } from "@/lib/utils";
 
 type ResourceHeaderProps = {
   title: React.ReactNode;
+  /** Optional path to the resource, drawn on the title's line before it
+   *  (e.g. the folders above an open folder). */
+  breadcrumb?: React.ReactNode;
   caption?: React.ReactNode;
   /** Optional status slot rendered next to the title (e.g. connection /
    *  fault badges). */
@@ -25,31 +28,44 @@ type ResourceHeaderProps = {
  *  caption then flows underneath, spanning the full width. */
 export const ResourceHeader: FC<ResourceHeaderProps> = ({
   title,
+  breadcrumb,
   caption,
   status,
   actions = null,
   flush = false,
-}) => (
-  <div className={cn(!flush && "pb-6 border-b border-border")}>
-    <div className="flex flex-wrap items-center justify-between gap-4">
-      <div className="flex min-w-0 flex-1 basis-64 flex-wrap items-center gap-3">
-        <TypographyH2
-          data-page-title
-          tabIndex={-1}
-          className="min-w-0 max-w-full break-words"
-        >
-          {title}
-        </TypographyH2>
-        {status}
+}) => {
+  const heading = (
+    <TypographyH2
+      data-page-title
+      tabIndex={-1}
+      className="min-w-0 max-w-full break-words"
+    >
+      {title}
+    </TypographyH2>
+  );
+  return (
+    <div className={cn(!flush && "pb-6 border-b border-border")}>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex min-w-0 flex-1 basis-64 flex-wrap items-center gap-3">
+          {breadcrumb ? (
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+              {breadcrumb}
+              {heading}
+            </div>
+          ) : (
+            heading
+          )}
+          {status}
+        </div>
+        <div className="ml-auto flex max-w-full flex-wrap justify-end gap-2">
+          {actions}
+        </div>
       </div>
-      <div className="ml-auto flex max-w-full flex-wrap justify-end gap-2">
-        {actions}
-      </div>
+      {caption && (
+        <div className="mt-1 max-w-2xl text-sm text-muted-foreground">
+          {caption}
+        </div>
+      )}
     </div>
-    {caption && (
-      <div className="mt-1 max-w-2xl text-sm text-muted-foreground">
-        {caption}
-      </div>
-    )}
-  </div>
-);
+  );
+};
