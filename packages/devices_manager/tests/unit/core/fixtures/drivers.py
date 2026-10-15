@@ -107,6 +107,24 @@ def thermostat_driver() -> Driver:
 
 
 @pytest.fixture
+def electricity_meter_driver() -> Driver:
+    """A driver with type='electricity_meter' counting under `energy`."""
+    attrs = [
+        _make_identity_attr("energy", DataType.FLOAT),
+        _make_identity_attr("active_power", DataType.FLOAT),
+    ]
+    return Driver(
+        metadata=DriverMetadata(id="electricity_meter_driver"),
+        env={},
+        transport=TransportProtocols.HTTP,
+        device_config_required=[],
+        update_strategy=UpdateStrategy(),
+        attributes={a.name: a for a in attrs},
+        type="electricity_meter",
+    )
+
+
+@pytest.fixture
 def constrained_driver() -> Driver:
     """A driver whose setpoint carries presentation metadata and write
     constraints bounded on two sibling attributes, plus an int attribute with
