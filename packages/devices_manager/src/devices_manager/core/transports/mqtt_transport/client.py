@@ -26,6 +26,9 @@ from .topic_handler_registry import TopicHandlerRegistry
 from .transport_config import MqttTransportConfig
 
 TIMEOUT = 10
+# Rounds of connect-then-lock a registration gets before a close that keeps
+# winning the lock ends it.
+REGISTER_ATTEMPTS = 3
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +77,8 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
         self._message_handlers = TopicHandlerRegistry()
         self._connection_lock = asyncio.Lock()
         self._handlers_registry = ListenerRegistry()
+        # Topics whose SUBSCRIBE awaits its SUBACK, under the connection lock.
+        self._subscribing: set[str] = set()
         super().__init__(metadata, config)
 
     async def connect(self) -> None:
@@ -182,35 +187,106 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
     async def register_listener(
         self, address: MqttAddress, callback: ListenerCallback
     ) -> str:
+        """Listen on ``address``; only a topic's first listener subscribes.
+
+        The subscription belongs to the topic, not to the listener: later
+        listeners share it, and the last one to leave unsubscribes. A device
+        that stops leaves, so the device that replaces it subscribes again and
+        the broker replays its retained state (MQTT 3.1.1, on SUBSCRIBE).
+        """
+        return await self._register_listener(address, callback, replay_retained=False)
+
+    async def _register_listener(
+        self,
+        address: MqttAddress,
+        callback: ListenerCallback,
+        *,
+        replay_retained: bool,
+    ) -> str:
+        """Recheck the connection after locking: a queued close may have won.
+
+        Reconnect outside the lock, since connect() acquires that same lock.
+        Each round waits for a connect, and a close that wins them all (the
+        session keeps dropping) ends in a ConnectionError rather than a loop.
+        Connection failures propagate instead of registering orphan listeners.
+        """
+        for _ in range(REGISTER_ATTEMPTS):
+            await self.ensure_connected()
+            async with self._connection_lock:
+                if self.connection_state.is_connected:
+                    return await self._subscribe_listener(
+                        address, callback, replay_retained=replay_retained
+                    )
+        msg = f"MQTT session closed while listening on {address.topic}"
+        raise ConnectionError(msg)
+
+    async def _subscribe_listener(
+        self,
+        address: MqttAddress,
+        callback: ListenerCallback,
+        *,
+        replay_retained: bool,
+    ) -> str:
+        """Install the callback, then SUBSCRIBE if the topic needs it.
+
+        Called under the connection lock, held until the SUBACK (at most
+        TIMEOUT): a listener counts on its topic only once the broker has
+        confirmed it, an UNSUBSCRIBE of the topic cannot overlap it, and a
+        reconnection resubscribes what the broker really has. close() and
+        reconnections wait behind that SUBACK.
+
+        The callback goes first, so that frames sent before the SUBACK, retained
+        state among them, reach it. A failure or a cancellation removes it
+        again; the topic's other listeners stay as they were.
+        """
         topic = address.topic
-        if address.match is not None:
-            # Every attribute of a device may listen on the same topic: without
-            # a match, each frame would go through every attribute's codec.
-            callback = address.match.only_matching(callback)
-        listener_id = self._handlers_registry.register(topic, callback)
-        await self._subscribe(topic)
+        subscribe = replay_retained or not self._message_handlers.get_by_topic(topic)
+        handler = (
+            address.match.only_matching(callback)
+            if address.match is not None
+            else callback
+        )
+        listener_id = self._handlers_registry.register(topic, handler)
         self._message_handlers.register(topic, listener_id)
-        logger.debug("New listener registered on topic %s", topic)
+        if subscribe:
+            self._subscribing.add(topic)
+            try:
+                await self._client.subscribe(topic, timeout=TIMEOUT)
+            except BaseException:
+                self._message_handlers.unregister(listener_id, topic)
+                self._handlers_registry.remove(listener_id, topic)
+                raise
+            finally:
+                self._subscribing.discard(topic)
         return listener_id
 
     async def unregister_listener(
         self, callback_id: str, topic: str | None = None
     ) -> None:
-        # unregister from _message handler
+        # Gone at once, before any wait: a caller cancelled while queued for the
+        # lock (a read whose poll task stops) must not leave its listener behind.
         self._message_handlers.unregister(callback_id, topic)
-        if topic and len(self._message_handlers.get_by_topic(topic)) == 0:
-            # Await the unsubscribe: a detached task could run after a
-            # sequential re-subscribe on the same topic and drop it, hanging
-            # the next read until timeout.
-            await self._unsubscribe(topic)
-
-    @connected
-    async def _subscribe(self, topic: str) -> None:
-        await self._client.subscribe(topic)
-
-    @connected
-    async def _unsubscribe(self, topic: str) -> None:
-        await self._client.unsubscribe(topic)
+        self._handlers_registry.remove(callback_id, topic)
+        if not topic or (
+            self._message_handlers.get_by_topic(topic)
+            and topic not in self._subscribing
+        ):
+            # Other listeners keep the topic: nothing to send, so no reason to
+            # queue for the lock. A stopping device leaves one per attribute.
+            # Not while the topic awaits a SUBACK: if that SUBSCRIBE fails, its
+            # listener goes too and this one must still unsubscribe the topic.
+            return
+        # Decided under the lock: an UNSUBSCRIBE must not drop a topic that
+        # another listener has just subscribed again.
+        async with self._connection_lock:
+            if (
+                not self._message_handlers.get_by_topic(topic)
+                and self.connection_state.is_connected
+            ):
+                # Awaited, not detached. While disconnected there is nothing to
+                # drop: the broker forgot the session, and _resubscribe works
+                # from the listeners left.
+                await self._client.unsubscribe(topic, timeout=TIMEOUT)
 
     async def _handle_incoming_messages(self, client: aiomqtt.Client) -> None:
         """Dispatch the client's messages until the broker drops the session."""
@@ -267,38 +343,44 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
             message = message_received
             message_event.set()
 
-        listener_id = await self.register_listener(address, update_value)
+        # A request brings a fresh reply. A listen-only read instead needs the
+        # broker to replay its retained state, even on a topic already listened to.
+        listener_id = await self._register_listener(
+            address, update_value, replay_retained=address.request is None
+        )
         logger.debug("MQTT read: subscribed to reply topic %s", address.topic)
 
-        if address.request is not None:
-            payload = (
-                json.dumps(address.request.message)
-                if isinstance(address.request.message, dict)
-                else address.request.message
-            )
-            logger.debug(
-                "MQTT read: publishing request to topic %s: %s",
-                address.request.topic,
-                payload,
-            )
-            await self._client.publish(
-                address.request.topic, payload=payload, timeout=TIMEOUT
-            )
-        else:
-            logger.debug(
-                "MQTT read: no request block on address; listen-only on %s "
-                "(nothing published to the broker)",
-                address.topic,
-            )
-
+        # The listener leaves whatever happens, a failed or cancelled request
+        # included: one left behind would keep its topic subscribed for good.
         try:
-            async with asyncio.timeout(TIMEOUT):
-                await message_event.wait()
-                if message is not None:
-                    return message
-        except TimeoutError as err:
-            msg = f"MQTT: no reply received on {address.topic} before timeout"
-            raise TimeoutError(msg) from err
+            if address.request is not None:
+                payload = (
+                    json.dumps(address.request.message)
+                    if isinstance(address.request.message, dict)
+                    else address.request.message
+                )
+                logger.debug(
+                    "MQTT read: publishing request to topic %s: %s",
+                    address.request.topic,
+                    payload,
+                )
+                await self._client.publish(
+                    address.request.topic, payload=payload, timeout=TIMEOUT
+                )
+            else:
+                logger.debug(
+                    "MQTT read: no request block on address; listen-only on %s "
+                    "(nothing published to the broker)",
+                    address.topic,
+                )
+            try:
+                async with asyncio.timeout(TIMEOUT):
+                    await message_event.wait()
+                    if message is not None:
+                        return message
+            except TimeoutError as err:
+                msg = f"MQTT: no reply received on {address.topic} before timeout"
+                raise TimeoutError(msg) from err
         finally:
             await self.unregister_listener(listener_id, address.topic)
         msg = "Unable to read value"
