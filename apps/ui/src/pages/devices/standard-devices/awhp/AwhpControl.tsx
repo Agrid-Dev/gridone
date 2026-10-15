@@ -84,7 +84,7 @@ export function AwhpControl({
   return (
     <div
       className={cn(
-        "mx-auto flex w-full flex-col gap-6 sm:flex-row sm:items-start sm:justify-center sm:gap-12",
+        "mx-auto flex w-full flex-col gap-6 pt-2 sm:flex-row sm:items-start sm:justify-center sm:gap-12",
         size === "lg" && "max-w-3xl",
       )}
     >
