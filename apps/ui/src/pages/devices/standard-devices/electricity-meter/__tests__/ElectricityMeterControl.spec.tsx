@@ -59,14 +59,12 @@ describe("ElectricityMeterControl", () => {
       makeMeter([
         attr("active_power", 120, "kW"),
         attr("reactive_power", 30, "kvar"),
-        attr("energy", 4500, "MWh"),
         attr("index", 42, "m³"),
       ]),
     );
 
     expect(reading("Active power")).toBe("120kW");
     expect(reading("Reactive power")).toBe("30kvar");
-    expect(reading("Energy")).toBe("4500.0MWh");
     expect(reading("Index")).toBe("42.0m³");
   });
 
@@ -75,14 +73,22 @@ describe("ElectricityMeterControl", () => {
       makeMeter([
         attr("active_power", 120),
         attr("reactive_power", 30),
-        attr("energy", 4500),
         attr("index", 42),
       ]),
     );
 
     expect(reading("Active power")).toBe("120");
     expect(reading("Reactive power")).toBe("30");
-    expect(reading("Energy")).toBe("4500.0");
     expect(reading("Index")).toBe("42.0");
+  });
+
+  it("shows the index, not a leftover energy attribute", () => {
+    // `energy` left the standard: the meter's counter is its index.
+    renderControl(
+      makeMeter([attr("energy", 4500, "kWh"), attr("index", 42, "kWh")]),
+    );
+
+    expect(screen.queryByText("Energy")).toBeNull();
+    expect(reading("Index")).toBe("42.0kWh");
   });
 });

@@ -135,7 +135,6 @@ export type WeatherSensorAttributes = {
 
 /** Typed view of electricity meter standard attributes. */
 export type ElectricityMeterAttributes = {
-  energy: AttrValue<number>;
   activePower: AttrValue<number>;
   reactivePower: AttrValue<number>;
   index: AttrValue<number>;
@@ -508,7 +507,6 @@ export function readElectricityMeterAttributes(
 ): ElectricityMeterAttributes {
   const v = attributeValueReader(device);
   return {
-    energy: v("energy") as AttrValue<number>,
     activePower: v("active_power") as AttrValue<number>,
     reactivePower: v("reactive_power") as AttrValue<number>,
     index: v("index") as AttrValue<number>,
