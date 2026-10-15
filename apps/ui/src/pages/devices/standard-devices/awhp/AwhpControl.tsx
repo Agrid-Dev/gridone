@@ -84,11 +84,11 @@ export function AwhpControl({
   return (
     <div
       className={cn(
-        "mx-auto flex w-full flex-col gap-6 sm:flex-row sm:items-stretch sm:gap-8",
+        "mx-auto flex w-full flex-col gap-6 sm:flex-row sm:items-start sm:justify-center sm:gap-12",
         size === "lg" && "max-w-3xl",
       )}
     >
-      <div className="flex shrink-0 flex-wrap gap-x-8 gap-y-4 sm:w-32 sm:flex-col sm:justify-between sm:py-2">
+      <div className="flex shrink-0 flex-wrap gap-x-8 gap-y-5 sm:w-32 sm:flex-col sm:py-2">
         <Fact label={tCommon("common.type")} detail={asset?.name}>
           {tTypes(`${DeviceType.Awhp}.name`)}
         </Fact>
