@@ -210,6 +210,11 @@ class CoreDevice:
     _poll_tasks: dict[str | None, asyncio.Task[None]] = field(
         init=False, default_factory=dict, repr=False
     )
+    # The push listeners init_listeners registered, as (listener id, topic),
+    # handed back by stop_sync so that the transport can drop the topic.
+    _listeners: list[tuple[str, str]] = field(
+        init=False, default_factory=list, repr=False
+    )
     _guard: WriteGuard = field(init=False, repr=False)
     _dependency_refresh: DependencyRefresh = field(init=False, repr=False)
     # Written targets a failed write left unknown, read again in the background.
@@ -388,26 +393,62 @@ class CoreDevice:
             self._waiters.remove(waiter)
 
     async def init_listeners(self) -> None:
-        """Upon init, attach attribute updaters to the transport."""
+        """Upon init, attach attribute updaters to the transport.
+
+        All or nothing: a registration that fails or is cancelled drops the
+        ones made before it, so a device never listens to part of its
+        attributes while its sync reports a failure.
+        """
         if not isinstance(self.transport, PushTransportClient):
             return
         context = {
             **self.driver.env,
             **self.config,
         }
-        listeners = []
-        for attribute in self.attributes.values():
-            if attribute.kind == AttributeKind.INTERNAL:
-                continue
-            attribute_driver = self.driver.attributes[attribute.name]
-            if self.transport.push_is_opt_in and not attribute_driver.push:
-                continue
-            codec = attribute_driver.codec
-            address = self.transport.build_address(
-                render_struct(attribute_driver.read, context), context
-            )
-            listeners.append((address, self._make_on_message(codec, attribute)))
-        await self.transport.register_listeners(listeners)
+        registered: list[tuple[str, str]] = []
+        try:
+            for attribute in self.attributes.values():
+                if attribute.kind == AttributeKind.INTERNAL:
+                    continue
+                attribute_driver = self.driver.attributes[attribute.name]
+                if self.transport.push_is_opt_in and not attribute_driver.push:
+                    continue
+                codec = attribute_driver.codec
+                address = self.transport.build_address(
+                    render_struct(attribute_driver.read, context), context
+                )
+                listener_id = await self.transport.register_listener(
+                    address, self._make_on_message(codec, attribute)
+                )
+                registered.append((listener_id, address.topic))
+        except BaseException:
+            await self._unregister_listeners(registered)
+            raise
+        self._listeners.extend(registered)
+
+    async def _drop_listeners(self) -> None:
+        """Hand the push listeners back to the transport, which drops a topic
+        once its last listener has left: the device that replaces this one
+        then subscribes afresh, and gets the broker's retained state."""
+        await self._unregister_listeners(self._listeners)
+
+    async def _unregister_listeners(self, listeners: list[tuple[str, str]]) -> None:
+        """Unregister each of ``listeners``, emptying the list as it goes. One
+        that fails to leave is logged and the others still go: stopping must
+        not stop halfway."""
+        if not isinstance(self.transport, PushTransportClient):
+            return
+        while listeners:
+            listener_id, topic = listeners.pop()
+            try:
+                await self.transport.unregister_listener(listener_id, topic)
+            except Exception:  # noqa: BLE001
+                logger.warning(
+                    "[Device %s] could not drop its listener on %s",
+                    self.id,
+                    topic,
+                    exc_info=True,
+                )
 
     def _make_on_message(
         self, codec: FnCodec, attribute: Attribute
@@ -462,7 +503,8 @@ class CoreDevice:
         self._request_dependencies()
 
     async def stop_sync(self) -> None:
-        """Cancel polling, stop silence detection, and mark as not syncing."""
+        """Cancel polling, drop the push listeners, stop silence detection, and
+        mark as not syncing."""
         self._syncing = False
         self.transport.remove_reconnect_listener(self._on_transport_reconnected)
         await self._dependency_refresh.close()
@@ -480,6 +522,9 @@ class CoreDevice:
                     "[Device %s] poll group task ended with an error", self.id
                 )
         self._poll_tasks.clear()
+        # Once nothing of this device reads any more: a read started after its
+        # listeners left would subscribe their topic again, for no one.
+        await self._drop_listeners()
         self.connection_monitor.close()
         self._guard.close()
         self._syncing = False

@@ -213,6 +213,195 @@ class TestCoreDeviceSync:
         assert mock_transport_client.read.called
 
 
+@pytest.fixture
+def push_device(mock_push_transport_client) -> CoreDevice:
+    """Two attributes pushed on the device's state topic, one on its alarm topic."""
+    topics = {
+        "temperature": "/dev/state",
+        "humidity": "/dev/state",
+        "alarm": "/dev/alarm",
+    }
+    driver = Driver(
+        metadata=DriverMetadata(id="push_driver"),
+        env={},
+        device_config_required=[],
+        transport=TransportProtocols.MQTT,
+        update_strategy=UpdateStrategy(),
+        attributes={
+            name: AttributeDriver(
+                name=name,
+                data_type=DataType.FLOAT,
+                read={"topic": topic},
+                write=None,
+                codecs=[CodecSpec(name="json_pointer", argument=f"/{name}")],
+            )
+            for name, topic in topics.items()
+        },
+    )
+    return CoreDevice.from_base(
+        DeviceBase(id="pd", name="Push device", config={}),
+        driver=driver,
+        transport=mock_push_transport_client,
+    )
+
+
+def _listener_count(transport, topic: str) -> int:
+    return len(transport._listener_registry.get_by_address_id(topic))  # noqa: SLF001
+
+
+class TestCoreDevicePushListeners:
+    """A device that stops hands its listeners back: on MQTT the last one of a
+    topic unsubscribes it, so the device that replaces this one (driver save)
+    subscribes again and gets the broker's retained state (AGR-1695)."""
+
+    @pytest.mark.asyncio
+    async def test_stop_sync_hands_back_every_listener_with_its_topic(
+        self, push_device: CoreDevice, mock_push_transport_client
+    ):
+        unregister = AsyncMock(wraps=mock_push_transport_client.unregister_listener)
+        mock_push_transport_client.unregister_listener = unregister
+        await push_device.start_sync()
+        assert _listener_count(mock_push_transport_client, "/dev/state") == 2
+
+        await push_device.stop_sync()
+
+        # The topic is what lets MQTT tell the last listener of a topic.
+        assert sorted(entry.args[1] for entry in unregister.await_args_list) == [
+            "/dev/alarm",
+            "/dev/state",
+            "/dev/state",
+        ]
+        assert _listener_count(mock_push_transport_client, "/dev/state") == 0
+        assert _listener_count(mock_push_transport_client, "/dev/alarm") == 0
+        await mock_push_transport_client.simulate_event("/dev/state", {"humidity": 40})
+        assert push_device.attributes["humidity"].current_value is None
+
+    @pytest.mark.asyncio
+    async def test_a_restarted_device_keeps_one_listener_per_attribute(
+        self, push_device: CoreDevice, mock_push_transport_client
+    ):
+        for _ in range(3):
+            await push_device.start_sync()
+            await push_device.stop_sync()
+        await push_device.start_sync()
+
+        assert _listener_count(mock_push_transport_client, "/dev/state") == 2
+        assert _listener_count(mock_push_transport_client, "/dev/alarm") == 1
+        await mock_push_transport_client.simulate_event("/dev/state", {"humidity": 40})
+        assert push_device.attributes["humidity"].current_value == 40
+        await push_device.stop_sync()
+
+    @pytest.mark.asyncio
+    async def test_a_listener_that_fails_to_leave_does_not_stop_the_stop(
+        self,
+        push_device: CoreDevice,
+        mock_push_transport_client,
+        caplog: pytest.LogCaptureFixture,
+    ):
+        await push_device.start_sync()
+        unregister = mock_push_transport_client.unregister_listener
+        attempts = 0
+
+        async def fails_once(listener_id: str, topic: str | None = None) -> None:
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                msg = "broker gone"
+                raise ConnectionError(msg)
+            await unregister(listener_id, topic)
+
+        mock_push_transport_client.unregister_listener = fails_once
+        with caplog.at_level(logging.WARNING, logger="devices_manager"):
+            await push_device.stop_sync()
+
+        assert attempts == 3
+        remaining = _listener_count(
+            mock_push_transport_client, "/dev/state"
+        ) + _listener_count(mock_push_transport_client, "/dev/alarm")
+        assert remaining == 1
+        assert push_device.syncing is False
+        assert push_device._poll_tasks == {}  # noqa: SLF001
+        assert "could not drop its listener" in caplog.text
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("cancelled", [False, True])
+    async def test_a_registration_that_fails_drops_the_ones_before_it(
+        self, push_device: CoreDevice, mock_push_transport_client, cancelled
+    ):
+        """All or nothing: a device whose sync failed must not keep listening
+        to part of its attributes, nor double them when started again."""
+        register = mock_push_transport_client.register_listener
+        attempts = 0
+
+        async def third_one_fails(address, callback) -> str:
+            nonlocal attempts
+            attempts += 1
+            if attempts == 3:
+                if cancelled:
+                    await asyncio.Event().wait()
+                msg = "broker gone"
+                raise ConnectionError(msg)
+            return await register(address, callback)
+
+        mock_push_transport_client.register_listener = third_one_fails
+        async with asyncio.timeout(5):
+            starting = asyncio.create_task(push_device.start_sync())
+            while attempts < 3:  # noqa: ASYNC110
+                await asyncio.sleep(0)
+            if cancelled:
+                starting.cancel()
+            with pytest.raises(
+                asyncio.CancelledError if cancelled else ConnectionError
+            ):
+                await starting
+
+        assert _listener_count(mock_push_transport_client, "/dev/state") == 0
+        assert _listener_count(mock_push_transport_client, "/dev/alarm") == 0
+        mock_push_transport_client.register_listener = register
+        await push_device.start_sync()
+        assert _listener_count(mock_push_transport_client, "/dev/state") == 2
+        assert _listener_count(mock_push_transport_client, "/dev/alarm") == 1
+        await push_device.stop_sync()
+
+    @pytest.mark.asyncio
+    async def test_stop_sync_stops_reading_before_it_drops_the_listeners(
+        self, push_device: CoreDevice, mock_push_transport_client
+    ):
+        """A read started once the listeners have left would subscribe their
+        topic again, for a device that is gone or replaced."""
+        events: list[str] = []
+        reading = asyncio.Event()
+
+        async def blocking_read(address) -> str:  # noqa: ARG001
+            reading.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                events.append("read stopped")
+            return ""
+
+        unregister = mock_push_transport_client.unregister_listener
+
+        async def recording_unregister(
+            listener_id: str, topic: str | None = None
+        ) -> None:
+            events.append("listener dropped")
+            await unregister(listener_id, topic)
+
+        mock_push_transport_client._read = blocking_read  # noqa: SLF001
+        mock_push_transport_client.unregister_listener = recording_unregister
+        async with asyncio.timeout(5):
+            await push_device.start_sync(sweep_now=True)
+            await reading.wait()
+            await push_device.stop_sync()
+
+        assert "read stopped" in events
+        assert events.index("listener dropped") > max(
+            index for index, event in enumerate(events) if event == "read stopped"
+        )
+        assert events.count("listener dropped") == 3
+
+
 def record_read_times(transport) -> dict[str, list[float]]:
     """Replace the transport's read with one logging each address's read times."""
     times: dict[str, list[float]] = {}

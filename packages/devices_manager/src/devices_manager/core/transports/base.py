@@ -373,15 +373,6 @@ class PushTransportClient[T_PushTransportAddress: PushTransportAddress](
         """Register a listener on an address
         with a handler when receiving data on the address."""
 
-    async def register_listeners(
-        self, listeners: list[tuple[T_PushTransportAddress, ListenerCallback]]
-    ) -> list[str]:
-        """Register a device's listeners together; transports may batch the I/O."""
-        return [
-            await self.register_listener(address, callback)
-            for address, callback in listeners
-        ]
-
     @abstractmethod
     async def unregister_listener(
         self, callback_id: str, topic: str | None = None

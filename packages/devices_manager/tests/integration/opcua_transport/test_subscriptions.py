@@ -1,5 +1,6 @@
 import asyncio
 from typing import Any
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from asyncua import ua
@@ -7,6 +8,9 @@ from conftest import OpcuaServerHandle, string_address, wait_until
 
 from devices_manager.core.transports.opcua_transport.client import OpcuaTransportClient
 from devices_manager.core.transports.opcua_transport.opcua_address import OpcuaAddress
+from devices_manager.core.transports.transport_connection_state import (
+    TransportConnectionState,
+)
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.integration]
 
@@ -171,6 +175,32 @@ async def test_unregister_listener_twice_is_idempotent(
 
     await opcua_client.unregister_listener(listener_id, address.topic)
     await opcua_client.unregister_listener(listener_id, address.topic)  # must not raise
+
+
+async def test_a_listener_leaves_without_reconnecting_a_lost_session(
+    opcua_client: OpcuaTransportClient, opcua_server: OpcuaServerHandle
+) -> None:
+    """A device that stops drops its listeners even while the server is gone:
+    reconnecting first would cost a connect timeout for every listener, and
+    the lost session took its monitored items along."""
+    address = string_address(opcua_server.idx, "Int32")
+    listener_id = await opcua_client.register_listener(address, _noop)
+    # The session is lost and the scheduled reconnection has not run yet.
+    opcua_client.connection_state = TransportConnectionState.connection_error(
+        "session lost"
+    )
+    connect = AsyncMock()
+    unsubscribe = AsyncMock()
+
+    with (
+        patch.object(opcua_client, "connect", connect),
+        patch.object(opcua_client._subscription, "unsubscribe", unsubscribe),  # noqa: SLF001
+    ):
+        await opcua_client.unregister_listener(listener_id, address.topic)
+
+    connect.assert_not_awaited()
+    unsubscribe.assert_not_awaited()
+    assert not opcua_client._handlers_registry.address_ids()  # noqa: SLF001
 
 
 async def test_reconnect_resubscribes_existing_listeners(

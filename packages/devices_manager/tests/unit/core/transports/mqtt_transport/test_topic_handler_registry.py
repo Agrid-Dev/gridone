@@ -144,6 +144,51 @@ def test_invalidate_cache_on_register() -> None:
     assert "h3" not in matched_topics
 
 
+def test_a_handler_joining_a_registered_topic_keeps_the_cache() -> None:
+    """A device registers one handler per attribute on its topic: none of them
+    after the first may invalidate the cache, yet each one is matched."""
+    registry = TopicHandlerRegistry()
+    registry.register("updData/AA", "h1")
+    registry.register("updData/BB", "h2")
+    registry.match_topic(Topic("updData/AA"))
+    registry.match_topic(Topic("updData/BB"))
+
+    registry.register("updData/AA", "h3")
+
+    assert set(registry._cache) == {"updData/AA", "updData/BB"}  # noqa: SLF001
+    with patch.object(registry, "_match_topic", wraps=registry._match_topic) as spy:  # noqa: SLF001
+        assert registry.match_topic(Topic("updData/AA")) == {"h1", "h3"}
+        spy.assert_not_called()
+
+
+def test_a_topic_registered_after_a_match_is_matched() -> None:
+    """Discovery listens on a wildcard, then a device on its own topic."""
+    registry = TopicHandlerRegistry()
+    registry.register("updData/+", "discovery")
+    assert registry.match_topic(Topic("updData/AA")) == {"discovery"}
+
+    registry.register("updData/AA", "device")
+
+    assert registry.match_topic(Topic("updData/AA")) == {"discovery", "device"}
+
+
+def test_a_handler_leaving_a_topic_still_listened_to_keeps_the_cache() -> None:
+    registry = TopicHandlerRegistry()
+    registry.register("updData/AA", "h1")
+    registry.register("updData/AA", "h2")
+    registry.register("updData/BB", "h3")
+    registry.match_topic(Topic("updData/AA"))
+    registry.match_topic(Topic("updData/BB"))
+
+    registry.unregister("h1", "updData/AA")
+
+    assert set(registry._cache) == {"updData/AA", "updData/BB"}  # noqa: SLF001
+    assert registry.match_topic(Topic("updData/AA")) == {"h2"}
+    registry.unregister("h2", "updData/AA")
+    assert registry.match_topic(Topic("updData/AA")) == set()
+    assert registry.match_topic(Topic("updData/BB")) == {"h3"}
+
+
 def test_invalidate_cache_on_unregister_wildcard() -> None:
     registry = TopicHandlerRegistry()
     registry.register("home/+/temperature", "h1")

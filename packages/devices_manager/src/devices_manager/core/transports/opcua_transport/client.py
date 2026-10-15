@@ -277,15 +277,17 @@ class OpcuaTransportClient(
                     raise
             return self._handlers_registry.register(topic, callback)
 
-    @connected
     async def unregister_listener(
         self, callback_id: str, topic: str | None = None
     ) -> None:
+        # Never connects: a device that stops drops its listeners even while
+        # the server is unreachable, and a lost session took its monitored
+        # items along. _resubscribe_all only restores the listeners left.
         self._handlers_registry.remove(callback_id, topic)
         if topic is None:
             return
         async with self._connection_lock:
-            if self._subscription is None:
+            if self._subscription is None or not self.connection_state.is_connected:
                 return
             if self._handlers_registry.get_by_address_id(topic):
                 return  # other listeners remain on this NodeId
