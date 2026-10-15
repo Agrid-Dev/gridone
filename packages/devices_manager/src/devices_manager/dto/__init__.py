@@ -19,6 +19,7 @@ from .driver_dto import (
 )
 from .driver_dto import core_to_dto as driver_to_public
 from .driver_dto import dto_to_core as driver_from_public
+from .driver_labels_dto import AttributeLabels, DriverLabels
 from .fault_dto import FaultView
 from .load_error_dto import LoadEntityKind, LoadError
 from .standard_schema_dto import StandardAttributeSchema
@@ -47,12 +48,14 @@ from .transport_dto import secret_field_names as transport_secret_field_names
 __all__ = [
     "TRANSPORT_CONFIG_CLASS_BY_PROTOCOL",
     "AttributeDriverSpec",
+    "AttributeLabels",
     "AttributePatch",
     "AttributeRename",
     "AttributeSelection",
     "Device",
     "DeviceCreate",
     "DeviceUpdate",
+    "DriverLabels",
     "DriverPatch",
     "DriverSpec",
     "DriverYaml",

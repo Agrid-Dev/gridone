@@ -77,6 +77,7 @@ from .dto import (
 from .dto.driver_dto.package_errors import import_error
 from .dto.driver_dto.package_export import export_package
 from .dto.driver_dto.package_install import assemble_package
+from .dto.driver_labels_dto import driver_labels
 from .dto.presentation_dto import presentation_response
 from .ingress import MessageIngress
 from .storage.factory import build_storage
@@ -97,6 +98,7 @@ if TYPE_CHECKING:
     from .core.presentation.resources import StoredResource
     from .core.transports import TransportClient
     from .dto import LoadEntityKind
+    from .dto.driver_labels_dto import DriverLabels
     from .dto.presentation_dto import PresentationResponse
     from .interface import AttributeListener, DeviceDiscoveredListener, DeviceListener
     from .storage import DevicesManagerStorage
@@ -408,11 +410,11 @@ class DevicesService(Service):
             driver_id=driver_id,
             transport_id=transport_id,
         )
-        revision_of = revision_per_driver()
+        revisions_of = revision_per_driver()
         return [
             device_to_public(
                 device,
-                revision_of=revision_of,
+                revisions_of=revisions_of,
                 attribute_selection=attribute_selection,
             )
             for device in devices
@@ -993,6 +995,11 @@ class DevicesService(Service):
 
     def get_driver(self, driver_id: str) -> DriverSpec:
         return driver_to_public(self._driver_registry.get(driver_id))
+
+    def get_driver_labels(self, driver_id: str) -> DriverLabels:
+        """What to call the driver's attributes, served once per driver and
+        cached by clients under the ``driver_revision`` its devices carry."""
+        return driver_labels(self._driver_registry.get(driver_id))
 
     def get_driver_presentation(self, driver_id: str) -> PresentationStatus | None:
         """The driver's presentation validated against its current attributes;

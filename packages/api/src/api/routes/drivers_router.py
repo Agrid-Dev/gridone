@@ -12,6 +12,7 @@ from devices_manager.dto import (
     AttributeDriverSpec,
     AttributePatch,
     AttributeRename,
+    DriverLabels,
     DriverPatch,
     DriverSpec,
     DriverYaml,
@@ -235,6 +236,23 @@ async def export_driver_package(
             "X-Content-Type-Options": "nosniff",
         },
     )
+
+
+@router.get(
+    "/{driver_id}/labels",
+    response_model_exclude_none=True,
+    dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
+)
+def get_driver_labels(
+    driver_id: str,
+    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
+) -> DriverLabels:
+    """The labels of the driver's attributes, once per driver.
+
+    Gated like device reads but not projected through the caller's scope:
+    labels are not sensitive, so any role reading devices reads them whole.
+    """
+    return dm.get_driver_labels(driver_id)
 
 
 @router.get(

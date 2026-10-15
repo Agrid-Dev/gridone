@@ -11,8 +11,9 @@ from api.exception_handlers import register_exception_handlers
 from api.routes.drivers_router import router
 from devices_manager import DevicesServiceInterface
 from devices_manager.core.driver.attribute_driver import AttributeDriver
-from devices_manager.dto import Device, DriverSpec
+from devices_manager.dto import AttributeLabels, Device, DriverLabels, DriverSpec
 from devices_manager.types import DataType, TransportProtocols
+from models.attribute_metadata import LocalizedText
 from models.errors import ConflictError, NotFoundError
 from timeseries.service import TimeSeriesService
 from users.permissions import Permission
@@ -75,6 +76,22 @@ def dm() -> MagicMock:
     mock.delete_driver_attribute = AsyncMock(return_value=_DRIVERS[0])
     mock.rename_driver_attribute = AsyncMock(return_value=_ATTRIBUTE)
     mock.list_devices = MagicMock(return_value=[])
+
+    def _get_driver_labels(driver_id: str) -> DriverLabels:
+        _get_driver(driver_id)
+        return DriverLabels(
+            revision="rev",
+            attributes={
+                "temperature": AttributeLabels(
+                    label=LocalizedText(
+                        default="Temperature", translations={"fr": "T°"}
+                    ),
+                    group="measures",
+                )
+            },
+        )
+
+    mock.get_driver_labels.side_effect = _get_driver_labels
     return mock
 
 
@@ -126,6 +143,25 @@ class TestGetDriver:
     def test_not_found(self, client: TestClient):
         response = client.get("/unknown")
         assert response.status_code == 404
+
+
+class TestGetDriverLabels:
+    def test_serves_the_document_without_unset_fields(self, client: TestClient):
+        response = client.get("/test_driver/labels")
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "revision": "rev",
+            "attributes": {
+                "temperature": {
+                    "label": {"default": "Temperature", "translations": {"fr": "T°"}},
+                    "group": "measures",
+                }
+            },
+        }
+
+    def test_not_found(self, client: TestClient):
+        assert client.get("/unknown/labels").status_code == 404
 
 
 class TestCreateDriver:

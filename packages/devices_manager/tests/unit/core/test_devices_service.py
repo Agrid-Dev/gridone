@@ -2739,6 +2739,38 @@ class TestDevicesServiceRenamePropagatesBounds:
         )
 
 
+class TestDevicesServiceDriverLabels:
+    @pytest.mark.asyncio
+    async def test_labels_share_the_revision_devices_carry(
+        self, constrained_driver, mock_transport_client
+    ):
+        device = CoreDevice.from_base(
+            DeviceBase(id="device", name="Device", config={}),
+            driver=constrained_driver,
+            transport=mock_transport_client,
+        )
+        dm = DevicesService(
+            devices={device.id: device},
+            drivers={constrained_driver.id: constrained_driver},
+            transports={mock_transport_client.id: mock_transport_client},
+        )
+        await dm.load()
+
+        labels = dm.get_driver_labels(constrained_driver.id)
+
+        assert labels.revision == dm.get_device("device").driver_revision
+        assert set(labels.attributes) == {"temperature_setpoint"}
+        assert labels.attributes["temperature_setpoint"].group == "setpoints"
+
+    @pytest.mark.asyncio
+    async def test_unknown_driver_is_not_found(self, driver):
+        dm = DevicesService(devices={}, drivers={driver.id: driver}, transports={})
+        await dm.load()
+
+        with pytest.raises(NotFoundError):
+            dm.get_driver_labels("ghost")
+
+
 class TestDevicesServiceDriverPresentation:
     @pytest.mark.asyncio
     async def test_get_driver_presentation_resolves_against_attributes(

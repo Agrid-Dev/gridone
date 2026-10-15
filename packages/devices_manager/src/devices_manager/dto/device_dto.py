@@ -10,6 +10,7 @@ from devices_manager.core.device import (
     CoreDevice,
     DeviceBase,
 )
+from devices_manager.core.driver.revision import get_driver_revision
 from devices_manager.core.presentation.revision import get_presentation_revision
 from devices_manager.dto.presentation_dto import PresentationReference
 from models.ids import gen_id
@@ -23,7 +24,16 @@ if TYPE_CHECKING:
     from devices_manager.core.transports import TransportClient
     from devices_manager.types import AttributeKind
 
-type RevisionOf = Callable[[Driver], str | None]
+
+@dataclass(frozen=True)
+class DriverRevisions:
+    """The cache keys a device hands clients for its driver's documents."""
+
+    driver: str
+    presentation: str | None
+
+
+type RevisionsOf = Callable[[Driver], DriverRevisions]
 
 
 # A device may be created nameless (labelled later), so name defaults to "".
@@ -56,6 +66,8 @@ class Device(ResourceMetadata):
     driver_id: str
     transport_id: str
     # Derived from the current driver, never persisted on the device snapshot.
+    # ``driver_revision`` keys the documents served per driver (labels).
+    driver_revision: str | None = None
     presentation_ref: PresentationReference | None = None
     write_state_revision: int = 0
 
@@ -106,34 +118,41 @@ class AttributeSelection:
         return device.model_copy(update={"attributes": self.apply(device.attributes)})
 
 
-def revision_per_driver() -> RevisionOf:
-    """A presentation-revision lookup that hashes each driver once.
+def driver_revisions(driver: Driver) -> DriverRevisions:
+    return DriverRevisions(
+        driver=get_driver_revision(driver),
+        presentation=get_presentation_revision(driver),
+    )
 
-    ``get_presentation_revision`` serialises and hashes a driver's whole
-    contract, and the devices of a listing share their driver: computed per
-    device, it was most of ``GET /devices/``'s cost on large sites. Use one per
-    listing, so a driver edited afterwards is hashed again next time.
+
+def revision_per_driver() -> RevisionsOf:
+    """A revisions lookup that hashes each driver once.
+
+    The revisions serialise and hash a driver's whole contract, and the
+    devices of a listing share their driver: computed per device, it was most
+    of ``GET /devices/``'s cost on large sites. Use one per listing, so a
+    driver edited afterwards is hashed again next time.
     """
-    revisions: dict[int, str | None] = {}
+    revisions: dict[int, DriverRevisions] = {}
 
-    def revision_of(driver: Driver) -> str | None:
+    def revisions_of(driver: Driver) -> DriverRevisions:
         if id(driver) not in revisions:
-            revisions[id(driver)] = get_presentation_revision(driver)
+            revisions[id(driver)] = driver_revisions(driver)
         return revisions[id(driver)]
 
-    return revision_of
+    return revisions_of
 
 
 def core_to_dto(
     device: CoreDevice,
     *,
-    revision_of: RevisionOf | None = None,
+    revisions_of: RevisionsOf | None = None,
     attribute_selection: AttributeSelection | None = None,
 ) -> Device:
     """The public device. A selection trims its attributes, never what the
     header derives from them: ``is_faulty`` still reads every fault."""
     device.project_write_states()
-    revision = (revision_of or get_presentation_revision)(device.driver)
+    revisions = (revisions_of or driver_revisions)(device.driver)
     attributes = (
         device.attributes
         if attribute_selection is None
@@ -152,8 +171,11 @@ def core_to_dto(
         is_faulty=device.is_faulty,
         created_at=device.created_at,
         updated_at=device.updated_at,
+        driver_revision=revisions.driver,
         presentation_ref=(
-            PresentationReference(revision=revision) if revision is not None else None
+            PresentationReference(revision=revisions.presentation)
+            if revisions.presentation is not None
+            else None
         ),
     )
 

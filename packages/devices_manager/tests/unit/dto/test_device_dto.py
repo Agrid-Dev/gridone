@@ -13,10 +13,12 @@ from devices_manager.core.device import (
     FaultAttribute,
 )
 from devices_manager.core.device.attribute import AttributeKind
+from devices_manager.core.driver.revision import get_driver_revision
 from devices_manager.dto.device_dto import (
     AttributeSelection,
     Device,
     DeviceCreate,
+    DriverRevisions,
     core_to_dto,
     dto_to_core,
     revision_per_driver,
@@ -627,22 +629,33 @@ class TestAttributeSelection:
         assert full.attributes["mode"].write_state is not None
 
 
-class TestPresentationRevisionLookup:
+class TestDriverRevisions:
     """A listing hashes each driver once; ``core_to_dto`` takes its lookup."""
 
     def test_core_to_dto_uses_the_given_lookup(self, rich_device):
-        lookup = MagicMock(return_value="rev-listing")
+        lookup = MagicMock(
+            return_value=DriverRevisions(
+                driver="drv-listing", presentation="rev-listing"
+            )
+        )
 
         with patch(_HASH, side_effect=AssertionError("hashed despite a lookup")):
-            dto = core_to_dto(rich_device, revision_of=lookup)
+            dto = core_to_dto(rich_device, revisions_of=lookup)
 
         lookup.assert_called_once_with(rich_device.driver)
+        assert dto.driver_revision == "drv-listing"
         assert dto.presentation_ref == PresentationReference(revision="rev-listing")
 
-    def test_a_lookup_without_revision_leaves_no_presentation(self, rich_device):
-        dto = core_to_dto(rich_device, revision_of=lambda _driver: None)
+    def test_a_lookup_without_presentation_leaves_no_reference(self, rich_device):
+        dto = core_to_dto(
+            rich_device,
+            revisions_of=lambda _driver: DriverRevisions(
+                driver="drv", presentation=None
+            ),
+        )
 
         assert dto.presentation_ref is None
+        assert dto.driver_revision == "drv"
 
     def test_without_a_lookup_core_to_dto_hashes_the_driver(self, rich_device):
         with patch(_HASH, return_value="rev-direct") as hashed:
@@ -650,14 +663,22 @@ class TestPresentationRevisionLookup:
 
         hashed.assert_called_once_with(rich_device.driver)
         assert dto.presentation_ref == PresentationReference(revision="rev-direct")
+        assert dto.driver_revision == get_driver_revision(rich_device.driver)
+
+    def test_devices_of_one_driver_share_the_driver_revision(self, make_device, driver):
+        first = core_to_dto(make_device("a", "A", {}))
+        second = core_to_dto(make_device("b", "B", {}))
+
+        assert first.driver_revision == second.driver_revision
+        assert first.driver_revision == get_driver_revision(driver)
 
     def test_revision_per_driver_hashes_each_driver_once(
         self, driver, thermostat_driver
     ):
         with patch(_HASH, side_effect=lambda d: f"rev-{d.id}") as hashed:
-            revision_of = revision_per_driver()
+            revisions_of = revision_per_driver()
             revisions = [
-                revision_of(d)
+                revisions_of(d).presentation
                 for d in (driver, thermostat_driver, driver, thermostat_driver, driver)
             ]
 
@@ -672,9 +693,9 @@ class TestPresentationRevisionLookup:
 
     def test_revision_per_driver_remembers_a_driver_without_presentation(self, driver):
         with patch(_HASH, return_value=None) as hashed:
-            revision_of = revision_per_driver()
-            assert revision_of(driver) is None
-            assert revision_of(driver) is None
+            revisions_of = revision_per_driver()
+            assert revisions_of(driver).presentation is None
+            assert revisions_of(driver).presentation is None
 
         hashed.assert_called_once_with(driver)
 
@@ -682,7 +703,7 @@ class TestPresentationRevisionLookup:
         # One lookup per listing: a driver edited between two listings is
         # hashed again by the next one.
         with patch(_HASH, side_effect=["rev-before-edit", "rev-after-edit"]):
-            first = revision_per_driver()(driver)
-            second = revision_per_driver()(driver)
+            first = revision_per_driver()(driver).presentation
+            second = revision_per_driver()(driver).presentation
 
         assert (first, second) == ("rev-before-edit", "rev-after-edit")
