@@ -1,3 +1,13 @@
+## v0.316.0 (2026-10-15)
+
+### Feat
+
+- **documents**: file documents in folders, archive and open them
+
+### Fix
+
+- **documents**: enforce read-only hidden folders in the service
+
 ## v0.315.1 (2026-10-15)
 
 ### Fix
