@@ -121,6 +121,12 @@ const callout = (figure: HTMLElement, piece: string) =>
   figure.querySelector(`.aw-label[data-piece="${piece}"]`);
 const arrow = (figure: HTMLElement, piece: string) =>
   figure.querySelector(`.aw-arrow[data-piece="${piece}"]`);
+/** The first colour stop of a flow's gradient (by tag: jsdom's selector
+ *  engine misses descendants of camel-case SVG elements). */
+const gradientStop = (figure: HTMLElement, flow: string) =>
+  [...figure.getElementsByTagName("stop")].find(
+    (stop) => stop.parentElement?.getAttribute("data-flow") === flow,
+  ) ?? null;
 
 afterEach(cleanup);
 
@@ -202,6 +208,15 @@ describe("AwhpControl", () => {
     expect(
       heating.querySelector('.aw-flow[data-flow-of="plate"]'),
     ).toHaveAttribute("data-dir", "fwd");
+    // Only the refrigerant is coloured by temperature: its stops get an
+    // inline colour per mode, the water's stay on the stylesheet's fluid colour.
+    expect(gradientStop(heating, "discharge")).toHaveAttribute(
+      "stop-color",
+      expect.stringMatching(/^rgb\(/),
+    );
+    expect(gradientStop(heating, "water-out")).not.toHaveAttribute(
+      "stop-color",
+    );
     // The water always returns below and leaves above.
     expect(
       heating.querySelector('.aw-flow[data-flow-of="water-in"]'),

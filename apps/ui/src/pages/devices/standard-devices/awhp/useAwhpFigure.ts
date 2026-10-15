@@ -84,13 +84,16 @@ function collect(root: HTMLElement): Nodes | null {
       piece: el.dataset.piece ?? "",
     })),
     flows: [...svg.querySelectorAll<SVGElement>(".aw-flow")],
-    stops: [
-      ...svg.querySelectorAll<SVGStopElement>("linearGradient[data-flow] stop"),
-    ].map((el) => ({
-      el,
-      flow: (el.parentNode as SVGElement).dataset.flow ?? "",
-      s: Number(el.dataset.s),
-    })),
+    // By tag, not by a "linearGradient stop" selector: jsdom's selector
+    // engine misses descendants of camel-case SVG elements.
+    stops: [...svg.getElementsByTagName("stop")]
+      .filter((el) => el.parentElement?.hasAttribute("data-flow"))
+      .map((el) => ({
+        el,
+        flow: el.parentElement?.getAttribute("data-flow") ?? "",
+        s: Number(el.getAttribute("data-s")),
+      })),
+
     labels,
     arrows,
     blades: svg.querySelector<SVGGElement>('[data-part="blades"]'),
@@ -170,24 +173,18 @@ export function useAwhpFigure(
         directions[flow.dataset.flowOf ?? ""] === "back" ? "back" : "fwd",
       );
     }
+    // Only the refrigerant has a temperature profile; the water lines keep
+    // their own fluid colour from the stylesheet.
     const profiles = data.profiles[state.mode];
     const palette = paletteOf(el);
     for (const stop of nodes.stops) {
       const knots = profiles[stop.flow];
       if (knots)
-        stop.el.style.stopColor = temperatureColor(
-          levelAt(knots, stop.s),
-          palette,
+        stop.el.setAttribute(
+          "stop-color",
+          temperatureColor(levelAt(knots, stop.s), palette),
         );
     }
-    el.style.setProperty(
-      "--aw-water-in",
-      temperatureColor(levelAt(profiles["water-in"] ?? [], 1), palette),
-    );
-    el.style.setProperty(
-      "--aw-water-out",
-      temperatureColor(levelAt(profiles["water-out"] ?? [], 1), palette),
-    );
     el.setAttribute("data-mode", state.mode);
   }, [data, root, state.mode]);
 

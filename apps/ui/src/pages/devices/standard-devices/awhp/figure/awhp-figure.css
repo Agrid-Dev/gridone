@@ -38,6 +38,10 @@
      same theme tokens. */
   --aw-hot: hsl(var(--hvac-heat));
   --aw-cold: hsl(var(--hvac-cool));
+  /* The water is another fluid: one teal for both lines, the return a shade
+     darker, away from the cooling blue of the refrigerant scale. */
+  --aw-water-out: hsl(194 52% 42%);
+  --aw-water-in: hsl(194 46% 31%);
   /* Label text grows when the figure renders small, see useAwhpFigure. */
   --awhp-text-scale: 1;
   --awhp-tint: 0.55;
@@ -64,6 +68,8 @@
   --anatomy-halo: black;
   --anatomy-halo-opacity: 0.6;
   --awhp-tint: 0.7;
+  --aw-water-out: hsl(194 55% 58%);
+  --aw-water-in: hsl(194 45% 44%);
 }
 
 /* ---- the isometric kit's drawing classes */
@@ -182,6 +188,16 @@
 }
 .awhp-figure .aw-tint-solid {
   opacity: var(--awhp-tint-solid);
+}
+/* The water lines wear their fluid colour, solid like painted steel. */
+.awhp-figure linearGradient[data-flow="water-in"] stop {
+  stop-color: var(--aw-water-in);
+}
+.awhp-figure linearGradient[data-flow="water-out"] stop {
+  stop-color: var(--aw-water-out);
+}
+.awhp-figure .it[data-piece="water"] .aw-tint {
+  opacity: 0.8;
 }
 .awhp-figure stop {
   transition: stop-color 700ms var(--anatomy-ease);
