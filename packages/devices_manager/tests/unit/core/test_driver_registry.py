@@ -599,18 +599,6 @@ class TestDriverRegistryRenameAttribute:
         assert "min_setpoint" in thermostat_driver.attributes
         assert "temperature_setpoint_min" not in thermostat_driver.attributes
 
-    @pytest.mark.asyncio
-    async def test_rename_meter_energy_to_index_ok(self, electricity_meter_driver):
-        registry = DriverRegistry(
-            {electricity_meter_driver.id: electricity_meter_driver}
-        )
-        result = await registry.rename_driver_attribute(
-            electricity_meter_driver.id, "energy", "index"
-        )
-        assert result.name == "index"
-        assert "index" in electricity_meter_driver.attributes
-        assert "energy" not in electricity_meter_driver.attributes
-
 
 class TestDriverRegistryRemove:
     @pytest.mark.asyncio

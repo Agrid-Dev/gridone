@@ -19,10 +19,9 @@ class FakeField:
 
 
 ALL_FIELDS: list[ValidatedField] = [
-    FakeField("energy", DataType.FLOAT),
+    FakeField("index", DataType.FLOAT),
     FakeField("active_power", DataType.FLOAT),
     FakeField("reactive_power", DataType.FLOAT),
-    FakeField("index", DataType.FLOAT),
 ]
 
 
@@ -40,17 +39,28 @@ def test_schema_covers_the_meter_contract():
     }
 
 
-@pytest.mark.parametrize("counter", ["energy", "index"])
-def test_meter_validates_with_its_counter_under_either_name(counter):
-    """While meters move from `energy` to `index`, a driver exposing its
-    counter under either name stays valid."""
+def test_only_index_is_required():
+    assert [f.name for f in electricity_meter_schema.fields if f.required] == ["index"]
+
+
+def test_index_alone_validates():
     validate_standard_schema(
-        ELECTRICITY_METER_KEY,
-        [FakeField(counter, DataType.FLOAT), FakeField("active_power", DataType.FLOAT)],
+        ELECTRICITY_METER_KEY, [FakeField("index", DataType.FLOAT)]
     )
 
 
-@pytest.mark.parametrize("field_name", ["energy", "index"])
+def test_counter_named_energy_is_rejected():
+    """`energy` was the counter's former name; a driver still using it must be
+    renamed to `index`."""
+    fields = [
+        FakeField("energy", DataType.FLOAT),
+        FakeField("active_power", DataType.FLOAT),
+    ]
+    with pytest.raises(InvalidError, match="Field index is required"):
+        validate_standard_schema(ELECTRICITY_METER_KEY, fields)
+
+
+@pytest.mark.parametrize("field_name", ["index", "active_power", "reactive_power"])
 def test_wrong_data_type_raises(field_name):
     fields: list[ValidatedField] = [
         FakeField(f.name, DataType.STRING if f.name == field_name else f.data_type)
