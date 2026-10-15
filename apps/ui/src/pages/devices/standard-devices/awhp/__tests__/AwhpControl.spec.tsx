@@ -8,19 +8,22 @@ import { AwhpControl } from "../AwhpControl";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
-    "controls.awhp.evaporator": "Évaporateur",
     "controls.awhp.compressor": "Compresseur",
-    "controls.awhp.condenser": "Condenseur",
     "controls.awhp.expansionValve": "Détendeur",
-    "controls.awhp.inlet": "Entrée",
-    "controls.awhp.outlet": "Sortie",
+    "controls.awhp.fanCoil": "Ventilateur · batterie",
+    "controls.awhp.reversingValve": "Vanne 4 voies",
+    "controls.awhp.plateExchanger": "Échangeur à plaques",
+    "controls.awhp.waterIn": "Eau entrée",
+    "controls.awhp.waterOut": "Eau sortie",
+    "controls.awhp.outdoor": "Extérieur",
     "controls.awhp.setpoint": "Consigne",
-    "controls.awhp.suction": "Aspiration",
-    "controls.awhp.discharge": "Refoulement",
-    "controls.awhp.runStatus": "État",
-    "controls.awhp.waterSide": "Eau",
-    "controls.awhp.airSide": "Air",
-    "controls.awhp.chilledWater": "Eau glacée",
+    "controls.awhp.on": "Marche",
+    "controls.awhp.off": "Arrêt",
+    "attributes.onoff_state": "Marche/Arrêt",
+    "attributes.mode": "Mode",
+    "common.type": "Type",
+    "common.on": "Marche",
+    "controls.awhp.figureLabel": "Cycle frigorifique",
     "awhp.name": "PAC air-eau",
     "common.hvacMode.cool": "Froid",
     "common.hvacMode.heat": "Chauffage",
@@ -39,12 +42,14 @@ type AttributeFixture = {
   read_write_modes: string[];
   current_value: unknown;
   last_updated: string | null;
+  unit?: string | null;
 };
 
 function attr(
   name: string,
   data_type: string,
   current_value: unknown,
+  unit?: string,
 ): AttributeFixture {
   return {
     name,
@@ -52,6 +57,7 @@ function attr(
     read_write_modes: ["read"],
     current_value,
     last_updated: null,
+    ...(unit ? { unit } : {}),
   };
 }
 
@@ -60,7 +66,7 @@ function makeAwhp(
 ): Device {
   const defaults: Record<string, AttributeFixture | undefined> = {
     onoff_state: attr("onoff_state", "bool", true),
-    unit_run_status: attr("unit_run_status", "string", "Marche"),
+    unit_run_status: attr("unit_run_status", "string", "running"),
     mode: attr("mode", "string", "cool"),
     inlet_temperature: attr("inlet_temperature", "float", 12.3),
     outlet_temperature: attr("outlet_temperature", "float", 7.1),
@@ -70,6 +76,7 @@ function makeAwhp(
       "compressor_suction_pressure",
       "float",
       4.2,
+      "bar",
     ),
     compressor_discharge_pressure: attr(
       "compressor_discharge_pressure",
@@ -77,7 +84,6 @@ function makeAwhp(
       16.8,
     ),
   };
-
   const attributes = { ...defaults, ...overrides };
   for (const key of Object.keys(attributes)) {
     if (attributes[key] === undefined) delete attributes[key];
@@ -108,64 +114,109 @@ function renderControl(device: Device = makeAwhp()) {
   return render(<AwhpControl {...props} />);
 }
 
+/** The drawing once its lazy chunk has mounted. */
+const findFigure = () => screen.findByTestId("awhp-figure");
+
+const callout = (figure: HTMLElement, piece: string) =>
+  figure.querySelector(`.aw-label[data-piece="${piece}"]`);
+const arrow = (figure: HTMLElement, piece: string) =>
+  figure.querySelector(`.aw-arrow[data-piece="${piece}"]`);
+
 afterEach(cleanup);
 
 describe("AwhpControl", () => {
-  it("lays out the cooling cycle: water at the evaporator, air at the condenser", () => {
+  it("stacks the facts the drawing does not show: type, on/off, mode, setpoint", async () => {
     renderControl();
 
-    expect(screen.getByText("Évaporateur")).toBeInTheDocument();
-    expect(screen.getByText("Compresseur")).toBeInTheDocument();
-    expect(screen.getByText("Condenseur")).toBeInTheDocument();
-    expect(screen.getByText("Détendeur")).toBeInTheDocument();
-    expect(screen.getByText("Eau 7.1 °C")).toBeInTheDocument();
-    expect(screen.getByText("Air 15.0 °C")).toBeInTheDocument();
-  });
-
-  it("swaps the media in heat mode and drops the chilled-water label", () => {
-    renderControl(makeAwhp({ mode: attr("mode", "string", "heat") }));
-
-    // Evaporator extracts from air, condenser heats the water.
-    expect(screen.getByText("Air 15.0 °C")).toBeInTheDocument();
-    expect(screen.getByText("Eau 7.1 °C")).toBeInTheDocument();
-    expect(screen.queryByText("Eau glacée")).not.toBeInTheDocument();
-    // The water-circuit row is labelled with the mode-neutral term.
-    expect(screen.getByText("Chauffage")).toBeInTheDocument();
-  });
-
-  it("shows the header context: mode chip, type · asset, run status", () => {
-    renderControl();
-
-    expect(screen.getByText("Froid")).toBeInTheDocument();
-    expect(
-      screen.getByText("PAC air-eau · Local technique"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Type")).toBeInTheDocument();
+    expect(screen.getByText("PAC air-eau")).toBeInTheDocument();
+    expect(screen.getByText("Local technique")).toBeInTheDocument();
+    expect(screen.getByText("Marche/Arrêt")).toBeInTheDocument();
     expect(screen.getByText("Marche")).toBeInTheDocument();
-  });
-
-  it("shows the water circuit readings with the chilled-water label", () => {
-    renderControl();
-
-    expect(screen.getByText("Eau glacée")).toBeInTheDocument();
-    expect(screen.getByText("Entrée")).toBeInTheDocument();
-    expect(screen.getByText("12.3 °C")).toBeInTheDocument();
-    expect(screen.getByText("Sortie")).toBeInTheDocument();
+    expect(screen.getByText("Mode")).toBeInTheDocument();
+    expect(screen.getByText("Froid")).toBeInTheDocument();
     expect(screen.getByText("Consigne")).toBeInTheDocument();
-    expect(screen.getByText("7.0 °C")).toBeInTheDocument();
+    expect(screen.getByText("7,0°")).toBeInTheDocument();
+    await findFigure();
   });
 
-  it("hides the setpoint reading when the attribute is absent", () => {
+  it("hides the setpoint fact when the attribute is absent", async () => {
     renderControl(makeAwhp({ setpoint_temperature: undefined }));
 
     expect(screen.queryByText("Consigne")).not.toBeInTheDocument();
+    await findFigure();
   });
 
-  it("shows the compressor pressures and hides the missing ones", () => {
-    renderControl(makeAwhp({ compressor_discharge_pressure: undefined }));
+  it("names the parts and writes each reading into its tag, with the driver's unit", async () => {
+    renderControl();
+    const figure = await findFigure();
 
-    expect(screen.getByText("Aspiration")).toBeInTheDocument();
-    expect(screen.getByText("4.2 bar")).toBeInTheDocument();
-    expect(screen.queryByText("Refoulement")).not.toBeInTheDocument();
+    expect(callout(figure, "air")).toHaveTextContent("Ventilateur · batterie");
+    expect(callout(figure, "valve")).toHaveTextContent("Vanne 4 voies");
+    expect(callout(figure, "inlet_t")).toHaveTextContent("Eau entrée 12,3°");
+    expect(callout(figure, "outlet_t")).toHaveTextContent("Eau sortie 7,1°");
+    expect(callout(figure, "outdoor_t")).toHaveTextContent("Extérieur 15,0°");
+    expect(callout(figure, "suction_p")).toHaveTextContent("4,2 bar");
+    // No unit declared and none implied by the name: the number alone.
+    expect(callout(figure, "discharge_p")).toHaveTextContent("16,8");
+  });
+
+  it("hides the callout and the arrow of a reading the device does not report", async () => {
+    renderControl(
+      makeAwhp({
+        compressor_discharge_pressure: undefined,
+        inlet_temperature: undefined,
+      }),
+    );
+    const figure = await findFigure();
+
+    expect(callout(figure, "discharge_p")).toHaveAttribute("data-absent");
+    expect(callout(figure, "inlet_t")).toHaveAttribute("data-absent");
+    expect(arrow(figure, "inlet_t")).toHaveAttribute("data-absent");
+    expect(callout(figure, "outlet_t")).not.toHaveAttribute("data-absent");
+    expect(arrow(figure, "outlet_t")).not.toHaveAttribute("data-absent");
+    // The coil and plate transducers follow the cycle: neither pressure is
+    // reported here, so both tags go.
+    expect(callout(figure, "air_p")).toHaveAttribute("data-absent");
+    expect(callout(figure, "water_p")).toHaveAttribute("data-absent");
+  });
+
+  it("sends the hot gas to the coil when cooling and to the plate when heating", async () => {
+    const { unmount } = renderControl();
+    const cooling = await findFigure();
+    expect(cooling).toHaveAttribute("data-mode", "cool");
+    expect(
+      cooling.querySelector('.aw-flow[data-flow-of="coil"]'),
+    ).toHaveAttribute("data-dir", "fwd");
+    expect(
+      cooling.querySelector('.aw-flow[data-flow-of="plate"]'),
+    ).toHaveAttribute("data-dir", "back");
+    unmount();
+
+    renderControl(makeAwhp({ mode: attr("mode", "string", "heat") }));
+    const heating = await findFigure();
+    expect(heating).toHaveAttribute("data-mode", "heat");
+    expect(
+      heating.querySelector('.aw-flow[data-flow-of="coil"]'),
+    ).toHaveAttribute("data-dir", "back");
+    expect(
+      heating.querySelector('.aw-flow[data-flow-of="plate"]'),
+    ).toHaveAttribute("data-dir", "fwd");
+    // The water always returns below and leaves above.
+    expect(
+      heating.querySelector('.aw-flow[data-flow-of="water-in"]'),
+    ).toHaveAttribute("data-dir", "back");
+  });
+
+  it("runs the flow and the fan only while the unit is on", async () => {
+    const { unmount } = renderControl();
+    expect(await findFigure()).toHaveAttribute("data-running");
+    unmount();
+
+    renderControl(
+      makeAwhp({ onoff_state: attr("onoff_state", "bool", false) }),
+    );
+    expect(await findFigure()).not.toHaveAttribute("data-running");
   });
 
   it("renders nothing for a non-AWHP device", () => {

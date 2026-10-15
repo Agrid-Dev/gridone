@@ -1,0 +1,335 @@
+/*
+ * Styles of the generated heat pump figure (`awhp-figure.svg`). The drawing
+ * carries the isometric kit's class names; this maps its tones onto the app
+ * theme and adds what the live figure needs: temperature tints, flow dashes,
+ * the lit selection, callouts and the water arrows.
+ *
+ * Tones, lightest to darkest in light mode: top, face, paper (the card),
+ * shade-3 … shade-0. Lines: faint < lo < mid < hi, and `lit` for the one
+ * selected part.
+ */
+.awhp-figure {
+  --awhp-ink: hsl(var(--foreground));
+  --awhp-card: hsl(var(--background));
+  --anatomy-card: var(--awhp-card);
+  --anatomy-paper: var(--awhp-card);
+  --anatomy-face: color-mix(in srgb, var(--awhp-card), white 60%);
+  --anatomy-top: color-mix(in srgb, var(--awhp-card), white 60%);
+  --anatomy-shade-0: color-mix(in srgb, var(--awhp-card), var(--awhp-ink) 15%);
+  --anatomy-shade-1: color-mix(in srgb, var(--awhp-card), var(--awhp-ink) 11%);
+  --anatomy-shade-2: color-mix(in srgb, var(--awhp-card), var(--awhp-ink) 7%);
+  --anatomy-shade-3: color-mix(in srgb, var(--awhp-card), var(--awhp-ink) 4%);
+  --anatomy-lit-top: white;
+  --anatomy-lit-shade: color-mix(in srgb, var(--awhp-card), var(--awhp-ink) 6%);
+  --anatomy-hi: color-mix(in srgb, var(--awhp-card), var(--awhp-ink) 86%);
+  --anatomy-mid: color-mix(in srgb, var(--awhp-card), var(--awhp-ink) 48%);
+  --anatomy-lo: color-mix(in srgb, var(--awhp-card), var(--awhp-ink) 30%);
+  --anatomy-faint: color-mix(in srgb, var(--awhp-card), var(--awhp-ink) 15%);
+  --anatomy-lit: var(--awhp-ink);
+  --anatomy-halo: color-mix(in srgb, var(--awhp-card), var(--awhp-ink) 50%);
+  --anatomy-halo-opacity: 0.3;
+  --anatomy-dot: color-mix(in srgb, var(--awhp-card), var(--awhp-ink) 80%);
+  --anatomy-text: hsl(var(--foreground));
+  --anatomy-muted: hsl(var(--muted-foreground));
+  --anatomy-weight: 0.6px;
+  --anatomy-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --anatomy-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  /* The hues of the temperature scale; the hook mixes the gradients from the
+     same theme tokens. */
+  --aw-hot: hsl(var(--hvac-heat));
+  --aw-cold: hsl(var(--hvac-cool));
+  /* Label text grows when the figure renders small, see useAwhpFigure. */
+  --awhp-text-scale: 1;
+  --awhp-tint: 0.55;
+  --awhp-tint-solid: 0.32;
+  position: relative;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dark .awhp-figure {
+  --anatomy-face: color-mix(in srgb, var(--awhp-card), var(--awhp-ink) 5%);
+  --anatomy-top: color-mix(in srgb, var(--awhp-card), var(--awhp-ink) 6%);
+  --anatomy-shade-0: color-mix(in srgb, var(--awhp-card), black 30%);
+  --anatomy-shade-1: color-mix(in srgb, var(--awhp-card), black 18%);
+  --anatomy-shade-2: color-mix(in srgb, var(--awhp-card), black 8%);
+  --anatomy-shade-3: color-mix(in srgb, var(--awhp-card), var(--awhp-ink) 3%);
+  --anatomy-lit-top: color-mix(in srgb, var(--awhp-card), var(--awhp-ink) 14%);
+  --anatomy-lit-shade: color-mix(in srgb, var(--awhp-card), var(--awhp-ink) 7%);
+  --anatomy-hi: color-mix(in srgb, var(--awhp-card), var(--awhp-ink) 80%);
+  --anatomy-mid: color-mix(in srgb, var(--awhp-card), var(--awhp-ink) 42%);
+  --anatomy-lo: color-mix(in srgb, var(--awhp-card), var(--awhp-ink) 24%);
+  --anatomy-faint: color-mix(in srgb, var(--awhp-card), var(--awhp-ink) 12%);
+  --anatomy-halo: black;
+  --anatomy-halo-opacity: 0.6;
+  --awhp-tint: 0.7;
+}
+
+/* ---- the isometric kit's drawing classes */
+.awhp-figure .iso-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.awhp-figure .iso-svg path,
+.awhp-figure .iso-svg circle {
+  vector-effect: non-scaling-stroke;
+}
+.awhp-figure .iso-fill {
+  fill: var(--anatomy-paper);
+  stroke: none;
+}
+.awhp-figure .iso-shade,
+.awhp-figure .iso-top {
+  stroke: none;
+}
+.awhp-figure .iso-shade[data-shade="0"] {
+  fill: var(--anatomy-shade-0);
+}
+.awhp-figure .iso-shade[data-shade="1"] {
+  fill: var(--anatomy-shade-1);
+}
+.awhp-figure .iso-shade[data-shade="2"] {
+  fill: var(--anatomy-shade-2);
+}
+.awhp-figure .iso-shade[data-shade="3"] {
+  fill: var(--anatomy-shade-3);
+}
+.awhp-figure .iso-top {
+  fill: var(--anatomy-top);
+}
+.awhp-figure .iso-solid[data-seamless] > .iso-shade,
+.awhp-figure .iso-solid[data-seamless] > .iso-top {
+  stroke-width: 0.4;
+  stroke-linejoin: round;
+}
+.awhp-figure .iso-solid[data-seamless] > .iso-shade[data-shade="0"] {
+  stroke: var(--anatomy-shade-0);
+}
+.awhp-figure .iso-solid[data-seamless] > .iso-shade[data-shade="1"] {
+  stroke: var(--anatomy-shade-1);
+}
+.awhp-figure .iso-solid[data-seamless] > .iso-shade[data-shade="2"] {
+  stroke: var(--anatomy-shade-2);
+}
+.awhp-figure .iso-solid[data-seamless] > .iso-shade[data-shade="3"] {
+  stroke: var(--anatomy-shade-3);
+}
+.awhp-figure .iso-solid[data-seamless] > .iso-top {
+  stroke: var(--anatomy-top);
+}
+.awhp-figure .iso-halo {
+  fill: var(--anatomy-halo);
+  stroke: none;
+  filter: blur(9px);
+  opacity: var(--anatomy-halo-opacity);
+  transform: translateY(3px);
+}
+.awhp-figure .iso-line {
+  fill: none;
+  stroke: var(--anatomy-lo);
+  stroke-width: var(--anatomy-weight);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.awhp-figure .iso-line[data-tone="hi"] {
+  stroke: var(--anatomy-hi);
+}
+.awhp-figure .iso-line[data-tone="mid"] {
+  stroke: var(--anatomy-mid);
+}
+.awhp-figure .iso-line[data-tone="lo"] {
+  stroke: var(--anatomy-lo);
+}
+.awhp-figure .iso-line[data-tone="faint"] {
+  stroke: var(--anatomy-faint);
+}
+.awhp-figure .iso-line[data-tone="lit"] {
+  stroke: var(--anatomy-lit);
+}
+.awhp-figure .iso-dots circle {
+  fill: var(--anatomy-dot);
+  stroke: none;
+  opacity: 0.32;
+}
+.awhp-figure .iso-face-text {
+  fill: var(--anatomy-mid);
+  font-family: var(--anatomy-mono);
+  letter-spacing: 0.04em;
+}
+.awhp-figure .iso-face-text[data-tone="lo"] {
+  fill: var(--anatomy-lo);
+}
+.awhp-figure .tb-body {
+  fill: var(--anatomy-shade-2);
+  stroke: none;
+}
+.awhp-figure .tb-shine {
+  fill: var(--anatomy-top);
+  stroke: none;
+}
+.awhp-figure .tb-shade {
+  fill: var(--anatomy-shade-0);
+  stroke: none;
+}
+
+/* ---- temperature: gradient tints over the pipes and exchangers */
+.awhp-figure .aw-tint {
+  stroke: none;
+  opacity: var(--awhp-tint);
+}
+.awhp-figure .aw-tint-solid {
+  opacity: var(--awhp-tint-solid);
+}
+.awhp-figure stop {
+  transition: stop-color 700ms var(--anatomy-ease);
+}
+.awhp-figure .aw-bore {
+  fill: var(--anatomy-shade-3);
+}
+
+/* ---- flow: dashes travelling along each pipe chunk while the unit runs */
+@keyframes awhp-flow {
+  to {
+    stroke-dashoffset: -32;
+  }
+}
+.awhp-figure .aw-flow {
+  stroke: var(--anatomy-lit);
+  stroke-width: 1.1px;
+  opacity: 0;
+  transition: opacity 600ms var(--anatomy-ease);
+}
+.awhp-figure[data-running] .aw-flow {
+  opacity: 0.7;
+  animation: awhp-flow 1600ms linear infinite;
+}
+.awhp-figure[data-running] .aw-flow[data-dir="back"] {
+  animation-direction: reverse;
+}
+
+/* ---- the picked part: lit tops and sides, a lit edge, its label lit */
+.awhp-figure .it {
+  pointer-events: visiblePainted;
+}
+.awhp-figure .it[data-on] .iso-solid > .iso-top,
+.awhp-figure .it[data-on] .iso-shade.aw-blade {
+  fill: var(--anatomy-lit-top);
+}
+.awhp-figure .it[data-on] .iso-solid > .iso-shade {
+  fill: var(--anatomy-lit-shade);
+}
+.awhp-figure .it[data-on] .iso-solid[data-seamless] > .iso-shade {
+  stroke: var(--anatomy-lit-shade);
+}
+.awhp-figure .it[data-on] .iso-solid[data-seamless] > .iso-top {
+  stroke: var(--anatomy-lit-top);
+}
+.awhp-figure .it[data-on] .iso-edge,
+.awhp-figure .it[data-on] .tb-edge,
+.awhp-figure .it[data-on] .aw-blade-edge {
+  stroke: var(--anatomy-lit);
+}
+.awhp-figure .it[data-on] .tb-body {
+  fill: var(--anatomy-lit-shade);
+}
+.awhp-figure .it[data-on] .tb-shine {
+  fill: var(--anatomy-lit-top);
+}
+.awhp-figure .it[data-on] .aw-tint {
+  opacity: calc(var(--awhp-tint) * 0.6);
+}
+.awhp-figure[data-focus] .it:not([data-on]) .iso-edge[data-tone="hi"],
+.awhp-figure[data-focus] .it:not([data-on]) .tb-edge {
+  stroke: var(--anatomy-mid);
+}
+.awhp-figure[data-focus] .it:not([data-on]) .aw-flow {
+  opacity: 0.3;
+}
+
+/* ---- callouts: labels pointing at the parts, value tags, water arrows */
+.awhp-figure .aw-callouts {
+  font-family: var(--anatomy-mono);
+  font-variant-numeric: tabular-nums;
+}
+.awhp-figure .aw-text {
+  font-size: calc(9.5px * var(--awhp-text-scale));
+  letter-spacing: 0.02em;
+  fill: var(--anatomy-muted);
+  paint-order: stroke;
+  stroke: var(--anatomy-card);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  transition: fill 300ms var(--anatomy-ease);
+}
+.awhp-figure .aw-label[data-kind="value"] .aw-text {
+  font-size: calc(8.6px * var(--awhp-text-scale));
+}
+.awhp-figure .aw-l-value {
+  fill: var(--anatomy-text);
+}
+.awhp-figure .aw-leader {
+  fill: none;
+  stroke: var(--anatomy-mid);
+  stroke-width: 0.7px;
+  stroke-linejoin: round;
+  transition: stroke 300ms var(--anatomy-ease);
+}
+.awhp-figure .aw-anchor {
+  fill: var(--anatomy-card);
+  stroke: var(--anatomy-hi);
+  stroke-width: 0.7px;
+}
+.awhp-figure .aw-label[data-on] .aw-text,
+.awhp-figure .aw-label[data-on] .aw-l-value {
+  fill: var(--anatomy-lit);
+}
+.awhp-figure .aw-label[data-on] .aw-leader,
+.awhp-figure .aw-label[data-on] .aw-anchor {
+  stroke: var(--anatomy-lit);
+}
+.awhp-figure[data-focus] .aw-label:not([data-on]) .aw-text,
+.awhp-figure[data-focus] .aw-label:not([data-on]) .aw-l-value {
+  fill: var(--anatomy-mid);
+}
+.awhp-figure .aw-arrow-shaft {
+  fill: none;
+  stroke-width: 2.4px;
+  stroke-linecap: round;
+  transition: stroke 700ms var(--anatomy-ease);
+}
+.awhp-figure .aw-arrow-head {
+  stroke: none;
+  transition: fill 700ms var(--anatomy-ease);
+}
+.awhp-figure .aw-arrow[data-water="in"] .aw-arrow-shaft {
+  stroke: var(--aw-water-in);
+}
+.awhp-figure .aw-arrow[data-water="in"] .aw-arrow-head {
+  fill: var(--aw-water-in);
+}
+.awhp-figure .aw-arrow[data-water="out"] .aw-arrow-shaft {
+  stroke: var(--aw-water-out);
+}
+.awhp-figure .aw-arrow[data-water="out"] .aw-arrow-head {
+  fill: var(--aw-water-out);
+}
+.awhp-figure .aw-arrow[data-on] .aw-arrow-shaft {
+  stroke: var(--anatomy-lit);
+}
+.awhp-figure .aw-arrow[data-on] .aw-arrow-head {
+  fill: var(--anatomy-lit);
+}
+/* A callout whose reading the device does not report. */
+.awhp-figure .aw-label[data-absent],
+.awhp-figure .aw-arrow[data-absent] {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .awhp-figure[data-running] .aw-flow {
+    animation: none;
+  }
+}
