@@ -1,3 +1,12 @@
+## v0.315.1 (2026-10-15)
+
+### Fix
+
+- **devices_manager**: subscribe per topic, drop listeners on stop
+- **devices_manager**: preserve retained state and reconnecting subscriptions
+- **devices_manager**: drop MQTT listeners before taking the lock
+- **devices_manager**: subscribe once per MQTT topic, not per listener
+
 ## v0.315.0 (2026-10-15)
 
 ### Feat
