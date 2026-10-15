@@ -35,7 +35,7 @@ export function ShellNavigation() {
             if (event.key === "Escape") setOpen(false);
           }}
           onCloseAutoFocus={onCloseAutoFocus}
-          className="fixed inset-y-0 left-0 z-50 h-dvh w-64 max-w-[calc(100vw-2rem)] bg-sidebar shadow-xl"
+          className="sidebar-chrome fixed inset-y-0 left-0 z-50 h-dvh w-64 max-w-[calc(100vw-2rem)] bg-sidebar shadow-xl"
         >
           <Dialog.Title className="sr-only">{t("nav.main")}</Dialog.Title>
           <Tooltip>

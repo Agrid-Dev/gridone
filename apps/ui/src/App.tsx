@@ -54,7 +54,7 @@ function ProtectedLayout() {
 
   return (
     <PageLayoutProvider>
-      <div className="min-h-screen bg-background bg-grid">
+      <div className="min-h-screen bg-background">
         <a
           href="#main-content"
           className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-2 focus:z-[60] focus:rounded focus:bg-background focus:p-3 focus:text-primary"

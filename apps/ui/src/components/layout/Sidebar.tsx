@@ -62,8 +62,8 @@ export function Sidebar({
       }}
       className={
         mobile
-          ? "h-full w-full"
-          : "fixed left-0 top-0 z-40 hidden h-screen w-64 border-r border-border bg-sidebar lg:block"
+          ? "sidebar-chrome h-full w-full"
+          : "sidebar-chrome fixed left-0 top-0 z-40 hidden h-screen w-64 border-r border-border bg-sidebar lg:block"
       }
     >
       <div className="flex h-full flex-col">

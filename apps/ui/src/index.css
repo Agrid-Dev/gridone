@@ -4,21 +4,26 @@
 
 @layer base {
   :root {
-    /* Clean SaaS dashboard — cool white surfaces with Agrid navy primary (#075985) */
-    --background: 220 20% 98%;
+    /* Near-black chrome (#16181D) on a flat neutral grey: colour is kept for
+       what carries meaning (status, HVAC modes, faults), never for chrome. */
+    --background: 220 18% 96.7%;
     --foreground: 222 25% 14%;
     --card: 0 0% 100%;
     --card-foreground: 222 25% 14%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 25% 14%;
-    --primary: 201 90% 27%;
+    --primary: 223 14% 10%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 220 14% 96%;
+    --primary-hover: 0 0% 0%;
+    /* Also the count pills (Badge variant="secondary"). */
+    --secondary: 225 12% 93%;
     --secondary-foreground: 220 15% 25%;
     --muted: 220 14% 96%;
-    --muted-foreground: 220 9% 46%;
-    --accent: 201 90% 96%;
-    --accent-foreground: 201 90% 22%;
+    /* Darker than shadcn's 46 % (4.49:1 here): it must hold 4.5:1 on the grey
+       background, not only on white cards (themeContrast.spec.ts). */
+    --muted-foreground: 220 9% 44%;
+    --accent: 220 13% 95%;
+    --accent-foreground: 223 14% 10%;
     --destructive: 0 68% 48%;
     --destructive-foreground: 0 0% 100%;
     --success: 142 71% 38%;
@@ -27,15 +32,22 @@
     --warning-foreground: 0 0% 100%;
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 201 90% 27%;
+    --ring: 223 14% 10%;
     --radius: 0.5rem;
 
-    --sidebar: 0 0% 100%;
-    /* rgb(71, 85, 105) — the sidebar's resting text colour. */
-    --sidebar-foreground: 215 19% 35%;
-    --sidebar-accent: 201 90% 27%;
+    /* The sidebar is the one dark surface of the light theme. .sidebar-chrome
+       maps the shadcn tokens onto these inside it, so a lighter sidebar is a
+       change of this block only. Solid colours, not alphas: Tailwind's
+       opacity modifiers (hover:bg-accent/60) append to the triplet. */
+    --sidebar: 223 14% 10%;
+    /* White at 88 %, 65 %, 16 % and 14 % over --sidebar. */
+    --sidebar-foreground: 240 2% 89%;
+    --sidebar-muted-foreground: 220 2% 68%;
+    --sidebar-accent: 220 5% 24%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 229 5% 23%;
 
-    --chart-1: 201 90% 27%;
+    --chart-1: 223 14% 10%;
     --chart-2: 142 71% 45%;
     --chart-3: 36 72% 48%;
     --chart-4: 0 68% 52%;
@@ -119,37 +131,41 @@
   }
 
   .dark {
-    /* Deep navy tint — pairs with brighter Agrid navy accent for visibility on dark bg */
-    --background: 230 25% 13%;
+    /* The same logic inverted: near-white chrome (#F2F3F5) on neutral greys. */
+    --background: 223 14% 10%;
     --foreground: 220 16% 87%;
-    --card: 230 22% 16%;
+    --card: 220 14% 13%;
     --card-foreground: 220 16% 87%;
-    --popover: 230 22% 16%;
+    --popover: 220 14% 13%;
     --popover-foreground: 220 16% 87%;
-    --primary: 201 85% 55%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 230 18% 19%;
+    --primary: 220 13% 95%;
+    --primary-foreground: 223 14% 10%;
+    --primary-hover: 0 0% 100%;
+    --secondary: 220 13% 19%;
     --secondary-foreground: 220 16% 87%;
-    --muted: 230 18% 19%;
+    --muted: 222 13% 16%;
     --muted-foreground: 220 10% 58%;
-    --accent: 230 16% 22%;
-    --accent-foreground: 220 16% 87%;
+    --accent: 222 13% 16%;
+    --accent-foreground: 220 13% 95%;
     --destructive: 0 62% 55%;
     --destructive-foreground: 0 0% 98%;
     --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
     --warning: 24 95% 53%;
     --warning-foreground: 0 0% 100%;
-    --border: 230 16% 23%;
-    --input: 230 16% 23%;
-    --ring: 201 85% 55%;
+    --border: 220 13% 19%;
+    --input: 220 13% 19%;
+    --ring: 220 13% 95%;
 
-    --sidebar: 230 28% 9%;
-    /* Same hue as light mode, lightened for contrast on the dark sidebar. */
-    --sidebar-foreground: 215 14% 62%;
-    --sidebar-accent: 201 85% 55%;
+    /* White at 80 %, 62 %, 16 % and 14 % over --sidebar. */
+    --sidebar: 220 17% 7%;
+    --sidebar-foreground: 240 1% 81%;
+    --sidebar-muted-foreground: 220 1% 64%;
+    --sidebar-accent: 216 5% 22%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 228 5% 20%;
 
-    --chart-1: 201 85% 55%;
+    --chart-1: 220 13% 95%;
     --chart-2: 142 71% 45%;
     --chart-3: 36 80% 56%;
     --chart-4: 0 72% 60%;
@@ -296,7 +312,27 @@
   );
 }
 
-/* ── Dot grid background ── */
+/* ── Sidebar chrome ──
+   The sidebar is dark in both themes. Its entries (navLinkClass, SectionLabel,
+   NavBadge, BuildingSwitcher) are written against the shadcn tokens, so the
+   container repaints those tokens from the --sidebar-* ones instead of each
+   entry carrying a sidebar variant. Portals (menus, tooltips) render outside
+   it and keep the page colours. */
+.sidebar-chrome {
+  --foreground: var(--sidebar-foreground);
+  --muted-foreground: var(--sidebar-muted-foreground);
+  --accent: var(--sidebar-accent);
+  --accent-foreground: var(--sidebar-accent-foreground);
+  --primary: var(--sidebar-accent-foreground);
+  --primary-foreground: var(--sidebar);
+  --border: var(--sidebar-border);
+  --ring: var(--sidebar-accent-foreground);
+  /* `color` inherits as a resolved value: without this, text that sets no
+     colour of its own (the drawer's close button) keeps the page's ink. */
+  color: hsl(var(--foreground));
+}
+
+/* ── Dot grid, for canvases (the automation tree) ── */
 .bg-grid {
   background-image: radial-gradient(
     circle,
@@ -306,64 +342,20 @@
   background-size: 24px 24px;
 }
 
-/* ── Ambient glow effect for cards ── */
-.card-glow {
-  position: relative;
-  transition:
-    border-color 0.3s ease,
-    box-shadow 0.3s ease;
-}
-.card-glow:hover {
-  border-color: hsl(var(--primary) / 0.25);
-  box-shadow:
-    0 0 0 1px hsl(var(--primary) / 0.08),
-    0 8px 24px hsl(var(--primary) / 0.06);
-}
-
-/* ── Login background ── */
-.login-bg {
-  background:
-    radial-gradient(
-      ellipse at 30% 40%,
-      hsl(var(--primary) / 0.06) 0%,
-      transparent 50%
-    ),
-    radial-gradient(
-      ellipse at 70% 60%,
-      hsl(var(--primary) / 0.04) 0%,
-      transparent 40%
-    ),
-    hsl(var(--background));
-}
-.dark .login-bg {
-  background:
-    radial-gradient(
-      ellipse at 30% 40%,
-      hsl(var(--primary) / 0.08) 0%,
-      transparent 50%
-    ),
-    radial-gradient(
-      ellipse at 70% 60%,
-      hsl(var(--primary) / 0.05) 0%,
-      transparent 40%
-    ),
-    hsl(var(--background));
-}
-
 /* ── Scrollbar styling (dark theme) ── */
 .dark ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 .dark ::-webkit-scrollbar-track {
-  background: hsl(230 25% 13%);
+  background: hsl(var(--background));
 }
 .dark ::-webkit-scrollbar-thumb {
-  background: hsl(230 16% 27%);
+  background: hsl(var(--border));
   border-radius: 4px;
 }
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: hsl(230 16% 33%);
+  background: hsl(var(--muted-foreground) / 0.5);
 }
 
 /* ── Print ──
