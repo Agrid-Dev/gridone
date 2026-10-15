@@ -10,7 +10,7 @@ ELECTRICITY_METER_KEY: Final = "electricity_meter"
 
 electricity_meter_fields = [
     StandardAttributeSchemaField(
-        name="energy", data_type=DataType.FLOAT, required=True
+        name="energy", data_type=DataType.FLOAT, required=False
     ),
     StandardAttributeSchemaField(
         name="active_power", data_type=DataType.FLOAT, required=False
