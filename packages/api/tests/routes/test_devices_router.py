@@ -35,7 +35,12 @@ from devices_manager.core.device.connection_status_attribute import (
     CONNECTION_STATUS_ATTR,
 )
 from devices_manager.core.write_preview import DeviceWritePreview
-from devices_manager.dto import AttributeLabels, DevicesQuery, DriverLabels
+from devices_manager.dto import (
+    AttributeLabels,
+    DeviceListing,
+    DevicesQuery,
+    DriverLabels,
+)
 from devices_manager.dto.device_dto import Device
 from devices_manager.types import ConnectionStatus, DataType
 from models.attribute_metadata import LocalizedText
@@ -109,6 +114,11 @@ _TYPED = Device(
 )
 
 
+def _listing(devices: list[Device]) -> DeviceListing[Device]:
+    """What the service returns: public devices need no conversion."""
+    return DeviceListing(devices, convert=lambda device: device)
+
+
 def _make_dm(
     devices: list[Device] | None = None,
 ) -> MagicMock:
@@ -118,7 +128,7 @@ def _make_dm(
 
     def _list_devices(
         query: DevicesQuery | None = None, **_kwargs: object
-    ) -> list[Device]:
+    ) -> DeviceListing[Device]:
         query = query or DevicesQuery()
         results = list(all_devices.values())
         if query.ids is not None:
@@ -137,7 +147,7 @@ def _make_dm(
             ]
         if query.is_faulty is not None:
             results = [d for d in results if d.is_faulty == query.is_faulty]
-        return results
+        return _listing(results)
 
     mock.list_devices.side_effect = _list_devices
 
@@ -262,16 +272,83 @@ def async_client(app):
 # ---------------------------------------------------------------------------
 
 
+def _fleet_device(
+    device_id: str,
+    name: str,
+    *,
+    device_type: str | None = None,
+    faulty: bool = False,
+    status: ConnectionStatus | None = None,
+) -> Device:
+    attributes: dict[str, Attribute] = {
+        "temperature": Attribute.create("temperature", DataType.FLOAT, {"read"})
+    }
+    if status is not None:
+        attributes[CONNECTION_STATUS_ATTR] = Attribute(
+            name=CONNECTION_STATUS_ATTR,
+            kind=AttributeKind.INTERNAL,
+            data_type=DataType.STRING,
+            read_write_modes={"read"},
+            current_value=status,
+        )
+    return Device(
+        id=device_id,
+        name=name,
+        type=device_type,
+        attributes=attributes,
+        config={},
+        driver_id="test_driver",
+        transport_id="my-http",
+        is_faulty=faulty,
+    )
+
+
+# Name order: annex, Boiler room, Custom, Pump 1, Zone A.
+# Type order: pump, thermostat (annex, Zone A), other (Boiler room, Custom).
+_FLEET = [
+    _fleet_device("pump-1", "Pump 1", device_type="pump"),
+    _fleet_device("thermo-a", "Zone A", device_type="thermostat"),
+    _fleet_device(
+        "thermo-b",
+        "annex",
+        device_type="thermostat",
+        faulty=True,
+        status=ConnectionStatus.ERROR,
+    ),
+    _fleet_device("custom", "Custom", device_type="chiller"),
+    _fleet_device("untyped", "Boiler room", status=ConnectionStatus.OK),
+]
+
+
 class TestListDevices:
     def test_returns_all(self, client: TestClient):
         response = client.get("/")
         assert response.status_code == 200
-        assert len(response.json()) == 1
+        assert len(response.json()["items"]) == 1
 
-    def test_attribute_selection_is_not_exposed(self, app: FastAPI):
+    def test_only_pagination_and_sort_are_exposed_on_top_of_the_filters(
+        self, app: FastAPI
+    ):
         parameters = app.openapi()["paths"]["/"]["get"]["parameters"]
         names = {parameter["name"] for parameter in parameters}
+        assert {"page", "size", "sort_by"} <= names
         assert names.isdisjoint({"include_attributes", "include_attribute_kinds"})
+
+    @pytest.mark.parametrize(
+        "params",
+        [
+            pytest.param({"size": 0}, id="size-zero"),
+            pytest.param({"size": 501}, id="size-over-max"),
+            pytest.param({"page": 0}, id="page-zero"),
+            pytest.param({"sort_by": "bogus"}, id="unknown-sort"),
+        ],
+    )
+    def test_invalid_paging_params_return_422(
+        self, client: TestClient, dm: MagicMock, params: dict[str, str | int]
+    ):
+        response = client.get("/", params=params)
+        assert response.status_code == 422
+        dm.list_devices.assert_not_called()
 
     def test_filter_by_type_passed_to_service(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"type": "thermostat"})
@@ -370,6 +447,77 @@ class TestListDevices:
         dm.list_devices.assert_called_once_with(
             DevicesQuery(attribute="temperature"), attribute_selection=None
         )
+
+
+class TestListDevicesPaging:
+    @pytest.fixture
+    def dm(self) -> MagicMock:
+        return _make_dm(_FLEET)
+
+    def test_serves_the_name_order_in_pages_of_100_by_default(self, client: TestClient):
+        body = client.get("/").json()
+
+        assert [d["id"] for d in body["items"]] == [
+            "thermo-b",
+            "untyped",
+            "custom",
+            "pump-1",
+            "thermo-a",
+        ]
+        assert (body["total"], body["page"], body["size"], body["total_pages"]) == (
+            5,
+            1,
+            100,
+            1,
+        )
+        assert body["links"]["self"].endswith("/?page=1&size=100")
+        assert "next" not in body["links"]
+        assert "prev" not in body["links"]
+
+    def test_a_page_is_a_slice_of_the_order_with_links_around_it(
+        self, client: TestClient
+    ):
+        body = client.get("/", params={"page": 2, "size": 2}).json()
+
+        assert [d["id"] for d in body["items"]] == ["custom", "pump-1"]
+        assert (body["total"], body["page"], body["size"], body["total_pages"]) == (
+            5,
+            2,
+            2,
+            3,
+        )
+        assert body["links"]["prev"].endswith("/?page=1&size=2")
+        assert body["links"]["next"].endswith("/?page=3&size=2")
+
+    def test_sort_by_type_groups_standard_types_first_then_other(
+        self, client: TestClient
+    ):
+        body = client.get("/", params={"sort_by": "type"}).json()
+
+        assert [d["id"] for d in body["items"]] == [
+            "pump-1",
+            "thermo-b",
+            "thermo-a",
+            "untyped",
+            "custom",
+        ]
+
+    def test_facets_count_the_whole_match_not_the_page(self, client: TestClient):
+        body = client.get("/", params={"size": 1}).json()
+
+        assert len(body["items"]) == 1
+        assert body["facets"] == {
+            "type": {"pump": 1, "thermostat": 2, "other": 2},
+            "health": {"healthy": 4, "faulty": 1},
+            "connection_status": {"idle": 0, "ok": 1, "degraded": 0, "error": 1},
+        }
+
+    def test_facets_follow_the_filters(self, client: TestClient):
+        body = client.get("/", params={"type": "thermostat"}).json()
+
+        assert body["total"] == 2
+        assert body["facets"]["type"] == {"thermostat": 2}
+        assert body["facets"]["health"] == {"healthy": 1, "faulty": 1}
 
 
 # ---------------------------------------------------------------------------
@@ -1420,7 +1568,7 @@ class TestSecondDeviceCrud:
     def test_list_returns_all(self, push_client: TestClient):
         response = push_client.get("/")
         assert response.status_code == 200
-        assert {d["id"] for d in response.json()} == {"device1", "sensor1"}
+        assert {d["id"] for d in response.json()["items"]} == {"device1", "sensor1"}
 
     def test_get_second_device(self, push_client: TestClient):
         response = push_client.get("/sensor1")
@@ -1432,10 +1580,10 @@ class TestSecondDeviceCrud:
 
     def test_type_filter(self, push_client: TestClient, dm_two_devices: MagicMock):
         dm_two_devices.list_devices.side_effect = None
-        dm_two_devices.list_devices.return_value = [_TYPED]
+        dm_two_devices.list_devices.return_value = _listing([_TYPED])
         response = push_client.get("/", params={"type": "thermostat"})
         assert response.status_code == 200
-        devices = response.json()
+        devices = response.json()["items"]
         assert len(devices) == 1
         assert devices[0]["type"] == "thermostat"
 
@@ -1960,12 +2108,12 @@ class TestDevicePayloadsOmitUnsetFields:
     def test_listed_and_single_devices_carry_no_null(
         self, client: TestClient, dm: MagicMock, unknown_device: Device
     ):
-        dm.list_devices.return_value = [unknown_device]
+        dm.list_devices.return_value = _listing([unknown_device])
         dm.list_devices.side_effect = None
         dm.get_device.return_value = unknown_device
         dm.get_device.side_effect = None
 
-        listed = client.get("/").json()
+        listed = client.get("/").json()["items"]
         single = client.get(f"/{unknown_device.id}").json()
 
         assert _nulls(listed) == []

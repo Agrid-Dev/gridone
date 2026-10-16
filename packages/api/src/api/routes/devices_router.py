@@ -3,7 +3,15 @@ from __future__ import annotations
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    status,
+)
 
 from api.access import ScopedDeviceReads
 from api.access.dependencies import get_device_reads
@@ -22,12 +30,14 @@ from api.schemas.device import (
     AttributeCoverageResponse,
     DeviceBatchCreate,
     DeviceBatchItemResult,
+    DevicesPageResponse,
     SingleAttrTimeseriesPushPoint,
     TagGroupResponse,
     TagGroupsResponse,
     TagValueBody,
     TimeseriesBulkPushRequest,
     TimeseriesSingleAttrPushRequest,
+    to_devices_page_response,
 )
 from api.tag_operations import (
     BulkTagRequest,
@@ -46,7 +56,7 @@ from devices_manager import DevicesServiceInterface
 from devices_manager.core.device import Attribute
 from devices_manager.core.device.connection_status import AttributeLogs
 from devices_manager.core.tags import TagMutation, TagMutationResult
-from devices_manager.dto import DevicesQuery, StandardAttributeSchema
+from devices_manager.dto import DeviceSortKey, DevicesQuery, StandardAttributeSchema
 from devices_manager.dto.device_dto import (
     Device,
     DeviceCreate,
@@ -54,6 +64,7 @@ from devices_manager.dto.device_dto import (
 )
 from devices_manager.dto.presentation_dto import PresentationResponse
 from models.errors import ConflictError, InvalidError, NotFoundError
+from models.pagination import MAX_PAGE_SIZE, PaginationParams
 from models.tags import Tag
 from timeseries.domain import (
     DataPoint,
@@ -148,17 +159,40 @@ def get_devices_query(
     )
 
 
-# Device payloads omit unset fields: an attribute carries what it has.
+DEVICES_PAGE_SIZE = 100
+"""A device page is larger than the default page: a site lists in a few calls."""
+
+
+def get_devices_pagination_params(
+    page: int = Query(1, ge=1),
+    size: int = Query(DEVICES_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
+) -> PaginationParams:
+    return PaginationParams(page=page, size=size)
+
+
+# Device payloads omit unset fields: an attribute carries what it has. Unset
+# pagination links are omitted the same way, which their schema allows.
 @router.get(
     "/",
     dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
     response_model_exclude_none=True,
 )
 def list_devices(
+    request: Request,
     reads: Annotated[ScopedDeviceReads, Depends(get_device_reads)],
     query: Annotated[DevicesQuery, Depends(get_devices_query)],
-) -> list[Device]:
-    return list(reads.list_devices(query))
+    pagination: Annotated[PaginationParams, Depends(get_devices_pagination_params)],
+    sort_by: DeviceSortKey = Query(DeviceSortKey.NAME),
+) -> DevicesPageResponse:
+    """One page of the matched devices, with facets over the whole match.
+
+    Only the page is built in the public shape, so the response time follows
+    the page size and not the size of the site.
+    """
+    listing = reads.list_devices(query)
+    return to_devices_page_response(
+        listing.page(sort_by, pagination), listing.facets, str(request.url)
+    )
 
 
 @router.get(

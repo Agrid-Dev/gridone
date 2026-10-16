@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 from models.errors import InvalidError
 
-MAX_PAGE_SIZE = 200
+MAX_PAGE_SIZE = 500
 
 
 @dataclass(frozen=True)
