@@ -220,20 +220,24 @@
 }
 
 /* ---- flow: dashes travelling along each pipe chunk while the unit runs */
+/* The kit's moving dash: 10 on, 16 off, in the ground's colour, 52 px
+   every 1.2 s along the run. */
 @keyframes awhp-flow {
   to {
-    stroke-dashoffset: -32;
+    stroke-dashoffset: -52;
   }
 }
 .awhp-figure .aw-flow {
-  stroke: var(--anatomy-lit);
-  stroke-width: 1.1px;
+  stroke: var(--awhp-card);
+  stroke-width: 2px;
+  stroke-dasharray: 10 16;
+  stroke-linecap: round;
   opacity: 0;
   transition: opacity 600ms var(--anatomy-ease);
 }
 .awhp-figure[data-running] .aw-flow {
-  opacity: 0.7;
-  animation: awhp-flow 1600ms linear infinite;
+  opacity: 1;
+  animation: awhp-flow 1200ms linear infinite;
 }
 .awhp-figure[data-running] .aw-flow[data-dir="back"] {
   animation-direction: reverse;
