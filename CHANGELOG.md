@@ -1,3 +1,9 @@
+## v0.318.0 (2026-10-16)
+
+### Feat
+
+- **ui**: draw the heat pump control with the synoptics kit (#816)
+
 ## v0.317.0 (2026-10-16)
 
 ### BREAKING CHANGE
