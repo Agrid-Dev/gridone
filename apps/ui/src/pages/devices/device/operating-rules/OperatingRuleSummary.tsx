@@ -36,7 +36,7 @@ export function AttributeName({
     <span className={!device || !attribute ? "text-destructive" : undefined}>
       {device?.name ?? t("missing", { id: reference.device_id })} /{" "}
       {attribute
-        ? attributeLabel(reference.attribute, attribute)
+        ? attributeLabel(reference.attribute, device)
         : t("missing", { id: reference.attribute })}
       {withIds && (
         <span className="ml-1 text-xs text-muted-foreground">

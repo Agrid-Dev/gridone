@@ -11,9 +11,16 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { StaticDriverLabels } from "@/contexts/DriverLabelsContext";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { createI18nMock } from "@/test/i18nMock";
-import type { DataPoint, Device, TimeSeries, UnitCommand } from "@gridone/sdk";
+import type {
+  DataPoint,
+  Device,
+  TimeSeries,
+  UnitCommand,
+  DriverLabels,
+} from "@gridone/sdk";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 // Mock react-spring before any visx imports — prevents jsdom crashes
@@ -174,11 +181,20 @@ type Entry = {
 
 /** A device exposing `entries`, each with a recorded series. `hiddenSeries`
  *  are recorded too but absent from the device's declared attributes. */
+/** What the device's driver calls its attributes, filled by `deviceOf`. */
+const driverLabels: Record<string, DriverLabels> = {};
+
 function deviceOf(
   entries: Entry[],
   type: string | null,
   { hiddenSeries = [] as string[] } = {},
 ) {
+  driverLabels.drv = {
+    revision: "rev",
+    attributes: Object.fromEntries(
+      entries.flatMap(({ name, label }) => (label ? [[name, { label }]] : [])),
+    ),
+  };
   mockDevice.current = {
     id: "d1",
     name: "Device",
@@ -194,7 +210,6 @@ function deviceOf(
           dataType,
           valueLabels,
           unit,
-          label,
           kind = "standard",
           severity,
           healthyValues,
@@ -210,7 +225,6 @@ function deviceOf(
             last_changed: null,
             value_labels: valueLabels,
             unit,
-            label,
             severity,
             healthy_values: healthyValues,
           },
@@ -295,16 +309,18 @@ function renderPage(initialEntry = "/devices/d1/history") {
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <MemoryRouter initialEntries={[initialEntry]}>
-          <React.Suspense fallback={null}>
-            <Routes>
-              <Route path="/devices/:deviceId">{deviceHistoryRoutes}</Route>
-            </Routes>
-            <LocationProbe />
-          </React.Suspense>
-        </MemoryRouter>
-      </TooltipProvider>
+      <StaticDriverLabels labels={driverLabels}>
+        <TooltipProvider>
+          <MemoryRouter initialEntries={[initialEntry]}>
+            <React.Suspense fallback={null}>
+              <Routes>
+                <Route path="/devices/:deviceId">{deviceHistoryRoutes}</Route>
+              </Routes>
+              <LocationProbe />
+            </React.Suspense>
+          </MemoryRouter>
+        </TooltipProvider>
+      </StaticDriverLabels>
     </QueryClientProvider>,
   );
 }

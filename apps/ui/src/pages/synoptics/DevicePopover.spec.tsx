@@ -71,6 +71,7 @@ vi.mock("@/hooks/useAttributeCommandRuntime", () => ({
 }));
 
 import { humanize } from "@/components/synoptic";
+import { StaticDriverLabels } from "@/contexts/DriverLabelsContext";
 import { DevicePopover } from "./DevicePopover";
 import type { PageVocabulary } from "./usePlateVocabulary";
 
@@ -103,7 +104,6 @@ const DEVICE = {
       data_type: "float",
       current_value: 52.4,
       unit: "°C",
-      label: { default: "Outlet", translations: { fr: "Départ" } },
     }),
     speed: attribute("speed", {
       data_type: "int",
@@ -206,6 +206,18 @@ const vocabulary: PageVocabulary = {
   readingTime: () => "12:00:00",
 };
 
+/** What the pump's driver calls its attributes (the device only carries values). */
+const DRIVER_LABELS = {
+  d: {
+    revision: "rev",
+    attributes: {
+      outlet_temperature: {
+        label: { default: "Outlet", translations: { fr: "Départ" } },
+      },
+    },
+  },
+};
+
 function renderPopover(
   symbol = PAC,
   values = VALUES,
@@ -213,15 +225,17 @@ function renderPopover(
 ) {
   const onClose = vi.fn();
   render(
-    <MemoryRouter>
-      <DevicePopover
-        symbol={symbol}
-        head={head}
-        values={values}
-        vocabulary={vocabulary}
-        onClose={onClose}
-      />
-    </MemoryRouter>,
+    <StaticDriverLabels labels={DRIVER_LABELS}>
+      <MemoryRouter>
+        <DevicePopover
+          symbol={symbol}
+          head={head}
+          values={values}
+          vocabulary={vocabulary}
+          onClose={onClose}
+        />
+      </MemoryRouter>
+    </StaticDriverLabels>,
   );
   return { onClose };
 }
@@ -301,23 +315,25 @@ describe("DevicePopover", () => {
     };
     const renderReading = () =>
       render(
-        <MemoryRouter>
-          <DevicePopover
-            reading={TAG}
-            values={{
-              ...VALUES,
-              slots: {
-                ...VALUES.slots,
-                "tag.tt-03": {
-                  ...live("51.9", 51.9, "°C"),
-                  deviceId: "PAC-03",
+        <StaticDriverLabels labels={DRIVER_LABELS}>
+          <MemoryRouter>
+            <DevicePopover
+              reading={TAG}
+              values={{
+                ...VALUES,
+                slots: {
+                  ...VALUES.slots,
+                  "tag.tt-03": {
+                    ...live("51.9", 51.9, "°C"),
+                    deviceId: "PAC-03",
+                  },
                 },
-              },
-            }}
-            vocabulary={vocabulary}
-            onClose={vi.fn()}
-          />
-        </MemoryRouter>,
+              }}
+              vocabulary={vocabulary}
+              onClose={vi.fn()}
+            />
+          </MemoryRouter>
+        </StaticDriverLabels>,
       );
 
     it("opens the device the reading comes from, named by the device, with that reading alone and a link to its page", () => {

@@ -1,3 +1,4 @@
+from copy import deepcopy
 from unittest.mock import AsyncMock
 
 import pytest
@@ -23,6 +24,7 @@ from devices_manager.core.presentation import (
     PresentationEnvelope,
     UnavailablePresentation,
 )
+from devices_manager.core.revisions import driver_revisions
 from devices_manager.types import DataType
 from models.errors import ConflictError, InvalidError, NotFoundError
 from models.types import Severity
@@ -106,6 +108,60 @@ class TestDriverRegistryAdd:
         with pytest.raises(InvalidError):
             await registry.add(driver)
         assert driver.id not in registry.ids
+
+
+class TestDriverRegistryRevisions:
+    """The registry stamps the driver's document revisions at every entry
+    and mutation, so device reads never hash a driver."""
+
+    def test_drivers_are_stamped_on_construction(self, driver, thermostat_driver):
+        assert driver.revisions is None
+
+        DriverRegistry({driver.id: driver, thermostat_driver.id: thermostat_driver})
+
+        assert driver.revisions == driver_revisions(driver)
+        assert thermostat_driver.revisions == driver_revisions(thermostat_driver)
+
+    @pytest.mark.asyncio
+    async def test_add_stamps(self, driver):
+        await DriverRegistry().add(driver)
+
+        assert driver.revisions == driver_revisions(driver)
+
+    @pytest.mark.asyncio
+    async def test_install_stamps_the_candidate(self, driver):
+        registry = DriverRegistry({driver.id: driver})
+        candidate = deepcopy(driver)
+        candidate.attributes["temperature"] = candidate.attributes[
+            "temperature"
+        ].model_copy(update={"unit": "K"})
+
+        installed = await registry.install(candidate, driver)
+
+        assert installed.revisions == driver_revisions(candidate)
+        assert installed.revisions != driver.revisions
+
+    @pytest.mark.asyncio
+    async def test_every_mutation_restamps(self, driver):
+        registry = DriverRegistry({driver.id: driver})
+        before = driver.revisions
+
+        await registry.create_driver_attribute(
+            driver.id,
+            AttributeDriver(
+                name="extra", data_type=DataType.FLOAT, read="GET /extra", codecs=[]
+            ),
+        )
+        after_create = driver.revisions
+        await registry.patch_driver_attribute(
+            driver.id, "extra", {"label": LocalizedText(default="Extra")}
+        )
+        after_patch = driver.revisions
+        await registry.delete_driver_attribute(driver.id, "extra")
+
+        # One stamp per contract: the delete brings the initial one back.
+        assert len({before, after_create, after_patch}) == 3
+        assert driver.revisions == before == driver_revisions(driver)
 
 
 class TestDriverRegistryPatch:

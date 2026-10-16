@@ -5,6 +5,7 @@ import type { Device } from "@gridone/sdk";
 import { TooltipProvider } from "@/components/ui";
 import { createI18nMock } from "@/test/i18nMock";
 import { DeviceAttributePanes } from "../DeviceAttributePanes";
+import { StaticDriverLabels } from "@/contexts/DriverLabelsContext";
 
 vi.mock("@/contexts/AuthContext", () => ({
   usePermissions: () => () => true,
@@ -24,10 +25,23 @@ vi.mock("react-i18next", () =>
 
 afterEach(cleanup);
 
+const DRIVER_LABELS = {
+  thermostat_driver: {
+    revision: "rev",
+    attributes: {
+      temperature_setpoint: {
+        label: { default: "Setpoint", translations: { fr: "Consigne" } },
+        description: { default: "Requested room temperature" },
+      },
+    },
+  },
+};
+
 const device = {
   id: "dev-1",
   name: "Thermostat",
   type: "thermostat",
+  driver_id: "thermostat_driver",
   attributes: {
     temperature: {
       kind: "standard",
@@ -58,8 +72,6 @@ const device = {
       current_value: 21,
       last_updated: null,
       last_changed: null,
-      label: { default: "Setpoint", translations: { fr: "Consigne" } },
-      description: { default: "Requested room temperature" },
       unit: "°C",
     },
     fan_speed: {
@@ -76,11 +88,13 @@ const device = {
 
 function renderPanes() {
   return render(
-    <MemoryRouter>
-      <TooltipProvider>
-        <DeviceAttributePanes device={device} />
-      </TooltipProvider>
-    </MemoryRouter>,
+    <StaticDriverLabels labels={DRIVER_LABELS}>
+      <MemoryRouter>
+        <TooltipProvider>
+          <DeviceAttributePanes device={device} />
+        </TooltipProvider>
+      </MemoryRouter>
+    </StaticDriverLabels>,
   );
 }
 

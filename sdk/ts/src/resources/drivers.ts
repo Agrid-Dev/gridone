@@ -6,6 +6,7 @@ import type {
   AttributeRename,
   Driver,
   DriverInput,
+  DriverLabels,
   DriverPatch,
   PresentationResponse,
   DriverYaml,
@@ -76,6 +77,18 @@ export class DriversResource {
       "GET",
       `/drivers/${encodeURIComponent(driverId)}/presentation/assets/${encodeURIComponent(assetId)}`,
       { searchParams: { revision }, responseType: "blob" },
+    );
+  }
+
+  /**
+   * What to call the driver's attributes (label, description, group, value
+   * labels), served once per driver. Cache it under the `driver_revision`
+   * its devices carry: the revision moves when the driver changes.
+   */
+  getLabels(driverId: string): Promise<DriverLabels> {
+    return this.request(
+      "GET",
+      `/drivers/${encodeURIComponent(driverId)}/labels`,
     );
   }
 

@@ -123,7 +123,7 @@ function FlowField({
           <SelectContent>
             {bools.map((name) => (
               <SelectItem key={name} value={name}>
-                {attributeLabel(name, attributes[name])}
+                {attributeLabel(name, device)}
               </SelectItem>
             ))}
             {attribute && !bools.includes(attribute) && (

@@ -13,9 +13,13 @@ import type { PageNode, PresentationV1 } from "@/components/device-ui/document";
 import { bindCondition } from "@/components/device-ui/presentationControls";
 import type { AttributeLike } from "@/components/device-ui/runtime";
 import { deviceAttributes } from "@/lib/devices";
+import type { LocalizedText } from "@/lib/localizedText";
 
 export type GroupValueState = "common" | "multiple" | "partial" | "unavailable";
 export type GroupAttribute = AttributeLike & {
+  /** The driver's texts, as its specification declares them. */
+  label?: LocalizedText | null;
+  description?: LocalizedText | null;
   state: GroupValueState;
   missing: number;
 };

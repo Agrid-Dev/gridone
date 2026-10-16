@@ -54,7 +54,7 @@ export function AttributeSelect({
   const selectedLabel = broken
     ? t("missing", { id: `${value.device_id}/${value.attribute}` })
     : selected
-      ? `${device?.name} · ${attributeLabel(value.attribute, selected)}`
+      ? `${device?.name} · ${attributeLabel(value.attribute, device)}`
       : t("chooseDeviceAttribute");
 
   return (

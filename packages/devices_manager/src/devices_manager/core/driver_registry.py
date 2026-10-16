@@ -32,6 +32,7 @@ from devices_manager.core.presentation import (
     validate_presentation,
 )
 from devices_manager.core.presentation.package_install import InvalidPresentationError
+from devices_manager.core.revisions import driver_revisions
 from devices_manager.core.standard_schemas import validate_standard_schema
 from models.errors import ConflictError, InvalidError, NotFoundError
 
@@ -159,6 +160,8 @@ class DriverRegistry:
     ) -> None:
         self._drivers = drivers if drivers is not None else {}
         self._storage = storage
+        for driver in self._drivers.values():
+            self._stamp(driver)
 
     @property
     def all(self) -> dict[str, Driver]:
@@ -222,11 +225,18 @@ class DriverRegistry:
     def _touch(driver: Driver) -> None:
         driver.metadata.updated_at = datetime.now(UTC)
 
+    @staticmethod
+    def _stamp(driver: Driver) -> None:
+        """Hash the driver's documents once, here, so that every device
+        read serves the revisions without walking the driver again."""
+        driver.revisions = driver_revisions(driver)
+
     async def _persist(self, driver: Driver) -> None:
-        """Bump updated_at and write back. The single chokepoint every
-        mutating method funnels through, so a new one can't forget to
-        bump the timestamp."""
+        """Bump updated_at, restamp the revisions and write back. The single
+        chokepoint every mutating method funnels through, so a new one can't
+        forget either."""
         self._touch(driver)
+        self._stamp(driver)
         if self._storage is not None:
             await self._storage.write(driver.id, driver)
 
@@ -238,6 +248,7 @@ class DriverRegistry:
             _reject_reserved_attribute_name(name)
         if driver.presentation is not None:
             _reject_invalid_presentation(driver.presentation, driver.attributes)
+        self._stamp(driver)
         if self._storage is not None:
             await self._storage.write(driver.id, driver)
         self._drivers[driver.id] = driver
@@ -250,6 +261,7 @@ class DriverRegistry:
         if candidate.presentation is not None:
             _reject_invalid_presentation(candidate.presentation, candidate.attributes)
         self._touch(candidate)
+        self._stamp(candidate)
         if expected is not None:
             candidate.metadata.created_at = expected.metadata.created_at
         if self._storage is not None:

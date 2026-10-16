@@ -46,9 +46,9 @@ class Attribute(BaseModel):
     last_updated: datetime | None = None
     last_changed: datetime | None = None
     value_options: list[AttributeValueType] | None = None
-    # Presentation metadata and write constraints, copied from the driver.
-    label: LocalizedText | None = None
-    description: LocalizedText | None = None
+    # Write-time metadata and write constraints, copied from the driver. What
+    # to call the attribute is the driver's labels document (ADR 0008), not
+    # the device's.
     user_confirmation: LocalizedText | None = None
     group: AttributeGroup | None = None
     unit: Unit | None = None
@@ -107,8 +107,6 @@ class Attribute(BaseModel):
         value: AttributeValueType | None = None,
         value_options: list[AttributeValueType] | None = None,
         *,
-        label: LocalizedText | None = None,
-        description: LocalizedText | None = None,
         group: AttributeGroup | None = None,
         unit: Unit | None = None,
         write_constraints: WriteConstraints | None = None,
@@ -122,8 +120,6 @@ class Attribute(BaseModel):
             last_updated=now,
             last_changed=now,
             value_options=value_options,
-            label=label,
-            description=description,
             group=group,
             unit=unit,
             write_constraints=write_constraints,

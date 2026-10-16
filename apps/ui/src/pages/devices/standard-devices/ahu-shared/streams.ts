@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import type { StreamRow, StreamSetpoint } from "@/components/synoptic/duct";
 import type { AhuAttributeKey, AhuStateKey, AhuUnits } from "./attributes";
-import { useReadingFormat } from "./format";
+import { useReadingFormat } from "@/hooks/useReadingFormat";
 import { useAhuSynopticLabel } from "./labels";
 
 /** The numeric view keys of an AHU: every attribute but the mode and the

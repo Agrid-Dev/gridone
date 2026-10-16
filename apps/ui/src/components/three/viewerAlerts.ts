@@ -9,7 +9,7 @@
  * contradict the faults page.
  */
 import type { Device, FaultView } from "@gridone/sdk";
-import { type FaultLabeller, faultFields } from "@/hooks/useFaultLabel";
+import { type FaultLabeller, faultFields } from "@/lib/faultLabel";
 import { faultLabel } from "@/lib/faultLabel";
 import type { Severity } from "@/lib/severity";
 import { indexRoomsByAsset, type LevelSummary } from "./levelSummaries";

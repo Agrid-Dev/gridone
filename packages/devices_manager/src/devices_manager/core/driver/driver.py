@@ -6,6 +6,7 @@ from pydantic import TypeAdapter
 from devices_manager.core.presentation.envelope import PresentationEnvelope
 from devices_manager.core.standard_schemas import validate_standard_schema
 from devices_manager.types import DataType, TransportProtocols
+from models.attribute_metadata import LocalizedText
 from models.errors import InvalidError
 
 from .attribute_driver import AttributeDriver
@@ -13,6 +14,7 @@ from .device_config_field import DeviceConfigField
 from .discovery_listener import DiscoveryListener
 from .driver_metadata import DriverMetadata
 from .healthcheck import HealthCheck
+from .revision import DriverRevisions
 from .update_strategy import UpdateStrategy
 from .write_validation import validate_write_declarations, write_references
 
@@ -108,6 +110,11 @@ class Driver:
     # the registry, on import.
     presentation: PresentationEnvelope | None = None
     presentation_revision: str | None = None
+    # Stamped by the driver registry at every mutation, never authored:
+    # a driver built outside the registry carries none and readers hash it.
+    revisions: DriverRevisions | None = field(
+        default=None, init=False, repr=False, compare=False
+    )
 
     def __post_init__(self) -> None:
         validate_polling_groups(self.update_strategy, self.attributes.values())
@@ -124,6 +131,13 @@ class Driver:
     @property
     def id(self) -> str:
         return self.metadata.id
+
+    def attribute_label(self, attribute_name: str) -> LocalizedText | None:
+        """What the driver calls the attribute; ``None`` when it labels it
+        not, or does not declare it at all (``connection_status`` is the
+        device's, reserved, not the driver's)."""
+        declared = self.attributes.get(attribute_name)
+        return declared.label if declared is not None else None
 
     @property
     def discovery_listener(self) -> DiscoveryListener | None:

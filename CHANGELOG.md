@@ -1,3 +1,26 @@
+## v0.318.0 (2026-10-16)
+
+### Feat
+
+- **ui**: draw the heat pump control with the synoptics kit (#816)
+
+## v0.317.0 (2026-10-16)
+
+### BREAKING CHANGE
+
+- device payloads (`GET /devices/`, `GET /devices/{id}`,
+the websocket device updates) no longer carry `label` and `description`
+on their attributes. Read `GET /drivers/{driver_id}/labels` instead.
+
+### Feat
+
+- **ui**: read attribute labels from the driver's labels document (#811)
+- **api**: serve driver labels once per driver (#810)
+
+### Refactor
+
+- **devices**: drop attribute labels from the device model (#813)
+
 ## v0.316.0 (2026-10-15)
 
 ### Feat

@@ -32,8 +32,8 @@ const STATUS_ICONS: Record<CommandStatus, ReactNode> = {
 type Lookups = {
   /** Commanded devices by id, for driver-declared labels and value wording. */
   devices: Record<string, Device>;
-  /** Display label of an attribute (see `useAttributeLabel`). */
-  labelFor: (name: string, attribute?: AttributeFields | null) => string;
+  /** Display label of an attribute of a device (see `useAttributeLabel`). */
+  labelFor: (name: string, device?: Device | null) => string;
   deviceNames: Record<string, string>;
   userNames: Record<string, string>;
   templateNames: Record<string, string>;
@@ -111,7 +111,10 @@ export function buildCommandColumns(
       accessorKey: "attribute",
       header: () => t("commands.attribute"),
       cell: ({ row }) =>
-        lookups.labelFor(row.original.attribute, attributeOf(row.original)),
+        lookups.labelFor(
+          row.original.attribute,
+          lookups.devices[row.original.device_id],
+        ),
     },
     {
       accessorKey: "value",

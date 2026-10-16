@@ -40,6 +40,7 @@ if TYPE_CHECKING:
         TransportCreate,
         TransportUpdate,
     )
+    from .dto.driver_labels_dto import DriverLabels
     from .dto.presentation_dto import PresentationResponse
     from .ingress import MessageIngress
     from .types import AttributeValueType, DataType
@@ -254,6 +255,8 @@ class DevicesServiceInterface(Protocol):
     def list_drivers(self, *, device_type: str | None = None) -> list[DriverSpec]: ...
 
     def get_driver(self, driver_id: str) -> DriverSpec: ...
+
+    def get_driver_labels(self, driver_id: str) -> DriverLabels: ...
 
     def get_driver_presentation(self, driver_id: str) -> PresentationStatus | None: ...
 

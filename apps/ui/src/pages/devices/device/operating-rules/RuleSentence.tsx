@@ -81,7 +81,7 @@ export function AttributeChip({
     );
   return (
     <Chip title={`${reference.device_id}/${reference.attribute}`}>
-      {device.name} · {attributeLabel(reference.attribute, attribute)}
+      {device.name} · {attributeLabel(reference.attribute, device)}
     </Chip>
   );
 }
@@ -225,6 +225,7 @@ export function RuleSentence({
   const { t } = useTranslation("operatingRules");
   const attributeLabel = useAttributeLabel();
   const attribute = catalogAttribute(catalog, rule.target);
+  const device = catalog.devices.find((d) => d.id === rule.target.device_id);
   const unit = attributeUnit(rule.target.attribute, attribute);
   const value = rule.target.value;
   const targetValue =
@@ -241,7 +242,7 @@ export function RuleSentence({
       <Word>{t(retired ? "sentenceRefused" : "sentenceRefuses")}</Word>
       <Chip tone="target">
         {attribute
-          ? attributeLabel(rule.target.attribute, attribute)
+          ? attributeLabel(rule.target.attribute, device)
           : t("deletedAttribute")}{" "}
         → {targetValue}
       </Chip>

@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from "react";
+import { useCallback, useMemo, type ReactNode } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { useTranslation } from "react-i18next";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
@@ -61,7 +61,9 @@ type PageContext = {
   assetUrl: DevicePresentationProps["assetUrl"];
   glyphSet: DevicePresentationProps["glyphSet"];
   language: string;
-  attributeLabel: ReturnType<typeof useAttributeLabel>;
+  /** How the subject's driver names an attribute (the runtime's wording,
+   *  else the standard catalogue). */
+  attributeLabel: (attribute: string) => string;
   renderAttributes: DevicePresentationProps["renderAttributes"];
   renderDeviceFace: DevicePresentationProps["renderDeviceFace"];
   /** Attribute name behind a binding id, if the document declares it. */
@@ -92,8 +94,13 @@ export function DevicePresentation({
   onRenderError,
 }: DevicePresentationProps) {
   const { i18n } = useTranslation("devices");
-  const attributeLabel = useAttributeLabel();
+  const fallbackLabel = useAttributeLabel();
   const language = i18n.language;
+  const attributeLabel = useCallback(
+    (attribute: string) =>
+      runtime.attributeLabel?.(attribute) ?? fallbackLabel(attribute),
+    [runtime, fallbackLabel],
+  );
 
   const context = useMemo<PageContext>(() => {
     const attributes = (subject.attributes ?? {}) as Record<

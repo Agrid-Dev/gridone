@@ -1,6 +1,6 @@
 import type { MeterTreeNode } from "@gridone/sdk";
 import { attributeUnit } from "@/lib/attributeUnits";
-import type { LocalizedText } from "@/lib/localizedText";
+import type { DriverRef } from "@/contexts/DriverLabelsContext";
 
 /** A node's meter reference, taken straight off the node so the SDK need
  *  not export the target type separately. */
@@ -15,10 +15,13 @@ type MeterTarget = MeterTreeNode["meter"];
  */
 export type MeterValues = ReadonlyMap<string, number | null>;
 
-/** What the driver declares about the attribute a meter reads. */
+/**
+ * What is known about the attribute a meter reads: its unit, and the device
+ * reading it, whose driver's labels document names the attribute.
+ */
 export type MeterAttribute = {
-  label?: LocalizedText | null;
   unit?: string | null;
+  device?: DriverRef;
 };
 
 /**
@@ -356,14 +359,14 @@ function childrenAreExact(
   });
 }
 
-/** The attribute label a node's driver declares, spread onto its datum. */
-function declaredLabel(
+/** The device a node's meter reads, spread onto its datum once known. */
+function readingDevice(
   node: MeterTreeNode,
   attributes: MeterAttributes,
-): { attributeLabel?: LocalizedText } {
+): { device?: DriverRef } {
   const key = meterKey(node.meter);
-  const label = key ? attributes.get(key)?.label : null;
-  return label ? { attributeLabel: label } : {};
+  const device = key ? attributes.get(key)?.device : undefined;
+  return device ? { device } : {};
 }
 
 /**
@@ -381,8 +384,8 @@ export type MeterTreeDatum = {
   deviceId?: string;
   /** The attribute the node reads, to be named after when unlabelled. */
   attribute?: string;
-  /** The label the attribute's driver declares, when it declares one. */
-  attributeLabel?: LocalizedText;
+  /** The device the node's meter reads, naming its driver's labels document. */
+  device?: DriverRef;
   kind: "meter" | "residual";
   /** What this node contributes to its parent. */
   total: number | null;
@@ -473,7 +476,7 @@ export function buildMeterTreeHierarchy(
         ? { deviceId: node.meter.devices.ids[0] }
         : {}),
       ...(node.meter ? { attribute: node.meter.attribute } : {}),
-      ...declaredLabel(node, attributes),
+      ...readingDevice(node, attributes),
       kind: "meter",
       total: resolved.total,
       unit: resolved.unit,

@@ -1,0 +1,104 @@
+name: API breaking changes
+
+# Compares the OpenAPI spec this pull request would merge with the spec of its
+# base, and fails when the pull request breaks an API client without declaring
+# it with a `!` in its title (`feat(scope)!: …`). An intended break and a false
+# positive both pass once the title carries the marker; the job summary still
+# lists what oasdiff found. See "Breaking API changes" in CONTRIBUTING.md.
+
+on:
+  pull_request:
+    # `edited` re-runs the check when the author adds `!` to the title.
+    types: [opened, edited, synchronize, reopened]
+    # The spec is built from packages/api and the services it wires.
+    paths:
+      - packages/**
+      - pyproject.toml
+      - uv.lock
+      - .github/workflows/api-breaking.yml
+      - .github/oasdiff-severity-levels.txt
+
+permissions:
+  contents: read
+
+concurrency:
+  group: api-breaking-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  OASDIFF_VERSION: "1.33.0"
+  # sha256 of oasdiff_<version>_linux_amd64.tar.gz, from the release's checksums.txt.
+  OASDIFF_SHA256: "43a4e328e2d13ba1552d760aa68d2485c75c5621f309f6ff64ae895188345247"
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  breaking:
+    name: Breaking changes (oasdiff)
+    runs-on: ubuntu-latest
+    steps:
+      # On pull_request, checkout gives the PR merge commit; depth 2 also brings
+      # its first parent, the base tip it merges into. Comparing the base tip
+      # with the PR head instead would report everything the base gained since
+      # the branch point as removed.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+
+      - name: Set up UV
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          version: "0.10.9"
+
+      # Each side is generated with its own uv.lock.
+      - name: Generate the base and pull request specs
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/base" HEAD^1
+          for tree in "$RUNNER_TEMP/base" "$GITHUB_WORKSPACE"; do
+            (cd "$tree" && uv sync --locked --all-packages && uv run python packages/api/generate_openapi.py)
+          done
+
+      - name: Install oasdiff
+        run: |
+          archive="$RUNNER_TEMP/oasdiff.tar.gz"
+          curl -sSfL -o "$archive" \
+            "https://github.com/oasdiff/oasdiff/releases/download/v${OASDIFF_VERSION}/oasdiff_${OASDIFF_VERSION}_linux_amd64.tar.gz"
+          echo "${OASDIFF_SHA256}  $archive" | sha256sum -c -
+          tar -xzf "$archive" -C "$RUNNER_TEMP" oasdiff
+
+      # ERR and WARN both block (--fail-on WARN). The severity file lowers
+      # response-property-enum-value-added to INFO: response enums are open, and
+      # clients must tolerate values they do not know. oasdiff exits 1 when it
+      # finds a breaking change, and 100 or more when it cannot compare.
+      - name: Compare the specs
+        env:
+          OASDIFF: ${{ runner.temp }}/oasdiff
+          BASE_SPEC: ${{ runner.temp }}/base/docs/src/openapi.json
+          HEAD_SPEC: docs/src/openapi.json
+          SEVERITY_LEVELS: .github/oasdiff-severity-levels.txt
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          options=(--severity-levels "$SEVERITY_LEVELS")
+          set +e
+          "$OASDIFF" breaking "$BASE_SPEC" "$HEAD_SPEC" "${options[@]}" --fail-on WARN --format markdown > "$RUNNER_TEMP/report.md"
+          code=$?
+          set -e
+          cat "$RUNNER_TEMP/report.md" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$code" -eq 0 ]; then
+            exit 0
+          fi
+          if [ "$code" -ne 1 ]; then
+            echo "::error::oasdiff could not compare the specs (exit $code)."
+            exit "$code"
+          fi
+          breaking_title='^[a-z]+(\([^)]*\))?!: '
+          if [[ "$PR_TITLE" =~ $breaking_title ]]; then
+            echo "Breaking change declared in the pull request title." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          "$OASDIFF" breaking "$BASE_SPEC" "$HEAD_SPEC" "${options[@]}" --format githubactions
+          echo "::error::Undeclared breaking API change. Add ! to the pull request title (feat(scope)!: …) if the break is intended or a false positive, or keep the API compatible. See \"Breaking API changes\" in CONTRIBUTING.md."
+          exit 1

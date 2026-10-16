@@ -246,7 +246,7 @@ def list_device_attributes(
     devices = reads.list_devices(**query)
     return AttributeCoverageResponse(
         total_devices=len(devices),
-        attributes=compute_attribute_coverage(devices),
+        attributes=compute_attribute_coverage(devices, reads.get_driver_labels),
     )
 
 

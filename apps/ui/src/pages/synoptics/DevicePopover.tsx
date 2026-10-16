@@ -302,7 +302,7 @@ const PointList: FC<{
                 )}
               >
                 {point.attribute
-                  ? labelFor(point.attribute, attribute)
+                  ? labelFor(point.attribute, device)
                   : vocabulary.slotLabel(point.slot)}
               </dt>
               <dd className="flex items-center gap-2">

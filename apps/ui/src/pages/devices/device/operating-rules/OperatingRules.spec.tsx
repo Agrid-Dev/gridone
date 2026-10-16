@@ -9,6 +9,8 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { StaticDriverLabels } from "@/contexts/DriverLabelsContext";
+import type { DriverLabels } from "@gridone/sdk";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { I18nextProvider } from "react-i18next";
 import {
@@ -138,6 +140,11 @@ beforeEach(async () => {
   });
 });
 afterEach(cleanup);
+/** The driver's labels document; a test fills it before rendering. */
+let driverLabels: Record<string, DriverLabels> = {};
+afterEach(() => {
+  driverLabels = {};
+});
 function setup(suffix = "") {
   const cache = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -146,16 +153,18 @@ function setup(suffix = "") {
   render(
     <I18nextProvider i18n={i18n}>
       <QueryClientProvider client={cache}>
-        <MemoryRouter
-          initialEntries={[`/devices/a/config/operating-rules${suffix}`]}
-        >
-          <Routes>
-            <Route
-              path="/devices/:deviceId/config/operating-rules/*"
-              element={<DeviceOperatingRules />}
-            />
-          </Routes>
-        </MemoryRouter>
+        <StaticDriverLabels labels={driverLabels}>
+          <MemoryRouter
+            initialEntries={[`/devices/a/config/operating-rules${suffix}`]}
+          >
+            <Routes>
+              <Route
+                path="/devices/:deviceId/config/operating-rules/*"
+                element={<DeviceOperatingRules />}
+              />
+            </Routes>
+          </MemoryRouter>
+        </StaticDriverLabels>
       </QueryClientProvider>
     </I18nextProvider>,
   );
@@ -197,12 +206,13 @@ describe("device operating rules", () => {
   });
 
   it("searches localized labels without accents and shows empty results without changing the selection", async () => {
-    const source = device("b");
-    source.attributes!.running = {
-      ...source.attributes!.running,
-      label: { default: "Marche / arrêt" },
+    driverLabels = {
+      driver: {
+        revision: "rev",
+        attributes: { running: { label: { default: "Marche / arrêt" } } },
+      },
     };
-    api.devices.mockResolvedValue([device("a"), source]);
+    api.devices.mockResolvedValue([device("a"), device("b")]);
     const { user } = setup("/rule/edit");
     await user.click(
       await screen.findByRole("combobox", { name: "Observed attribute" }),

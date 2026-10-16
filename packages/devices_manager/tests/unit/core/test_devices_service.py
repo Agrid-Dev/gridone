@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import UTC, datetime
 from typing import ClassVar
 from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
@@ -20,6 +21,7 @@ from devices_manager.core.driver import (
     AttributeDriver,
     AttributeRef,
     Driver,
+    FaultAttributeDriver,
     HealthCheck,
     UpdateStrategy,
     WriteConstraints,
@@ -45,7 +47,6 @@ from devices_manager.dto import (
     TransportUpdate,
     driver_to_public,
 )
-from devices_manager.dto.presentation_dto import PresentationReference
 from devices_manager.dto.transport_dto import HttpTransportCreate, MqttTransportCreate
 from devices_manager.ingress import MessageIngress
 from devices_manager.storage.memory import MemoryDevicesStorage
@@ -1603,8 +1604,9 @@ class TestDevicesServiceDeviceDelegation:
 
 
 class TestDevicesServiceListDevicesSelection:
-    """A listing hashes each driver once, and its filters judge the whole
-    device before a selection trims what it returns."""
+    """A listing serves the revisions the registry stamped on each driver,
+    and its filters judge the whole device before a selection trims what it
+    returns."""
 
     @pytest_asyncio.fixture
     async def dm(self, driver, other_http_driver, mock_transport_client):
@@ -1633,27 +1635,31 @@ class TestDevicesServiceListDevicesSelection:
         return dm
 
     @pytest.mark.asyncio
-    async def test_hashes_each_driver_once_per_listing(self, dm):
-        with patch(
-            "devices_manager.dto.device_dto.get_presentation_revision",
-            side_effect=lambda d: f"rev-{d.id}",
-        ) as hashed:
+    async def test_reads_serve_the_registry_stamp_without_hashing(
+        self, dm, driver, other_http_driver
+    ):
+        """Hashing a driver walks its every attribute: the registry does it
+        once per mutation, never a device read, listing or single."""
+        with (
+            patch(
+                "devices_manager.core.revisions.get_driver_revision",
+                side_effect=AssertionError("hashed on read"),
+            ),
+            patch(
+                "devices_manager.core.revisions.get_presentation_revision",
+                side_effect=AssertionError("hashed on read"),
+            ),
+        ):
             listed = dm.list_devices()
-            assert hashed.call_count == 2
-            # A fresh lookup per listing: an edited driver is hashed again.
-            dm.list_devices()
-            assert hashed.call_count == 4
+            single = dm.get_device("t0")
 
-        assert {d.id: d.presentation_ref for d in listed} == {
-            **{
-                f"t{i}": PresentationReference(revision="rev-test_driver")
-                for i in range(3)
-            },
-            **{
-                f"o{i}": PresentationReference(revision="rev-other_http_driver")
-                for i in range(3)
-            },
+        assert driver.revisions is not None
+        assert other_http_driver.revisions is not None
+        assert {d.id: d.driver_revision for d in listed} == {
+            **{f"t{i}": driver.revisions.driver for i in range(3)},
+            **{f"o{i}": other_http_driver.revisions.driver for i in range(3)},
         }
+        assert single.driver_revision == driver.revisions.driver
 
     @pytest.mark.asyncio
     async def test_the_selection_trims_every_listed_device(self, dm):
@@ -2275,7 +2281,6 @@ class TestDevicesServiceListActiveFaults:
         severity: Severity,
         last_updated: datetime,
         last_changed: datetime | None = None,
-        label: LocalizedText | None = None,
     ) -> FaultAttribute:
         return FaultAttribute(
             name=name,
@@ -2286,8 +2291,25 @@ class TestDevicesServiceListActiveFaults:
             last_changed=last_changed or last_updated,
             severity=severity,
             healthy_values=healthy_values,
-            label=label,
         )
+
+    _ALARM_LABEL = LocalizedText(
+        default="Compressor alarm", translations={"fr": "Alarme compresseur"}
+    )
+
+    @classmethod
+    def _declaring_alarm(cls, driver: Driver) -> Driver:
+        """``driver`` with a labelled ``alarm`` fault: the fault view reads the
+        label from the driver, the device attribute carries none."""
+        alarm = FaultAttributeDriver(
+            name="alarm",
+            data_type=DataType.STRING,
+            read="GET /alarm",
+            codecs=[],
+            healthy_values=["ok"],
+            label=cls._ALARM_LABEL,
+        )
+        return replace(driver, attributes={**driver.attributes, "alarm": alarm})
 
     def _make_devices(
         self, driver: Driver, transport
@@ -2302,13 +2324,9 @@ class TestDevicesServiceListActiveFaults:
                     healthy_values=["ok"],
                     severity=Severity.ALERT,
                     last_updated=datetime(2026, 4, 20, 12, 0, tzinfo=UTC),
-                    label=LocalizedText(
-                        default="Compressor alarm",
-                        translations={"fr": "Alarme compresseur"},
-                    ),
                 ),
             },
-            driver=driver,
+            driver=self._declaring_alarm(driver),
             transport=transport,
             config={},
         )
@@ -2441,11 +2459,10 @@ class TestDevicesServiceListActiveFaults:
     @pytest.mark.asyncio
     async def test_fault_view_carries_the_drivers_label(self, dm: DevicesService):
         """A fault list names a fault the way the device page does, so the
-        driver's wording rides along; an unlabelled attribute carries none."""
+        driver's wording rides along; an attribute the driver does not label,
+        or no longer declares, carries none."""
         by_device = {f.device_id: f for f in dm.list_active_faults()}
-        assert by_device["chiller"].label == LocalizedText(
-            default="Compressor alarm", translations={"fr": "Alarme compresseur"}
-        )
+        assert by_device["chiller"].label == self._ALARM_LABEL
         assert by_device["boiler"].label is None
 
 
@@ -2737,6 +2754,38 @@ class TestDevicesServiceRenamePropagatesBounds:
         assert setpoint.write_constraints.minimum == AttributeRef(
             attribute="min_setpoint"
         )
+
+
+class TestDevicesServiceDriverLabels:
+    @pytest.mark.asyncio
+    async def test_labels_share_the_revision_devices_carry(
+        self, constrained_driver, mock_transport_client
+    ):
+        device = CoreDevice.from_base(
+            DeviceBase(id="device", name="Device", config={}),
+            driver=constrained_driver,
+            transport=mock_transport_client,
+        )
+        dm = DevicesService(
+            devices={device.id: device},
+            drivers={constrained_driver.id: constrained_driver},
+            transports={mock_transport_client.id: mock_transport_client},
+        )
+        await dm.load()
+
+        labels = dm.get_driver_labels(constrained_driver.id)
+
+        assert labels.revision == dm.get_device("device").driver_revision
+        assert set(labels.attributes) == {"temperature_setpoint"}
+        assert labels.attributes["temperature_setpoint"].group == "setpoints"
+
+    @pytest.mark.asyncio
+    async def test_unknown_driver_is_not_found(self, driver):
+        dm = DevicesService(devices={}, drivers={driver.id: driver}, transports={})
+        await dm.load()
+
+        with pytest.raises(NotFoundError):
+            dm.get_driver_labels("ghost")
 
 
 class TestDevicesServiceDriverPresentation:

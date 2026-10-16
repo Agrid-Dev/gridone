@@ -40,8 +40,8 @@ from .core.presentation.diagnostics import (
 from .core.presentation.models import PresentationV1
 from .core.presentation.package import read_payload
 from .core.presentation.package_install import InvalidPresentationError
-from .core.presentation.revision import get_presentation_revision
 from .core.presentation.validation import check_compatibility, validate_presentation
+from .core.revisions import revisions_of
 from .core.standard_schemas.registry import default_registry
 from .core.tags import TagMutation, TagMutationResult
 from .core.transport_registry import TransportRegistry
@@ -67,7 +67,6 @@ from .dto import (
     driver_from_public,
     driver_to_public,
     mask_transport_secrets,
-    revision_per_driver,
     standard_schema_to_public,
     transport_create_from_public,
     transport_from_public,
@@ -77,6 +76,7 @@ from .dto import (
 from .dto.driver_dto.package_errors import import_error
 from .dto.driver_dto.package_export import export_package
 from .dto.driver_dto.package_install import assemble_package
+from .dto.driver_labels_dto import driver_labels
 from .dto.presentation_dto import presentation_response
 from .ingress import MessageIngress
 from .storage.factory import build_storage
@@ -97,6 +97,7 @@ if TYPE_CHECKING:
     from .core.presentation.resources import StoredResource
     from .core.transports import TransportClient
     from .dto import LoadEntityKind
+    from .dto.driver_labels_dto import DriverLabels
     from .dto.presentation_dto import PresentationResponse
     from .interface import AttributeListener, DeviceDiscoveredListener, DeviceListener
     from .storage import DevicesManagerStorage
@@ -135,7 +136,8 @@ def _fault_view_from(device: CoreDevice, attr: FaultAttribute) -> FaultView:
         current_value=attr.current_value,
         last_updated=attr.last_updated,
         last_changed=attr.last_changed,
-        label=attr.label,
+        # Labels live on the driver, not on the device (ADR 0008).
+        label=device.driver.attribute_label(attr.name),
     )
 
 
@@ -408,13 +410,8 @@ class DevicesService(Service):
             driver_id=driver_id,
             transport_id=transport_id,
         )
-        revision_of = revision_per_driver()
         return [
-            device_to_public(
-                device,
-                revision_of=revision_of,
-                attribute_selection=attribute_selection,
-            )
+            device_to_public(device, attribute_selection=attribute_selection)
             for device in devices
         ]
 
@@ -423,7 +420,7 @@ class DevicesService(Service):
 
     def _presentation_driver(self, device_id: str, revision: str | None) -> Driver:
         driver = self._device_registry.get(device_id).driver
-        current_revision = get_presentation_revision(driver)
+        current_revision = revisions_of(driver).presentation
         if revision is not None and revision != current_revision:
             msg = "Presentation revision changed"
             raise ConflictError(msg)
@@ -437,7 +434,7 @@ class DevicesService(Service):
     ) -> PresentationResponse:
         driver = self._presentation_driver(device_id, revision)
         result = presentation_response(driver, await self._driver_resources(driver))
-        self._presentation_driver(device_id, get_presentation_revision(driver))
+        self._presentation_driver(device_id, revisions_of(driver).presentation)
         if result is None:
             msg = "Device has no presentation"
             raise NotFoundError(msg)
@@ -994,6 +991,11 @@ class DevicesService(Service):
     def get_driver(self, driver_id: str) -> DriverSpec:
         return driver_to_public(self._driver_registry.get(driver_id))
 
+    def get_driver_labels(self, driver_id: str) -> DriverLabels:
+        """What to call the driver's attributes, served once per driver and
+        cached by clients under the ``driver_revision`` its devices carry."""
+        return driver_labels(self._driver_registry.get(driver_id))
+
     def get_driver_presentation(self, driver_id: str) -> PresentationStatus | None:
         """The driver's presentation validated against its current attributes;
         ``None`` when the driver declares none (the historical rendering path)."""
@@ -1066,7 +1068,7 @@ class DevicesService(Service):
         resources = self._storage.presentation_resources
         async with self.mutation_lock, resources.installation(driver_id):
             current = deepcopy(self._driver_registry.all.get(driver_id))
-            revision = None if current is None else get_presentation_revision(current)
+            revision = None if current is None else revisions_of(current).presentation
             if expected_revision is not None and expected_revision != revision:
                 msg = "Presentation revision changed"
                 raise ConflictError(msg)
@@ -1268,7 +1270,7 @@ class DevicesService(Service):
         """Serve only an asset declared in the current driver presentation."""
         driver = self._driver_registry.get(driver_id)
         status = self._driver_registry.presentation_status(driver.id)
-        if get_presentation_revision(driver) != revision:
+        if revisions_of(driver).presentation != revision:
             msg = "Presentation revision changed"
             raise ConflictError(msg)
         if (
@@ -1281,7 +1283,7 @@ class DevicesService(Service):
         resource = await self.get_driver_resource(
             driver.id, driver.presentation_revision, asset_id
         )
-        if get_presentation_revision(self._driver_registry.get(driver_id)) != revision:
+        if revisions_of(self._driver_registry.get(driver_id)).presentation != revision:
             msg = "Presentation revision changed"
             raise ConflictError(msg)
         return resource
