@@ -134,3 +134,19 @@ See the [project layout](#project-layout) above for what each package and app is
 Each service package satisfies the `models.service.Service` protocol (`__init__(storage_url, ...)`, `async start()`, `async stop()`), builds its own storage from a URL, and owns its schema exclusively — no service package imports a controller framework (FastAPI, etc.).
 
 See the [documentation site](https://docs.gridone.a-grid.com) and each package's `README.md` for further detail.
+
+## Breaking API changes
+
+Every pull request that touches `packages/`, `pyproject.toml` or `uv.lock` runs the **API breaking changes** check ([`api-breaking.yml`](.github/workflows/api-breaking.yml)). It generates the OpenAPI spec of the pull request's merge commit and the spec of its base, compares them with [oasdiff](https://github.com/oasdiff/oasdiff), and fails when the pull request breaks an existing API client without declaring it: an endpoint or a response field removed, a request field that becomes required, a field removed from a request body that rejects unknown fields, and so on. The job summary lists what oasdiff found.
+
+To declare a break, add `!` to the pull request title, Conventional Commits style:
+
+```text
+feat(dashboards)!: dashboard structure — sections, groups, tabs
+```
+
+Editing the title re-runs the check. Use the same marker when oasdiff reports a change that is not a break (for example a schema renamed with identical content), and say so in the pull request description.
+
+Adding a value to an enum in a response is not a breaking change: response enums are open, and API clients must tolerate values they do not know. [`.github/oasdiff-severity-levels.txt`](.github/oasdiff-severity-levels.txt) lowers that oasdiff rule to INFO.
+
+The check only sees what the OpenAPI spec describes. It does not cover WebSocket or MQTT messages, driver files, a behaviour change behind an unchanged schema, or the inside of a response documented without a schema.
