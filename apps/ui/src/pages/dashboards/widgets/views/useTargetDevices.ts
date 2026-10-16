@@ -59,7 +59,7 @@ export function useTargetDevices(
       };
       return {
         queryKey: ["devices", params],
-        queryFn: () => client.devices.list(params),
+        queryFn: () => client.devices.listAll(params),
         enabled: !isEmptyTarget(target.devices) && !!target.attribute,
         refetchInterval,
       };

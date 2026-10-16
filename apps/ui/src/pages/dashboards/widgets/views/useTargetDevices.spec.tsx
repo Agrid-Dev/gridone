@@ -7,7 +7,7 @@ const { mockList } = vi.hoisted(() => ({ mockList: vi.fn() }));
 
 vi.mock("@/contexts/GridoneClientContext", () => ({
   useGridoneClient: () => ({
-    devices: { list: (...args: unknown[]) => mockList(...args) },
+    devices: { listAll: (...args: unknown[]) => mockList(...args) },
   }),
 }));
 

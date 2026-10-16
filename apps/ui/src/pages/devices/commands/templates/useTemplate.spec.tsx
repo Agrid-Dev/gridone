@@ -9,7 +9,7 @@ import { useTemplate } from "./useTemplate";
 const api = vi.hoisted(() => ({
   navigate: vi.fn(),
   get: vi.fn(),
-  list: vi.fn(),
+  listAll: vi.fn(),
   preview: vi.fn(),
   confirm: vi.fn(),
   dispatch: vi.fn(),
@@ -24,7 +24,7 @@ vi.mock("@/hooks/useAssetTree", () => ({
 vi.mock("@/contexts/GridoneClientContext", () => ({
   useGridoneClient: () => ({
     devices: {
-      list: api.list,
+      listAll: api.listAll,
       listCommands: api.listCommands,
       previewCommand: api.preview,
       confirmCommand: api.confirm,
@@ -54,7 +54,7 @@ function setup(target: CommandTemplateResponse["target"]) {
 }
 beforeEach(() => {
   vi.resetAllMocks();
-  api.list.mockResolvedValue([]);
+  api.listAll.mockResolvedValue([]);
   api.listCommands.mockResolvedValue({ items: [], total_pages: 1 });
   api.preview.mockImplementation(async (request) => ({
     ...request,

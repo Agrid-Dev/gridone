@@ -47,7 +47,7 @@ export async function saveGroupMembers(
   value: string,
   selectedIds: string[],
 ) {
-  const current = await client.devices.list({
+  const current = await client.devices.listAll({
     tags: [`${GROUP_TAG_KEY}:${value}`],
   });
   const currentIds = new Set(current.map((device) => device.id));

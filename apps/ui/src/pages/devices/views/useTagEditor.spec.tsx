@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 import { createI18nMock } from "@/test/i18nMock";
 import { useTagEditor } from "./useTagEditor";
 const api = vi.hoisted(() => ({
-  list: vi.fn(),
+  listAll: vi.fn(),
   listTags: vi.fn(),
   bulkTags: vi.fn(),
   renameTag: vi.fn(),
@@ -18,7 +18,7 @@ vi.mock("@/contexts/GridoneClientContext", () => ({
 vi.mock("react-i18next", () => createI18nMock({}));
 afterEach(cleanup);
 function setup() {
-  api.list.mockResolvedValue([]);
+  api.listAll.mockResolvedValue([]);
   api.listTags.mockResolvedValue([]);
   const cache = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },

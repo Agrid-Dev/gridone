@@ -14,7 +14,7 @@ export function useDevicesList(filter?: DevicesFilter) {
     error: queryError,
   } = useQuery<Device[]>({
     queryKey: ["devices", filter],
-    queryFn: () => client.devices.list(devicesFilterToListParams(filter)),
+    queryFn: () => client.devices.listAll(devicesFilterToListParams(filter)),
     refetchInterval: 10_000,
   });
 

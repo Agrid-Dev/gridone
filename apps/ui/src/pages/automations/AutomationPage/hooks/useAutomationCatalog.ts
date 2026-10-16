@@ -10,7 +10,7 @@ export function useAutomationCatalog(): AttributeCatalog {
   const client = useGridoneClient();
   const { data: devices = [] } = useQuery({
     queryKey: ["devices", undefined],
-    queryFn: () => client.devices.list(),
+    queryFn: () => client.devices.listAll(),
     staleTime: 10_000,
   });
   return useMemo(() => ({ devices }), [devices]);

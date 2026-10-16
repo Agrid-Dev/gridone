@@ -1,4 +1,9 @@
 {
+  "pagination": {
+    "label": "Pagination",
+    "previous": "Page précédente",
+    "next": "Page suivante"
+  },
   "timeRange": {
     "rangeLastMinutes": "{{count}} dernières min",
     "rangeLastHours_one": "Dernière heure",

@@ -36,7 +36,7 @@ vi.mock("@/contexts/GridoneClientContext", () => ({
       update: mocks.update,
       delete: mocks.remove,
     },
-    devices: { list: mocks.devices },
+    devices: { listAll: mocks.devices },
   }),
 }));
 vi.mock("../devices/commands/new/NewCommandPage", () => ({

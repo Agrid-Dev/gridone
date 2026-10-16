@@ -206,7 +206,7 @@ const client = {
   },
   devices: {
     get: async () => rooms[0],
-    list: async () => rooms,
+    listAll: async () => rooms,
     listCommandsForDevice: async () => ({ items: [], total_pages: 1 }),
     getPresentation: async () => ({
       status: "available",

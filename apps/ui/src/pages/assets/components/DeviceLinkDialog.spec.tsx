@@ -7,7 +7,7 @@ import { createI18nMock } from "@/test/i18nMock";
 
 const { mockClient, mockToast } = vi.hoisted(() => ({
   mockClient: {
-    devices: { list: vi.fn(), assignAssets: vi.fn() },
+    devices: { listAll: vi.fn(), assignAssets: vi.fn() },
     assets: { getTreeWithDevices: vi.fn() },
   },
   mockToast: { success: vi.fn(), error: vi.fn() },
@@ -66,7 +66,7 @@ const DEVICES = [
 ];
 
 function renderDialog(props: Partial<{ existingDeviceIds: string[] }> = {}) {
-  mockClient.devices.list.mockResolvedValue(DEVICES);
+  mockClient.devices.listAll.mockResolvedValue(DEVICES);
   mockClient.assets.getTreeWithDevices.mockResolvedValue([
     { ...ATTIC, children: [], devices: [] },
   ]);
@@ -227,7 +227,7 @@ describe("DeviceLinkDialog", () => {
   });
 
   it("says so when the device list cannot be loaded", async () => {
-    mockClient.devices.list.mockRejectedValue(new Error("boom"));
+    mockClient.devices.listAll.mockRejectedValue(new Error("boom"));
     mockClient.assets.getTreeWithDevices.mockResolvedValue([]);
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },

@@ -49,7 +49,7 @@ export function DeviceLinkDialog({
     error,
   } = useQuery<Device[]>({
     queryKey: ["devices"],
-    queryFn: () => client.devices.list(),
+    queryFn: () => client.devices.listAll(),
     enabled: open,
   });
 

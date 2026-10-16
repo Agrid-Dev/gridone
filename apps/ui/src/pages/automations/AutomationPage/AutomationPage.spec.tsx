@@ -47,7 +47,7 @@ const { client, navigate } = vi.hoisted(() => ({
       enable: vi.fn<(id: string) => Promise<Automation>>(),
     },
     users: { get: vi.fn() },
-    devices: { list: vi.fn(), commandTemplates: { get: vi.fn() } },
+    devices: { listAll: vi.fn(), commandTemplates: { get: vi.fn() } },
   },
   navigate: vi.fn(),
 }));
@@ -428,7 +428,7 @@ beforeEach(() => {
   client.automations.delete.mockResolvedValue(undefined);
   client.automations.disable.mockImplementation(async () => stored);
   client.users.get.mockResolvedValue({ id: "u1", username: "alice" });
-  client.devices.list.mockResolvedValue([]);
+  client.devices.listAll.mockResolvedValue([]);
 });
 
 afterEach(() => {

@@ -38,7 +38,7 @@ export function useTemplate(templateId: string) {
   const target = template.target as DevicesFilter;
   const resolvedDevices = useQuery<Device[]>({
     queryKey: ["template-resolved-devices", templateId, target],
-    queryFn: () => client.devices.list(devicesFilterToListParams(target)),
+    queryFn: () => client.devices.listAll(devicesFilterToListParams(target)),
     enabled: !!target,
   });
 

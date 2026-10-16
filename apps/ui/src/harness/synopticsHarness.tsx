@@ -214,7 +214,7 @@ const fakeDevice = (id: string): Device =>
 const client = {
   devices: {
     get: async (id: string) => fakeDevice(id),
-    list: async () => [],
+    listAll: async () => [],
     previewDeviceCommand: async () => ({ eligible: true, reasons: [] }),
     sendCommand: async () => undefined,
   },

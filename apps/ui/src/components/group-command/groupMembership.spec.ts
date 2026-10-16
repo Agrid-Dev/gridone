@@ -27,7 +27,7 @@ describe("group membership through ordinary tags", () => {
     );
     const client = {
       devices: {
-        list: async () =>
+        listAll: async () =>
           [...members]
             .filter(([, values]) => values.includes("comfort"))
             .map(([id]) => ({ id })),

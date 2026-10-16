@@ -22,8 +22,8 @@ const SUMMARY_KEYS = {
 
 /** "49 appareils · 47 connectés · 1 dégradé · 1 déconnecté" — connection
  *  buckets at zero are omitted, each colored by its semantic status level.
- *  When filters narrow the list, the lead reads "12 sur 49 appareils"; the
- *  connection buckets always describe the whole fleet. */
+ *  When filters narrow the list, the lead reads "12 sur 49 appareils" and
+ *  the connection buckets describe those 12, across every page. */
 export function DevicesSummary({
   total,
   shown = total,

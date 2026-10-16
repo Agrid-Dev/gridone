@@ -18,7 +18,7 @@ vi.mock("@/contexts/GridoneClientContext", () => ({
   useGridoneClient: () => ({
     devices: {
       get: (...args: unknown[]) => mockGet(...args),
-      list: (...args: unknown[]) => mockList(...args),
+      listAll: (...args: unknown[]) => mockList(...args),
     },
   }),
 }));

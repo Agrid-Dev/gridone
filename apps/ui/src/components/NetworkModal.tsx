@@ -12,7 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import TransportForm from "@/pages/transports/form";
 import type { FormProtocol } from "@/pages/transports/form/useTransportForm";
 import type { Transport } from "@gridone/sdk";
-import { useDevicesList } from "@/hooks/useDevicesList";
+import { useDevicesCount } from "@/hooks/useDevicesCount";
 
 export type NetworkModalProps = {
   open: boolean;
@@ -72,8 +72,7 @@ export const NetworkModal: FC<NetworkModalProps> = ({
 
 const LinkedDevicesWarning: FC<{ transportId: string }> = ({ transportId }) => {
   const { t } = useTranslation("transports");
-  const { devices } = useDevicesList();
-  const count = devices.filter((d) => d.transport_id === transportId).length;
+  const { count } = useDevicesCount({ transport_id: transportId });
   if (count === 0) return null;
   return (
     <Alert>

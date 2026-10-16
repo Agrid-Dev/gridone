@@ -15,6 +15,16 @@ export const FILTER_PARAMS = {
 
 export type FilterParam = (typeof FILTER_PARAMS)[keyof typeof FILTER_PARAMS];
 
+/** The devices list page, `?page=`; every filter write resets it. */
+export const PAGE_PARAM = "page";
+
+/** The page the URL asks for, 1 when absent or not a positive integer. */
+export function usePageParam(): number {
+  const [searchParams] = useSearchParams();
+  const page = Number(searchParams.get(PAGE_PARAM) ?? "1");
+  return Number.isInteger(page) && page >= 1 ? page : 1;
+}
+
 function isHealth(value: string | null): value is Health {
   return value === "all" || value === "healthy" || value === "faulty";
 }
@@ -50,7 +60,8 @@ export function useFilterParams(): DevicesFilter | undefined {
 }
 
 /** Writers for the filter query params. Writes replace the history entry so
- *  toggling options does not pile up back-button steps. */
+ *  toggling options does not pile up back-button steps, and drop the page:
+ *  a new match starts on its first page. */
 export function useSetFilterParams() {
   const [, setSearchParams] = useSearchParams();
 
@@ -61,6 +72,7 @@ export function useSetFilterParams() {
           const next = new URLSearchParams(prev);
           next.delete(param);
           for (const value of values) next.append(param, value);
+          next.delete(PAGE_PARAM);
           return next;
         },
         { replace: true },
@@ -74,6 +86,7 @@ export function useSetFilterParams() {
         (prev) => {
           const next = new URLSearchParams(prev);
           for (const param of Object.values(FILTER_PARAMS)) next.delete(param);
+          next.delete(PAGE_PARAM);
           return next;
         },
         { replace: true },

@@ -148,7 +148,7 @@ const client = {
     }),
   },
   devices: {
-    list: async () => DEVICES,
+    listAll: async () => DEVICES,
     get: async (id: string) => DEVICES.find((d) => d.id === id),
   },
 };

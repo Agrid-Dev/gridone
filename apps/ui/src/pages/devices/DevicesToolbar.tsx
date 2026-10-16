@@ -15,14 +15,15 @@ import {
 } from "@/lib/deviceTypes";
 import { DeviceSearchField } from "./DeviceSearchField";
 import { DevicesSummary } from "./DevicesSummary";
+import type { HealthCounts } from "./useDevicesPage";
 
 type DevicesToolbarProps = {
-  /** Unfiltered per-type counts. */
+  /** Per-type counts over the devices the filters match. */
   typeCounts: Map<DeviceTypeKey, number>;
   /** Unfiltered fleet size. */
   total: number;
-  /** Unfiltered faulty-device count. */
-  faultyCount: number;
+  /** Faulty and healthy counts over the devices the filters match. */
+  healthCounts: HealthCounts;
   /** Devices matching the current filters; null while unknown. */
   shown: number | null;
   selectedTypes: DeviceTypeKey[];
@@ -34,11 +35,13 @@ type DevicesToolbarProps = {
 
 /** The devices list's single filter row: name search, type and fault
  *  facets, and the fleet summary. Every control renders whatever the fleet,
- *  so the row keeps its shape across sites and roles. */
+ *  so the row keeps its shape across sites and roles. The counts are the
+ *  server's facets: they follow the filters, so a chip says how many of the
+ *  matched devices it would keep. */
 export function DevicesToolbar({
   typeCounts,
   total,
-  faultyCount,
+  healthCounts,
   shown,
   selectedTypes,
   health,
@@ -53,11 +56,7 @@ export function DevicesToolbar({
     <div className="flex flex-wrap items-center gap-2">
       <DeviceSearchField />
       <DeviceTypeFacet counts={typeCounts} selected={selectedTypes} />
-      <DeviceHealthFacet
-        total={total}
-        faultyCount={faultyCount}
-        selected={health}
-      />
+      <DeviceHealthFacet counts={healthCounts} selected={health} />
       {hasFilters && (
         <Button type="button" variant="ghost" size="sm" onClick={clearAll}>
           {t("devices.filters.reset")}
@@ -122,18 +121,16 @@ const HEALTH_OPTIONS = ["faulty", "healthy"] as const;
 
 /** Faulty or fault-free: one choice at most, so a pick replaces the other. */
 function DeviceHealthFacet({
-  total,
-  faultyCount,
+  counts,
   selected,
 }: {
-  total: number;
-  faultyCount: number;
+  counts: HealthCounts;
   selected: Health;
 }) {
   const { t } = useTranslation("devices");
   const { setValues } = useSetFilterParams();
   const labels = useFacetLabels();
-  const counts = { faulty: faultyCount, healthy: total - faultyCount };
+  const faultyCount = counts.faulty;
 
   return (
     <FacetFilter

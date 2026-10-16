@@ -63,7 +63,7 @@ export function useOperatingRuleDevices() {
   const client = useGridoneClient();
   return useSuspenseQuery({
     queryKey: ["devices", undefined],
-    queryFn: () => client.devices.list(),
+    queryFn: () => client.devices.listAll(),
     staleTime: 10_000,
   });
 }

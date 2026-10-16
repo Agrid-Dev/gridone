@@ -8,6 +8,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
+import { PaginationControls } from "@/components/PaginationControls";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePermissions } from "@/contexts/AuthContext";
@@ -26,7 +27,7 @@ export default function DevicesList() {
     groups,
     typeCounts,
     total,
-    faultyCount,
+    healthCounts,
     shown,
     selectedTypes,
     health,
@@ -36,6 +37,10 @@ export default function DevicesList() {
     loading,
     error,
     hasFilters,
+    page,
+    totalPages,
+    prevHref,
+    nextHref,
   } = useDevicesPage();
 
   return (
@@ -56,7 +61,7 @@ export default function DevicesList() {
       <DevicesToolbar
         typeCounts={typeCounts}
         total={total}
-        faultyCount={faultyCount}
+        healthCounts={healthCounts}
         shown={shown}
         selectedTypes={selectedTypes}
         health={health}
@@ -90,6 +95,13 @@ export default function DevicesList() {
       ) : (
         <DevicesGrid groups={groups} zonePathOf={zonePathOf} />
       )}
+
+      <PaginationControls
+        page={page}
+        totalPages={totalPages}
+        prevHref={prevHref}
+        nextHref={nextHref}
+      />
     </section>
   );
 }

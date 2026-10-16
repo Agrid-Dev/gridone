@@ -30,7 +30,7 @@ const Home: FC = () => {
   // only the fallback when the socket is down.
   const { data: devices, isLoading: devicesLoading } = useQuery<Device[]>({
     queryKey: ["devices"],
-    queryFn: () => client.devices.list(),
+    queryFn: () => client.devices.listAll(),
     refetchInterval: isConnected ? false : 15_000,
   });
   const { data: assets, isLoading: assetsLoading } = useQuery<Asset[]>({

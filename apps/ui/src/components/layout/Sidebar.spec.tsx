@@ -2,7 +2,7 @@ import { afterEach, describe, it, expect, vi, beforeEach } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
-import type { Device, FaultView } from "@gridone/sdk";
+import type { FaultView } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
 
 vi.mock("react-i18next", () =>
@@ -37,7 +37,7 @@ const permissions: { can: (permission: string) => boolean } = {
 };
 const flags = { dashboards: true, synoptics: true };
 let faults: FaultView[] = [];
-let devices: Device[] = [];
+let deviceCount = 0;
 let pendingAppRequests = 0;
 
 const health: { version?: string } = { version: "0.3.0" };
@@ -55,8 +55,8 @@ vi.mock("@/hooks/useFaultsList", () => ({
   useFaultsList: () => ({ faults, loading: false, error: null }),
 }));
 
-vi.mock("@/hooks/useDevicesList", () => ({
-  useDevicesList: () => ({ devices, loading: false, error: null }),
+vi.mock("@/hooks/useDevicesCount", () => ({
+  useDevicesCount: () => ({ count: deviceCount, loading: false }),
 }));
 
 vi.mock("@/hooks/usePendingAppRequests", () => ({
@@ -124,7 +124,7 @@ beforeEach(() => {
   window.localStorage.clear();
   window.sessionStorage.clear();
   faults = [];
-  devices = [];
+  deviceCount = 0;
   pendingAppRequests = 0;
 });
 afterEach(cleanup);
@@ -402,7 +402,7 @@ describe("Sidebar", () => {
     });
 
     it("badges the Devices link with the fleet count, neutrally styled", () => {
-      devices = [{}, {}] as Device[];
+      deviceCount = 2;
       faults = [{}] as FaultView[];
       renderSidebar();
       const badge = screen.getByLabelText("2 devices");

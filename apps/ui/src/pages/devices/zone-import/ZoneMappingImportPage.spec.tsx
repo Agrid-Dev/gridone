@@ -8,7 +8,7 @@ import { createI18nMock } from "@/test/i18nMock";
 
 const { mockClient, mockToast, mockDownloadCsv } = vi.hoisted(() => ({
   mockClient: {
-    devices: { list: vi.fn(), assignAssets: vi.fn() },
+    devices: { listAll: vi.fn(), assignAssets: vi.fn() },
     assets: { getTreeWithDevices: vi.fn() },
   },
   mockToast: { success: vi.fn(), error: vi.fn() },
@@ -85,7 +85,7 @@ function device(id: string, name: string, assetId?: string): Device {
 }
 
 function renderPage() {
-  mockClient.devices.list.mockResolvedValue([
+  mockClient.devices.listAll.mockResolvedValue([
     device("dev-a", "Alpha probe"),
     device("dev-b", "Beta probe", "attic"),
   ]);
