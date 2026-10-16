@@ -8,7 +8,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
-import { useDevicesList } from "@/hooks/useDevicesList";
+import { useDevicesCount } from "@/hooks/useDevicesCount";
 import { useFaultsList } from "@/hooks/useFaultsList";
 import { usePendingAppRequests } from "@/hooks/usePendingAppRequests";
 import { locationUrl } from "@/lib/navigation";
@@ -136,9 +136,8 @@ function SupervisionEntries() {
   const can = usePermissions();
   const dashboardsEnabled = useFeatureEnabled("dashboards");
   const { faults } = useFaultsList();
-  const { devices } = useDevicesList();
+  const { count: deviceCount } = useDevicesCount();
   const faultCount = faults.length;
-  const deviceCount = devices.length;
 
   return (
     <>

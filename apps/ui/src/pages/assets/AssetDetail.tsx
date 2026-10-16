@@ -51,7 +51,7 @@ export default function AssetDetail() {
 
   const { data: devices = [] } = useQuery<Device[]>({
     queryKey: ["devices"],
-    queryFn: () => client.devices.list(),
+    queryFn: () => client.devices.listAll(),
     enabled: deviceIds.length > 0,
   });
 

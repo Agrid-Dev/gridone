@@ -72,7 +72,7 @@ const { mockedGetTemplate } = vi.hoisted(() => ({
 vi.mock("@/contexts/GridoneClientContext", () => ({
   useGridoneClient: () => ({
     devices: {
-      list: () => Promise.resolve([]),
+      listAll: () => Promise.resolve([]),
       listAttributes: () =>
         Promise.resolve({ total_devices: 0, attributes: [] }),
       commandTemplates: {

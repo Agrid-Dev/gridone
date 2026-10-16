@@ -72,7 +72,7 @@ export function useDocumentChoices() {
   });
   const devices = useQuery({
     queryKey: ["document-choices", "devices"],
-    queryFn: () => client.devices.list(),
+    queryFn: () => client.devices.listAll(),
     enabled: can("devices:read"),
     throwOnError: true,
   });

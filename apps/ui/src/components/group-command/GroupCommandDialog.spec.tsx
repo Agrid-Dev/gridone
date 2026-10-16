@@ -19,7 +19,7 @@ const api = vi.hoisted(() => ({
   preview: vi.fn(),
   confirm: vi.fn(),
   listCommands: vi.fn(),
-  list: vi.fn(),
+  listAll: vi.fn(),
 }));
 vi.mock("@/contexts/GridoneClientContext", () => ({
   useGridoneClient: () => ({
@@ -27,7 +27,7 @@ vi.mock("@/contexts/GridoneClientContext", () => ({
       previewCommand: api.preview,
       confirmCommand: api.confirm,
       listCommands: api.listCommands,
-      list: api.list,
+      listAll: api.listAll,
     },
   }),
 }));
@@ -319,7 +319,7 @@ describe("manual group confirmation", () => {
         types: ["thermostat"],
       },
     });
-    expect(api.list).not.toHaveBeenCalled();
+    expect(api.listAll).not.toHaveBeenCalled();
     expect(api.confirm).not.toHaveBeenCalled();
   });
   it("leaves unknown operating rules unchecked and acknowledges only selected warnings", async () => {

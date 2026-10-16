@@ -28,7 +28,7 @@ const state = vi.hoisted(() => ({
         .fn()
         .mockResolvedValue({ eligible: true, reasons: [], warnings: [] }),
       get: vi.fn(),
-      list: vi.fn(),
+      listAll: vi.fn(),
       previewCommand: vi.fn(),
       confirmCommand: vi.fn(),
       listCommands: vi.fn(),
@@ -236,7 +236,7 @@ beforeEach(() => {
   state.client.devices.get.mockImplementation(async () => state.device);
   state.client.devices.sendCommand.mockResolvedValue({ id: "cmd" });
   state.client.deviceViews.list.mockResolvedValue([]);
-  state.client.devices.list.mockResolvedValue([]);
+  state.client.devices.listAll.mockResolvedValue([]);
   state.client.devices.listCommands.mockResolvedValue({
     items: [],
     total_pages: 1,
@@ -692,7 +692,7 @@ describe("what the target bar tells you before you touch a control", () => {
 
   it("names the reach of the targeted group in business vocabulary", async () => {
     inGroups(["g1", "Second floor rooms"]);
-    state.client.devices.list.mockResolvedValue(
+    state.client.devices.listAll.mockResolvedValue(
       ["a", "b", "c"].map((id) => ({ id, name: id, type: "thermostat" })),
     );
     setup();
@@ -703,7 +703,7 @@ describe("what the target bar tells you before you touch a control", () => {
       });
     });
     expect(await screen.findByText("3 thermostats")).toBeVisible();
-    expect(state.client.devices.list).toHaveBeenCalledWith({
+    expect(state.client.devices.listAll).toHaveBeenCalledWith({
       tags: ["group:g1"],
     });
     expect(screen.queryByText(/groups available/)).not.toBeInTheDocument();
@@ -713,7 +713,7 @@ describe("what the target bar tells you before you touch a control", () => {
     inGroups(["g1", "Second floor rooms"]);
     setup();
     await screen.findByRole("combobox", { name: "Apply to" });
-    expect(state.client.devices.list).not.toHaveBeenCalled();
+    expect(state.client.devices.listAll).not.toHaveBeenCalled();
   });
 
   it("offers no target on a device the presentation engine does not drive", async () => {

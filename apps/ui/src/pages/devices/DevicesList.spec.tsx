@@ -1,11 +1,24 @@
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { clearNavigation } from "@/lib/navigation";
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
-import { render, screen, cleanup, within } from "@testing-library/react";
+import {
+  render,
+  screen,
+  cleanup,
+  within,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
-import type { Asset, Device } from "@gridone/sdk";
-import type { DevicesFilter } from "@/lib/devices";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type {
+  Asset,
+  Device,
+  DeviceFacets,
+  DeviceListParams,
+  DevicesPage,
+} from "@gridone/sdk";
+import { deviceTypeKey } from "@/lib/deviceTypes";
 import { createI18nMock } from "@/test/i18nMock";
 
 vi.mock("react-i18next", () =>
@@ -45,6 +58,9 @@ vi.mock("react-i18next", () =>
     "common.severityCount.alert": "{{count}} alert(s)",
     "common.severityCount.warning": "{{count}} warning(s)",
     "common:common.device": "Device",
+    "pagination.label": "Pagination",
+    "pagination.previous": "Previous page",
+    "pagination.next": "Next page",
     "thermostat.name": "Thermostat",
     "thermostat.name_plural": "Thermostats",
     "electricity_meter.name": "Electricity meter",
@@ -54,9 +70,13 @@ vi.mock("react-i18next", () =>
   }),
 );
 
-const mockUseDevicesList = vi.fn();
-vi.mock("@/hooks/useDevicesList", () => ({
-  useDevicesList: (...args: unknown[]) => mockUseDevicesList(...args),
+const api = vi.hoisted(() => ({
+  devices: {
+    list: vi.fn<(params: DeviceListParams) => Promise<DevicesPage>>(),
+  },
+}));
+vi.mock("@/contexts/GridoneClientContext", () => ({
+  useGridoneClient: () => api,
 }));
 
 const floor = {
@@ -99,10 +119,12 @@ function makeDevice(
     type = null,
     attributes = {},
     tags = {},
+    faulty = false,
   }: {
     type?: string | null;
     attributes?: Record<string, unknown>;
     tags?: Record<string, string[]>;
+    faulty?: boolean;
   } = {},
 ): Device {
   return {
@@ -114,28 +136,90 @@ function makeDevice(
     transport_id: "tr",
     config: {},
     attributes,
-    is_faulty: false,
+    is_faulty: faulty,
   } as Device;
 }
 
 const attr = (value: unknown) => ({ current_value: value });
 
-function renderAt(initialEntries: string[] = ["/devices"]) {
-  return render(
-    <MemoryRouter initialEntries={initialEntries}>
-      <TooltipProvider>
-        <DevicesList />
-      </TooltipProvider>
-    </MemoryRouter>,
+/** What the server counts over a match: the fake does the same over the
+ *  devices it is given, so chips and summary read real numbers. */
+function facetsOf(devices: Device[]): DeviceFacets {
+  const facets: DeviceFacets = {
+    type: {},
+    health: { healthy: 0, faulty: 0 },
+    connection_status: { idle: 0, ok: 0, degraded: 0, error: 0 },
+  };
+  for (const device of devices) {
+    const key = deviceTypeKey(device);
+    facets.type[key] = (facets.type[key] ?? 0) + 1;
+    facets.health[device.is_faulty ? "faulty" : "healthy"] += 1;
+    const status = device.attributes?.connection_status?.current_value;
+    if (typeof status === "string" && status in facets.connection_status) {
+      facets.connection_status[
+        status as keyof DeviceFacets["connection_status"]
+      ] += 1;
+    }
+  }
+  return facets;
+}
+
+function pageOf(
+  devices: Device[],
+  overrides: Partial<DevicesPage> = {},
+): DevicesPage {
+  const link = "http://api/devices/?page=1&size=100";
+  return {
+    items: devices,
+    total: devices.length,
+    page: 1,
+    size: 100,
+    total_pages: devices.length ? 1 : 0,
+    links: { self: link, first: link, last: link },
+    facets: facetsOf(devices),
+    ...overrides,
+  };
+}
+
+/** The fake server: one page for the list (the devices given, as the server
+ *  ordered them) and the fleet size for the sidebar's count. */
+function serve(
+  match: Device[],
+  {
+    fleetTotal = match.length,
+    ...page
+  }: Partial<DevicesPage> & {
+    fleetTotal?: number;
+  } = {},
+) {
+  api.devices.list.mockImplementation(async (params: DeviceListParams) =>
+    params.size === 1
+      ? pageOf(match.slice(0, 1), { total: fleetTotal, size: 1 })
+      : pageOf(match, page),
   );
 }
 
-/** The page calls the hook twice: with the list filter (one argument, maybe
- *  undefined) and with no argument for the unfiltered counts. Only the
- *  one-argument calls carry the wiring under test. */
-function lastListFilter(): DevicesFilter | undefined {
-  const calls = mockUseDevicesList.mock.calls.filter((c) => c.length === 1);
-  return calls.at(-1)?.[0] as DevicesFilter | undefined;
+/** The params of the last page request (the count request asks `size: 1`). */
+function lastPageParams(): DeviceListParams | undefined {
+  const calls = api.devices.list.mock.calls.filter(
+    ([params]) => params.size !== 1,
+  );
+  return calls.at(-1)?.[0];
+}
+
+function renderAt(initialEntries: string[] = ["/devices"]) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={initialEntries}>
+        <TooltipProvider>
+          <DevicesList />
+        </TooltipProvider>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
 }
 
 beforeEach(() => {
@@ -143,71 +227,138 @@ beforeEach(() => {
   localStorage.removeItem("devices.view");
   isAdmin = true;
   granted = null;
-  mockUseDevicesList.mockReturnValue({
-    devices: [makeDevice("d1", "Alpha")],
-    loading: false,
-    error: null,
-  });
+  serve([makeDevice("d1", "Alpha")]);
 });
 
 afterEach(() => {
   cleanup();
   localStorage.removeItem("devices.view");
-  mockUseDevicesList.mockReset();
+  api.devices.list.mockReset();
 });
 
-describe("DevicesList — filters", () => {
-  it("renders whatever useDevicesList returns", () => {
-    mockUseDevicesList.mockReturnValue({
-      devices: [makeDevice("d1", "Alpha"), makeDevice("d2", "Bravo")],
-      loading: false,
-      error: null,
-    });
-    renderAt();
-    expect(screen.getByText("Alpha")).toBeInTheDocument();
-    expect(screen.getByText("Bravo")).toBeInTheDocument();
+describe("DevicesList — the page", () => {
+  it("asks the server for one page of the filters, in type order", async () => {
+    renderAt([
+      "/devices?search=1&type=thermostat&type=other&health=faulty&page=2",
+    ]);
+
+    await waitFor(() =>
+      expect(lastPageParams()).toEqual({
+        search: "1",
+        type: ["thermostat", "other"],
+        is_faulty: true,
+        page: 2,
+        size: 100,
+        sort_by: "type",
+      }),
+    );
   });
 
-  it("always offers type and fault filters, even for a single-type healthy fleet", () => {
-    mockUseDevicesList.mockReturnValue({
-      devices: [makeDevice("d1", "T1", { type: "thermostat" })],
-      loading: false,
-      error: null,
-    });
+  it("renders the page's groups in the server's order, names as served", async () => {
+    serve([
+      makeDevice("d3", "M1", { type: "electricity_meter" }),
+      makeDevice("d2", "chambre 12", { type: "thermostat" }),
+      makeDevice("d1", "Atrium", { type: "thermostat" }),
+      makeDevice("d4", "X1", { type: "custom_vendor" }),
+    ]);
     renderAt();
-    expect(lastListFilter()).toBeUndefined();
-    expect(screen.getByRole("button", { name: /^Type/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^Faults/ })).toBeInTheDocument();
+
+    await screen.findByText("M1");
+    const sections = screen.getAllByRole("region");
+    expect(sections.map((s) => s.getAttribute("aria-labelledby"))).toEqual([
+      "device-group-electricity_meter",
+      "device-group-thermostat",
+      "device-group-other",
+    ]);
+    expect(screen.getByRole("region", { name: "Thermostats2" })).toBe(
+      sections[1],
+    );
+    const names = within(sections[1])
+      .getAllByRole("link")
+      .map((l) => l.textContent ?? "")
+      .filter((n) => ["chambre 12", "Atrium"].includes(n));
+    expect(names).toEqual(["chambre 12", "Atrium"]);
+    expect(within(sections[2]).getByText("X1")).toBeInTheDocument();
   });
 
-  it("sends every selected type to the server", async () => {
-    mockUseDevicesList.mockReturnValue({
-      devices: [
-        makeDevice("d1", "T1", { type: "thermostat" }),
-        makeDevice("d2", "M1", { type: "electricity_meter" }),
-      ],
-      loading: false,
-      error: null,
+  it("ignores unknown or empty types from the URL", async () => {
+    renderAt(["/devices?type=&type=not_a_type"]);
+
+    await screen.findByText("Alpha");
+    expect(lastPageParams()).toEqual({ page: 1, size: 100, sort_by: "type" });
+    expect(
+      screen.queryByRole("button", { name: "Reset" }),
+    ).not.toBeInTheDocument();
+  });
+});
+
+describe("DevicesList — facets", () => {
+  it("counts chips, faults and the match from the facets, not the page", async () => {
+    serve([makeDevice("d1", "T1", { type: "thermostat" })], {
+      total: 3,
+      fleetTotal: 10,
+      facets: {
+        type: { thermostat: 2, other: 1 },
+        health: { healthy: 2, faulty: 1 },
+        connection_status: { idle: 0, ok: 2, degraded: 0, error: 1 },
+      },
     });
+    renderAt(["/devices?health=faulty"]);
+
+    expect(await screen.findByText("3 of 10 devices")).toBeInTheDocument();
+    const summary = screen.getByText("3 of 10 devices")
+      .parentElement as HTMLElement;
+    expect(within(summary).getByText("2 connected")).toBeInTheDocument();
+    expect(within(summary).getByText("1 disconnected")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /^Type/ }));
+    expect(
+      screen.getByRole("option", { name: /Thermostats/ }),
+    ).toHaveTextContent("2");
+    expect(screen.getByRole("option", { name: /Others/ })).toHaveTextContent(
+      "1",
+    );
+    await userEvent.keyboard("{Escape}");
+    await userEvent.click(screen.getByRole("button", { name: /^Faults/ }));
+    expect(screen.getByRole("option", { name: /Faulty/ })).toHaveTextContent(
+      "1",
+    );
+    expect(screen.getByRole("option", { name: /No fault/ })).toHaveTextContent(
+      "2",
+    );
+  });
+
+  it("sends every selected type to the server, the other bucket included", async () => {
+    serve([
+      makeDevice("d1", "T1", { type: "thermostat" }),
+      makeDevice("d4", "X1", { type: "custom_vendor" }),
+    ]);
     renderAt(["/devices?search=1"]);
+
+    await screen.findByText("T1");
     await userEvent.click(screen.getByRole("button", { name: /^Type/ }));
     await userEvent.click(screen.getByRole("option", { name: /Thermostats/ }));
-    await userEvent.click(
-      screen.getByRole("option", { name: /Electricity meters/ }),
+    await userEvent.click(screen.getByRole("option", { name: /Others/ }));
+    await waitFor(() =>
+      expect(lastPageParams()).toMatchObject({
+        search: "1",
+        type: ["thermostat", "other"],
+      }),
     );
-    expect(lastListFilter()).toEqual({
-      search: "1",
-      types: ["thermostat", "electricity_meter"],
-    });
   });
 
   it("filters on one fault state at a time: a pick replaces the other", async () => {
     renderAt();
+
+    await screen.findByText("Alpha");
     await userEvent.click(screen.getByRole("button", { name: /^Faults/ }));
     await userEvent.click(screen.getByRole("option", { name: /Faulty/ }));
-    expect(lastListFilter()).toEqual({ is_faulty: true });
+    await waitFor(() =>
+      expect(lastPageParams()).toMatchObject({ is_faulty: true }),
+    );
     await userEvent.click(screen.getByRole("option", { name: /No fault/ }));
-    expect(lastListFilter()).toEqual({ is_faulty: false });
+    await waitFor(() =>
+      expect(lastPageParams()).toMatchObject({ is_faulty: false }),
+    );
     expect(screen.getByRole("option", { name: /No fault/ })).toHaveAttribute(
       "aria-checked",
       "true",
@@ -218,63 +369,79 @@ describe("DevicesList — filters", () => {
     );
   });
 
-  it("ignores unknown or empty types from the URL", () => {
-    renderAt(["/devices?type=&type=not_a_type"]);
-    expect(lastListFilter()).toBeUndefined();
-    expect(
-      screen.queryByRole("button", { name: "Reset" }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("shows the fleet total, not an empty match count, while the filtered list loads", () => {
-    const fleet = [makeDevice("d1", "Alpha"), makeDevice("d2", "Bravo")];
-    mockUseDevicesList.mockImplementation((...args: unknown[]) =>
-      args.length === 0
-        ? { devices: fleet, loading: false, error: null }
-        : { devices: [], loading: true, error: null },
+  it("shows the fleet total, not an empty match count, while the page loads", async () => {
+    api.devices.list.mockImplementation((params: DeviceListParams) =>
+      params.size === 1
+        ? Promise.resolve(pageOf([makeDevice("d1", "Alpha")], { total: 2 }))
+        : new Promise<DevicesPage>(() => {}),
     );
     renderAt(["/devices?health=faulty"]);
-    expect(screen.getByText("2 devices")).toBeInTheDocument();
+
+    expect(await screen.findByText("2 devices")).toBeInTheDocument();
     expect(screen.queryByText(/0 of 2/)).not.toBeInTheDocument();
   });
 
-  it("counts matches against the fleet and resets every filter at once", async () => {
-    const fleet = [makeDevice("d1", "Alpha"), makeDevice("d2", "Bravo")];
-    mockUseDevicesList.mockImplementation((...args: unknown[]) => ({
-      devices: args.length === 0 ? fleet : [fleet[0]],
-      loading: false,
-      error: null,
-    }));
-    renderAt(["/devices?search=Alpha&type=thermostat&health=faulty"]);
-    expect(screen.getByText("1 of 2 devices")).toBeInTheDocument();
+  it("resets every filter and the page at once", async () => {
+    serve([makeDevice("d1", "Alpha")], { fleetTotal: 2 });
+    renderAt(["/devices?search=Alpha&type=thermostat&health=faulty&page=2"]);
+
+    expect(await screen.findByText("1 of 2 devices")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Reset" }));
-    expect(lastListFilter()).toBeUndefined();
+    await waitFor(() =>
+      expect(lastPageParams()).toEqual({ page: 1, size: 100, sort_by: "type" }),
+    );
   });
 });
 
-describe("DevicesList — other type bucket", () => {
-  beforeEach(() => {
-    mockUseDevicesList.mockReturnValue({
-      devices: [
-        makeDevice("d1", "T1", { type: "thermostat" }),
-        makeDevice("d3", "M1", { type: "electricity_meter" }),
-        makeDevice("d4", "X1", { type: "custom_vendor" }),
-      ],
-      loading: false,
-      error: null,
+describe("DevicesList — pagination", () => {
+  it("links the neighbouring pages from the server's links", async () => {
+    serve([makeDevice("d1", "Alpha")], {
+      total: 250,
+      page: 2,
+      total_pages: 3,
+      links: {
+        self: "http://api/devices/?type=thermostat&page=2&size=100",
+        first: "http://api/devices/?type=thermostat&page=1&size=100",
+        last: "http://api/devices/?type=thermostat&page=3&size=100",
+        prev: "http://api/devices/?type=thermostat&page=1&size=100",
+        next: "http://api/devices/?type=thermostat&page=3&size=100",
+      },
     });
+    renderAt(["/devices?type=thermostat&page=2"]);
+
+    expect(await screen.findByText("2 / 3")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Previous page" })).toHaveAttribute(
+      "href",
+      "/devices?type=thermostat&page=1&size=100",
+    );
+    expect(screen.getByRole("link", { name: "Next page" })).toHaveAttribute(
+      "href",
+      "/devices?type=thermostat&page=3&size=100",
+    );
   });
 
-  it("never sends the other bucket to the server, keeping other criteria", () => {
-    renderAt(["/devices?type=other&type=thermostat&health=faulty"]);
-    expect(lastListFilter()).toEqual({ is_faulty: true });
+  it("drops the page when a filter changes: a new match starts on page 1", async () => {
+    serve([makeDevice("d1", "T1", { type: "thermostat" })], {
+      page: 2,
+      total_pages: 2,
+    });
+    renderAt(["/devices?page=2"]);
+
+    await screen.findByText("T1");
+    await userEvent.click(screen.getByRole("button", { name: /^Type/ }));
+    await userEvent.click(screen.getByRole("option", { name: /Thermostats/ }));
+    await waitFor(() =>
+      expect(lastPageParams()).toMatchObject({ type: ["thermostat"], page: 1 }),
+    );
   });
 
-  it("narrows client-side to the selected buckets", () => {
-    renderAt(["/devices?type=other&type=thermostat"]);
-    expect(screen.getByText("X1")).toBeInTheDocument();
-    expect(screen.getByText("T1")).toBeInTheDocument();
-    expect(screen.queryByText("M1")).not.toBeInTheDocument();
+  it("shows no pager when everything fits on one page", async () => {
+    renderAt();
+
+    await screen.findByText("Alpha");
+    expect(
+      screen.queryByRole("navigation", { name: "Pagination" }),
+    ).not.toBeInTheDocument();
   });
 });
 
@@ -320,10 +487,10 @@ describe("DevicesList — header actions", () => {
 });
 
 describe("DevicesList — cards", () => {
-  it("shows cards even when the old table view was saved", () => {
+  it("shows cards even when the old table view was saved", async () => {
     localStorage.setItem("devices.view", "table");
     renderAt();
-    expect(screen.getByRole("link", { name: "Alpha" })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: "Alpha" })).toHaveAttribute(
       "href",
       "/devices/d1",
     );
@@ -333,48 +500,17 @@ describe("DevicesList — cards", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("sorts devices by name within a group", () => {
-    mockUseDevicesList.mockReturnValue({
-      devices: [
-        makeDevice("d1", "chambre 12", { type: "thermostat" }),
-        makeDevice("d2", "Atrium", { type: "thermostat" }),
-        makeDevice("d3", "bureau", { type: "thermostat" }),
-      ],
-      loading: false,
-      error: null,
-    });
+  it("shows a stopped unit as idle, even with a configured mode", async () => {
+    serve([
+      makeDevice("d1", "Chambre 102", {
+        type: "thermostat",
+        attributes: { onoff_state: attr(false), mode: attr("heat") },
+      }),
+    ]);
     renderAt();
-    const deviceNames = new Set(["chambre 12", "Atrium", "bureau"]);
-    const names = screen
-      .getAllByRole("link")
-      .map((l) => l.textContent ?? "")
-      .filter((n) => deviceNames.has(n));
-    expect(names).toEqual(["Atrium", "bureau", "chambre 12"]);
-  });
-
-  it("links each device name to its detail page", () => {
-    renderAt();
-    expect(screen.getByRole("link", { name: "Alpha" })).toHaveAttribute(
-      "href",
-      "/devices/d1",
-    );
-  });
-
-  it("shows a stopped unit as idle, even with a configured mode", () => {
-    mockUseDevicesList.mockReturnValue({
-      devices: [
-        makeDevice("d1", "Chambre 102", {
-          type: "thermostat",
-          attributes: { onoff_state: attr(false), mode: attr("heat") },
-        }),
-      ],
-      loading: false,
-      error: null,
-    });
-    renderAt();
-    const card = screen
-      .getByRole("link", { name: "Chambre 102" })
-      .closest(".group") as HTMLElement;
+    const card = (
+      await screen.findByRole("link", { name: "Chambre 102" })
+    ).closest(".group") as HTMLElement;
     expect(card.querySelector("[data-activity]")).toHaveAttribute(
       "data-activity",
       "idle",
@@ -383,26 +519,22 @@ describe("DevicesList — cards", () => {
     expect(card).not.toHaveTextContent("Heating");
   });
 
-  it("summarizes a thermostat: location, setpoint, measured reading, mode", () => {
-    mockUseDevicesList.mockReturnValue({
-      devices: [
-        makeDevice("d1", "Ch. 201", {
-          type: "thermostat",
-          tags: { asset_id: ["a1"] },
-          attributes: {
-            temperature: attr(21.4),
-            temperature_setpoint: attr(21),
-            mode: attr("heat"),
-            onoff_state: attr(true),
-            connection_status: attr("ok"),
-          },
-        }),
-      ],
-      loading: false,
-      error: null,
-    });
+  it("summarizes a thermostat: location, setpoint, measured reading, mode", async () => {
+    serve([
+      makeDevice("d1", "Ch. 201", {
+        type: "thermostat",
+        tags: { asset_id: ["a1"] },
+        attributes: {
+          temperature: attr(21.4),
+          temperature_setpoint: attr(21),
+          mode: attr("heat"),
+          onoff_state: attr(true),
+          connection_status: attr("ok"),
+        },
+      }),
+    ]);
     renderAt();
-    const link = screen.getByRole("link", { name: /Ch\. 201/ });
+    const link = await screen.findByRole("link", { name: /Ch\. 201/ });
     const card = link.closest(".group");
     expect(link).toHaveAttribute("href", "/devices/d1");
     expect(card).toHaveTextContent("Floor 2 · Floor 1");
@@ -416,119 +548,76 @@ describe("DevicesList — cards", () => {
     expect(card).toHaveTextContent("Heating");
   });
 
-  it("shows the highest active severity instead of the healthy label", () => {
-    mockUseDevicesList.mockReturnValue({
-      devices: [
-        makeDevice("d1", "Ch. 411", {
-          type: "thermostat",
-          attributes: {
-            comm_fault: {
-              kind: "fault",
-              name: "comm_fault",
-              severity: "alert",
-              is_faulty: true,
-              current_value: true,
-            },
+  it("shows the highest active severity instead of the healthy label", async () => {
+    serve([
+      makeDevice("d1", "Ch. 411", {
+        type: "thermostat",
+        attributes: {
+          comm_fault: {
+            kind: "fault",
+            name: "comm_fault",
+            severity: "alert",
+            is_faulty: true,
+            current_value: true,
           },
-        }),
-      ],
-      loading: false,
-      error: null,
-    });
+        },
+      }),
+    ]);
     renderAt();
-    const card = screen
-      .getByRole("link", { name: /Ch\. 411/ })
-      .closest(".group");
+    const card = (
+      await screen.findByRole("link", { name: /Ch\. 411/ })
+    ).closest(".group");
     expect(card).toHaveTextContent("1 fault(s)");
     expect(card).not.toHaveTextContent("No fault");
   });
 
-  it("groups cards under canonical type headings with counts", () => {
-    mockUseDevicesList.mockReturnValue({
-      devices: [
-        makeDevice("d3", "M1", { type: "electricity_meter" }),
-        makeDevice("d1", "T1", { type: "thermostat" }),
-        makeDevice("d4", "X1", { type: "custom_vendor" }),
-      ],
-      loading: false,
-      error: null,
-    });
-    renderAt();
-    const sections = screen.getAllByRole("region");
-    expect(sections).toHaveLength(3);
-    expect(screen.getByRole("region", { name: "Thermostats1" })).toBe(
-      sections[0],
-    );
-    expect(screen.getByRole("region", { name: "Electricity meters1" })).toBe(
-      sections[1],
-    );
-    expect(screen.getByRole("region", { name: "Others1" })).toBe(sections[2]);
-    expect(within(sections[2]).getByText("X1")).toBeInTheDocument();
-    expect(within(sections[0]).getByText("T1")).toBeInTheDocument();
-    expect(within(sections[1]).getByText("M1")).toBeInTheDocument();
-  });
-
-  it("does not fetch history for cards that never became visible", () => {
+  it("does not fetch history for cards that never became visible", async () => {
     // The global IntersectionObserver stub never reports an intersection, so
     // a card rendered off-screen must not mount its sparkline.
-    mockUseDevicesList.mockReturnValue({
-      devices: [
-        makeDevice("d1", "Ch. 201", {
-          type: "thermostat",
-          attributes: { temperature: attr(21.4) },
-        }),
-      ],
-      loading: false,
-      error: null,
-    });
+    serve([
+      makeDevice("d1", "Ch. 201", {
+        type: "thermostat",
+        attributes: { temperature: attr(21.4) },
+      }),
+    ]);
     renderAt();
+    await screen.findByRole("link", { name: /Ch\. 201/ });
     expect(screen.queryByRole("img", { name: "24 h trend" })).toBeNull();
   });
 });
 
 describe("DevicesList — summary", () => {
-  it("shows the fleet total and non-zero connection buckets", () => {
-    mockUseDevicesList.mockReturnValue({
-      devices: [
-        makeDevice("d1", "A", {
-          attributes: { connection_status: attr("ok") },
-        }),
-        makeDevice("d2", "B", {
-          attributes: { connection_status: attr("ok") },
-        }),
-        makeDevice("d3", "C", {
-          attributes: { connection_status: attr("degraded") },
-        }),
-        makeDevice("d4", "D", {
-          attributes: { connection_status: attr("error") },
-        }),
-      ],
-      loading: false,
-      error: null,
-    });
+  it("shows the fleet total and non-zero connection buckets", async () => {
+    serve([
+      makeDevice("d1", "A", { attributes: { connection_status: attr("ok") } }),
+      makeDevice("d2", "B", { attributes: { connection_status: attr("ok") } }),
+      makeDevice("d3", "C", {
+        attributes: { connection_status: attr("degraded") },
+      }),
+      makeDevice("d4", "D", {
+        attributes: { connection_status: attr("error") },
+      }),
+    ]);
     renderAt();
     // The fleet line, not the group's: its disconnected count says it too.
-    const summary = screen.getByText("4 devices").parentElement as HTMLElement;
+    const summary = (await screen.findByText("4 devices"))
+      .parentElement as HTMLElement;
     expect(within(summary).getByText("2 connected")).toBeInTheDocument();
     expect(within(summary).getByText("1 degraded")).toBeInTheDocument();
     expect(within(summary).getByText("1 disconnected")).toBeInTheDocument();
     expect(screen.queryByText(/idle/)).not.toBeInTheDocument();
   });
 
-  it("hides connection status from non-admin users", () => {
+  it("hides connection status from non-admin users", async () => {
     isAdmin = false;
-    mockUseDevicesList.mockReturnValue({
-      devices: [
-        makeDevice("d1", "Chambre 101", {
-          type: "thermostat",
-          attributes: { connection_status: attr("error") },
-        }),
-      ],
-      loading: false,
-      error: null,
-    });
+    serve([
+      makeDevice("d1", "Chambre 101", {
+        type: "thermostat",
+        attributes: { connection_status: attr("error") },
+      }),
+    ]);
     renderAt();
-    expect(screen.getByText("1 devices")).toBeInTheDocument();
+    expect(await screen.findByText("1 devices")).toBeInTheDocument();
     expect(screen.queryByText("1 disconnected")).not.toBeInTheDocument();
     expect(screen.queryByText("Disconnected")).not.toBeInTheDocument();
   });

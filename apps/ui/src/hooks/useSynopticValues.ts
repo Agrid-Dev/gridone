@@ -89,7 +89,7 @@ export const useSynopticValues: UseSynopticValues = (doc) => {
     queries: filterTargets.map((target) => ({
       queryKey: ["devices", target.devices],
       queryFn: () =>
-        client.devices.list(devicesFilterToListParams(target.devices)),
+        client.devices.listAll(devicesFilterToListParams(target.devices)),
     })),
     combine: useCallback(
       (results: UseQueryResult<Device[]>[]) => {
@@ -132,7 +132,7 @@ export const useSynopticValues: UseSynopticValues = (doc) => {
   // twenty.
   const seed = useQuery({
     queryKey: ["devices", { ids: deviceIds }],
-    queryFn: () => client.devices.list({ ids: deviceIds }),
+    queryFn: () => client.devices.listAll({ ids: deviceIds }),
     enabled: settled && deviceIds.length > 0,
     placeholderData: keepPreviousData,
     refetchInterval: isConnected ? FRESHNESS_POLL_MS : DEVICE_POLL_INTERVAL_MS,

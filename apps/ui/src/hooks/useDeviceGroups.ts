@@ -51,7 +51,8 @@ export function useGroupMembers(value: string | null): Device[] | null {
   const client = useGridoneClient();
   const query = useQuery({
     queryKey: ["device-group-members", value],
-    queryFn: () => client.devices.list({ tags: [`${GROUP_TAG_KEY}:${value}`] }),
+    queryFn: () =>
+      client.devices.listAll({ tags: [`${GROUP_TAG_KEY}:${value}`] }),
     enabled: !!value,
     staleTime: 30_000,
   });

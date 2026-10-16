@@ -18,7 +18,7 @@ vi.mock("react-i18next", () =>
   }),
 );
 
-// `useQuery` is mocked outright, so `client.devices.list` (the real
+// `useQuery` is mocked outright, so `client.devices.listAll` (the real
 // `queryFn`) never runs — `useGridoneClient` is stubbed only so the real
 // hook, which needs a provider, is never reached.
 const { mockUseQuery } = vi.hoisted(() => ({
@@ -31,7 +31,7 @@ vi.mock("@tanstack/react-query", () => ({
 
 vi.mock("@/contexts/GridoneClientContext", () => ({
   useGridoneClient: () => ({
-    devices: { list: vi.fn() },
+    devices: { listAll: vi.fn() },
   }),
 }));
 

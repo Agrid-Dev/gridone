@@ -177,7 +177,7 @@ const client = {
   health: async () => ({ status: "ok" }),
   logout: async () => {},
   devices: {
-    list: async () => devices,
+    listAll: async () => devices,
     get: async (id: string) => devices.find((d) => d.id === id) ?? chiller,
   },
   operatingRules: {

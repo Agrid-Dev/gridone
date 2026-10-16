@@ -37,7 +37,7 @@ const { api, permissions, downloadBlob, openBlankTab, showBlob, toast, dnd } =
         deleteFolder: vi.fn(),
       },
       assets: { list: vi.fn() },
-      devices: { list: vi.fn() },
+      devices: { listAll: vi.fn() },
     },
     permissions: new Set<string>(),
     downloadBlob: vi.fn(),
@@ -156,7 +156,7 @@ beforeEach(() => {
   api.documents.createFolder.mockResolvedValue(plans);
   api.documents.updateFolder.mockResolvedValue(plans);
   api.assets.list.mockResolvedValue([{ id: "building", name: "Building" }]);
-  api.devices.list.mockResolvedValue([{ id: "boiler", name: "Boiler" }]);
+  api.devices.listAll.mockResolvedValue([{ id: "boiler", name: "Boiler" }]);
 });
 afterEach(() => {
   cleanup();

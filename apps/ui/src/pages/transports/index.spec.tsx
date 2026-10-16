@@ -43,7 +43,7 @@ vi.mock("@/contexts/GridoneClientContext", () => ({
       delete: mocks.remove,
       reconnect: mocks.reconnect,
     },
-    devices: { list: mocks.devices },
+    devices: { listAll: mocks.devices },
     assets: { getTreeWithDevices: mocks.tree },
   }),
 }));

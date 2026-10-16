@@ -116,6 +116,42 @@ export function groupDevicesByType(
   }));
 }
 
+/** Buckets in order of first appearance, devices in the order given: for a
+ *  page the server already ordered (`sort_by=type`: standard types A→Z,
+ *  `other` last, names within). Nothing is re-sorted, so a page and the next
+ *  read as one list. */
+export function groupDevicesInOrder(
+  devices: readonly Device[],
+): DeviceTypeGroup[] {
+  const groups: DeviceTypeGroup[] = [];
+  const byKey = new Map<DeviceTypeKey, DeviceTypeGroup>();
+  for (const device of devices) {
+    const key = deviceTypeKey(device);
+    let group = byKey.get(key);
+    if (!group) {
+      group = { key, devices: [] };
+      byKey.set(key, group);
+      groups.push(group);
+    }
+    group.devices.push(device);
+  }
+  return groups;
+}
+
+/** Per-bucket counts from the server's type facet. A type the catalog does
+ *  not know counts under `other`, where {@link deviceTypeKey} files its
+ *  devices, so chips and headings agree. */
+export function deviceTypeCounts(
+  facet: Readonly<Record<string, number>>,
+): Map<DeviceTypeKey, number> {
+  const counts = new Map<DeviceTypeKey, number>();
+  for (const [type, count] of Object.entries(facet)) {
+    const key = isDeviceTypeKey(type) ? type : OTHER_KEY;
+    counts.set(key, (counts.get(key) ?? 0) + count);
+  }
+  return counts;
+}
+
 /** The single bucket every device falls in, or null when they differ or the
  *  list is empty. `other` is a legitimate answer: callers that need a
  *  business noun decide for themselves whether to use it. */

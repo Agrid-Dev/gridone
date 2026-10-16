@@ -56,7 +56,7 @@ export const DevicePicker: FC<DevicePickerProps> = ({
     isError,
   } = useQuery({
     queryKey: ["devices", filter],
-    queryFn: () => client.devices.list(devicesFilterToListParams(filter)),
+    queryFn: () => client.devices.listAll(devicesFilterToListParams(filter)),
   });
 
   const resolvedLabel = label ?? t("pickers.device.label");

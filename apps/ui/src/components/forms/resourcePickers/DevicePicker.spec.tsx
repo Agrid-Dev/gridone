@@ -15,7 +15,7 @@ vi.mock("@tanstack/react-query", () => ({
 
 vi.mock("@/contexts/GridoneClientContext", () => ({
   useGridoneClient: () => ({
-    devices: { list: mockListDevices },
+    devices: { listAll: mockListDevices },
   }),
 }));
 

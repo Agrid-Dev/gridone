@@ -1,14 +1,14 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { createI18nMock } from "@/test/i18nMock";
-import type { Device, Transport } from "@gridone/sdk";
+import type { Transport } from "@gridone/sdk";
 
-const { mockUseDevicesList } = vi.hoisted(() => ({
-  mockUseDevicesList: vi.fn(),
+const { mockUseDevicesCount } = vi.hoisted(() => ({
+  mockUseDevicesCount: vi.fn(),
 }));
 
-vi.mock("@/hooks/useDevicesList", () => ({
-  useDevicesList: () => mockUseDevicesList(),
+vi.mock("@/hooks/useDevicesCount", () => ({
+  useDevicesCount: (...args: unknown[]) => mockUseDevicesCount(...args),
 }));
 
 // Stub TransportForm — its internals (config schemas query + form state) are
@@ -48,20 +48,6 @@ vi.mock("react-i18next", () =>
 
 import { NetworkModal } from "./NetworkModal";
 
-function makeDevice(id: string, transportId: string): Device {
-  return {
-    id,
-    name: id,
-    type: null,
-    tags: {},
-    driver_id: "drv",
-    transport_id: transportId,
-    config: {},
-    attributes: {},
-    is_faulty: false,
-  };
-}
-
 function makeTransport(id: string, name: string): Transport {
   return {
     id,
@@ -73,12 +59,12 @@ function makeTransport(id: string, name: string): Transport {
 }
 
 beforeEach(() => {
-  mockUseDevicesList.mockReturnValue({ devices: [], loading: false });
+  mockUseDevicesCount.mockReturnValue({ count: 0, loading: false });
 });
 
 afterEach(() => {
   cleanup();
-  mockUseDevicesList.mockReset();
+  mockUseDevicesCount.mockReset();
 });
 
 describe("NetworkModal", () => {
@@ -126,16 +112,9 @@ describe("NetworkModal", () => {
     );
   });
 
-  it("shows the linked-devices warning banner with the correct count in edit mode", () => {
+  it("shows the linked-devices warning banner with the network's device count in edit mode", () => {
     const transport = makeTransport("tr-1", "Home Network");
-    mockUseDevicesList.mockReturnValue({
-      devices: [
-        makeDevice("d1", "tr-1"),
-        makeDevice("d2", "tr-1"),
-        makeDevice("d3", "tr-2"), // different network — should not be counted
-      ],
-      loading: false,
-    });
+    mockUseDevicesCount.mockReturnValue({ count: 2, loading: false });
     render(
       <NetworkModal
         open
@@ -145,6 +124,8 @@ describe("NetworkModal", () => {
         onSubmitted={() => {}}
       />,
     );
+    // Counted by the server for this network only, not filtered client-side.
+    expect(mockUseDevicesCount).toHaveBeenCalledWith({ transport_id: "tr-1" });
     expect(
       screen.getByText(/Editing this network affects 2 device/i),
     ).toBeInTheDocument();
@@ -152,10 +133,7 @@ describe("NetworkModal", () => {
 
   it("does not render the banner when no devices reference the network", () => {
     const transport = makeTransport("tr-1", "Home Network");
-    mockUseDevicesList.mockReturnValue({
-      devices: [makeDevice("d1", "tr-2")],
-      loading: false,
-    });
+    mockUseDevicesCount.mockReturnValue({ count: 0, loading: false });
     render(
       <NetworkModal
         open

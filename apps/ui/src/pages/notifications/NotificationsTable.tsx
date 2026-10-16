@@ -1,7 +1,5 @@
-import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
+import { PaginationControls } from "@/components/PaginationControls";
 import {
   Table,
   TableBody,
@@ -9,7 +7,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
 import { NotificationRow } from "./NotificationRow";
 import type { NotificationDispatch, Page } from "@gridone/sdk";
 
@@ -35,12 +32,6 @@ export function NotificationsTable({
   nextHref,
 }: Props) {
   const { t } = useTranslation("notifications");
-
-  const linkClasses = cn(
-    buttonVariants({ variant: "outline", size: "icon" }),
-    "h-8 w-8",
-  );
-  const disabledClasses = "pointer-events-none opacity-50";
 
   return (
     <>
@@ -78,31 +69,12 @@ export function NotificationsTable({
         </Table>
       </div>
 
-      {data.total_pages > 1 && (
-        <div className="flex items-center justify-between">
-          {prevHref ? (
-            <Link to={{ search: prevHref }} className={linkClasses} replace>
-              <ChevronLeft className="h-4 w-4" />
-            </Link>
-          ) : (
-            <span className={cn(linkClasses, disabledClasses)}>
-              <ChevronLeft className="h-4 w-4" />
-            </span>
-          )}
-          <span className="text-sm text-muted-foreground">
-            {data.page} / {data.total_pages}
-          </span>
-          {nextHref ? (
-            <Link to={{ search: nextHref }} className={linkClasses} replace>
-              <ChevronRight className="h-4 w-4" />
-            </Link>
-          ) : (
-            <span className={cn(linkClasses, disabledClasses)}>
-              <ChevronRight className="h-4 w-4" />
-            </span>
-          )}
-        </div>
-      )}
+      <PaginationControls
+        page={data.page}
+        totalPages={data.total_pages}
+        prevHref={prevHref}
+        nextHref={nextHref}
+      />
     </>
   );
 }

@@ -22,7 +22,11 @@ const api = vi.hoisted(() => ({
 vi.mock("@/contexts/GridoneClientContext", () => ({
   useGridoneClient: () => ({
     deviceViews: api,
-    devices: { listTags: api.listTags, list: api.list, bulkTags: api.bulkTags },
+    devices: {
+      listTags: api.listTags,
+      listAll: api.list,
+      bulkTags: api.bulkTags,
+    },
     drivers: { list: api.drivers },
   }),
 }));
