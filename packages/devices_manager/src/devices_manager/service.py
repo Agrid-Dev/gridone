@@ -84,7 +84,6 @@ from .storage.factory import build_storage
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Collection
 
-    from models.attribute_metadata import LocalizedText
     from models.command_confirmation import WriteConsent
     from models.expressions import DeviceAttributeRef
     from models.types import Severity
@@ -137,15 +136,9 @@ def _fault_view_from(device: CoreDevice, attr: FaultAttribute) -> FaultView:
         current_value=attr.current_value,
         last_updated=attr.last_updated,
         last_changed=attr.last_changed,
-        label=_driver_label(device, attr.name),
+        # Labels live on the driver, not on the device (ADR 0008).
+        label=device.driver.attribute_label(attr.name),
     )
-
-
-def _driver_label(device: CoreDevice, attribute_name: str) -> LocalizedText | None:
-    """What the driver calls the attribute: labels live on the driver, not
-    on the device (ADR 0008). None when the driver no longer declares it."""
-    declared = device.driver.attributes.get(attribute_name)
-    return declared.label if declared is not None else None
 
 
 @dataclass
