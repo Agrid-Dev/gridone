@@ -45,6 +45,11 @@ const CASES: Case[] = [
   ],
   ["get", (d) => d.get("drv1"), ["GET", "/drivers/drv1"]],
   [
+    "getLabels",
+    (d) => d.getLabels("drv/1"),
+    ["GET", "/drivers/drv%2F1/labels"],
+  ],
+  [
     "create",
     (d) => d.create("drv1", YAML),
     ["PUT", "/drivers/drv1", { body: YAML }],

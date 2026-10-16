@@ -45,7 +45,6 @@ from devices_manager.dto import (
     TransportUpdate,
     driver_to_public,
 )
-from devices_manager.dto.presentation_dto import PresentationReference
 from devices_manager.dto.transport_dto import HttpTransportCreate, MqttTransportCreate
 from devices_manager.ingress import MessageIngress
 from devices_manager.storage.memory import MemoryDevicesStorage
@@ -1603,8 +1602,9 @@ class TestDevicesServiceDeviceDelegation:
 
 
 class TestDevicesServiceListDevicesSelection:
-    """A listing hashes each driver once, and its filters judge the whole
-    device before a selection trims what it returns."""
+    """A listing serves the revisions the registry stamped on each driver,
+    and its filters judge the whole device before a selection trims what it
+    returns."""
 
     @pytest_asyncio.fixture
     async def dm(self, driver, other_http_driver, mock_transport_client):
@@ -1633,27 +1633,31 @@ class TestDevicesServiceListDevicesSelection:
         return dm
 
     @pytest.mark.asyncio
-    async def test_hashes_each_driver_once_per_listing(self, dm):
-        with patch(
-            "devices_manager.dto.device_dto.get_presentation_revision",
-            side_effect=lambda d: f"rev-{d.id}",
-        ) as hashed:
+    async def test_reads_serve_the_registry_stamp_without_hashing(
+        self, dm, driver, other_http_driver
+    ):
+        """Hashing a driver walks its every attribute: the registry does it
+        once per mutation, never a device read, listing or single."""
+        with (
+            patch(
+                "devices_manager.core.revisions.get_driver_revision",
+                side_effect=AssertionError("hashed on read"),
+            ),
+            patch(
+                "devices_manager.core.revisions.get_presentation_revision",
+                side_effect=AssertionError("hashed on read"),
+            ),
+        ):
             listed = dm.list_devices()
-            assert hashed.call_count == 2
-            # A fresh lookup per listing: an edited driver is hashed again.
-            dm.list_devices()
-            assert hashed.call_count == 4
+            single = dm.get_device("t0")
 
-        assert {d.id: d.presentation_ref for d in listed} == {
-            **{
-                f"t{i}": PresentationReference(revision="rev-test_driver")
-                for i in range(3)
-            },
-            **{
-                f"o{i}": PresentationReference(revision="rev-other_http_driver")
-                for i in range(3)
-            },
+        assert driver.revisions is not None
+        assert other_http_driver.revisions is not None
+        assert {d.id: d.driver_revision for d in listed} == {
+            **{f"t{i}": driver.revisions.driver for i in range(3)},
+            **{f"o{i}": other_http_driver.revisions.driver for i in range(3)},
         }
+        assert single.driver_revision == driver.revisions.driver
 
     @pytest.mark.asyncio
     async def test_the_selection_trims_every_listed_device(self, dm):
@@ -2737,6 +2741,38 @@ class TestDevicesServiceRenamePropagatesBounds:
         assert setpoint.write_constraints.minimum == AttributeRef(
             attribute="min_setpoint"
         )
+
+
+class TestDevicesServiceDriverLabels:
+    @pytest.mark.asyncio
+    async def test_labels_share_the_revision_devices_carry(
+        self, constrained_driver, mock_transport_client
+    ):
+        device = CoreDevice.from_base(
+            DeviceBase(id="device", name="Device", config={}),
+            driver=constrained_driver,
+            transport=mock_transport_client,
+        )
+        dm = DevicesService(
+            devices={device.id: device},
+            drivers={constrained_driver.id: constrained_driver},
+            transports={mock_transport_client.id: mock_transport_client},
+        )
+        await dm.load()
+
+        labels = dm.get_driver_labels(constrained_driver.id)
+
+        assert labels.revision == dm.get_device("device").driver_revision
+        assert set(labels.attributes) == {"temperature_setpoint"}
+        assert labels.attributes["temperature_setpoint"].group == "setpoints"
+
+    @pytest.mark.asyncio
+    async def test_unknown_driver_is_not_found(self, driver):
+        dm = DevicesService(devices={}, drivers={driver.id: driver}, transports={})
+        await dm.load()
+
+        with pytest.raises(NotFoundError):
+            dm.get_driver_labels("ghost")
 
 
 class TestDevicesServiceDriverPresentation:

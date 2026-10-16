@@ -354,6 +354,7 @@ class DeviceRegistry:
         Presentation imports may omit timestamps; those audit fields never alter
         communication. Attribute metadata, codecs, configuration, and all future
         dataclass fields participate, so only presentation changes take this path.
+        Derived fields (``compare=False``, such as the stamped revisions) do not.
         """
         if current is None:
             return False
@@ -366,7 +367,7 @@ class DeviceRegistry:
         return all(
             getattr(current, item.name) == getattr(candidate, item.name)
             for item in fields(current)
-            if item.name not in excluded
+            if item.compare and item.name not in excluded
         )
 
     def update_driver_in_place(self, driver: Driver) -> list[CoreDevice]:

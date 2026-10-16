@@ -1393,6 +1393,30 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/drivers/{driver_id}/labels": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Driver Labels
+     * @description The labels of the driver's attributes, once per driver.
+     *
+     *     Gated like device reads and projected through the caller's scope: the
+     *     document names only attributes the caller may read on the driver's
+     *     devices (ADR 0008 §3).
+     */
+    get: operations["get_driver_labels_drivers__driver_id__labels_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/drivers/{driver_id}/presentation": {
     parameters: {
       query?: never;
@@ -2829,6 +2853,18 @@ export interface components {
      * @enum {string}
      */
     AttributeKind: "standard" | "fault" | "internal";
+    /**
+     * AttributeLabels
+     * @description The human-facing side of one attribute. Unset fields are omitted.
+     */
+    AttributeLabels: {
+      label?: components["schemas"]["LocalizedText"] | null;
+      description?: components["schemas"]["LocalizedText"] | null;
+      /** Group */
+      group?: string | null;
+      /** Value Labels */
+      value_labels?: components["schemas"]["ValueLabel"][] | null;
+    };
     /** AttributeLogs */
     AttributeLogs: {
       /** Read */
@@ -4531,6 +4567,8 @@ export interface components {
       driver_id: string;
       /** Transport Id */
       transport_id: string;
+      /** Driver Revision */
+      driver_revision?: string | null;
       presentation_ref?: components["schemas"]["PresentationReference"] | null;
       /**
        * Write State Revision
@@ -4985,6 +5023,20 @@ export interface components {
       max_file_bytes: number;
       /** Extensions */
       extensions: string[];
+    };
+    /**
+     * DriverLabels
+     * @description Labels of a driver's attributes, keyed by attribute name.
+     *
+     *     An attribute that declares no label at all is absent from the document.
+     */
+    DriverLabels: {
+      /** Revision */
+      revision: string;
+      /** Attributes */
+      attributes?: {
+        [key: string]: components["schemas"]["AttributeLabels"];
+      };
     };
     /**
      * DriverPatch
@@ -12620,6 +12672,37 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["PackageImportErrorResponse"];
+        };
+      };
+    };
+  };
+  get_driver_labels_drivers__driver_id__labels_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        driver_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DriverLabels"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };

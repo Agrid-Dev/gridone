@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from pydantic import ValidationError
@@ -13,13 +13,13 @@ from devices_manager.core.device import (
     FaultAttribute,
 )
 from devices_manager.core.device.attribute import AttributeKind
+from devices_manager.core.driver.revision import DriverRevisions, get_driver_revision
 from devices_manager.dto.device_dto import (
     AttributeSelection,
     Device,
     DeviceCreate,
     core_to_dto,
     dto_to_core,
-    revision_per_driver,
 )
 from devices_manager.dto.presentation_dto import PresentationReference
 from devices_manager.types import DataType
@@ -28,7 +28,7 @@ from models.types import Severity
 from models.write_rules import AttributeWriteState
 
 # Patched where the DTO module looks it up, at call time.
-_HASH = "devices_manager.dto.device_dto.get_presentation_revision"
+_HASH = "devices_manager.core.revisions.get_presentation_revision"
 
 
 @pytest.fixture
@@ -627,62 +627,42 @@ class TestAttributeSelection:
         assert full.attributes["mode"].write_state is not None
 
 
-class TestPresentationRevisionLookup:
-    """A listing hashes each driver once; ``core_to_dto`` takes its lookup."""
+class TestDriverRevisions:
+    """``core_to_dto`` serves the registry's stamp on the driver; a driver
+    that never went through a registry is hashed on the spot."""
 
-    def test_core_to_dto_uses_the_given_lookup(self, rich_device):
-        lookup = MagicMock(return_value="rev-listing")
+    def test_a_stamped_driver_is_not_hashed(self, rich_device):
+        rich_device.driver.revisions = DriverRevisions(
+            driver="drv-stamp", presentation="rev-stamp"
+        )
 
-        with patch(_HASH, side_effect=AssertionError("hashed despite a lookup")):
-            dto = core_to_dto(rich_device, revision_of=lookup)
+        with patch(_HASH, side_effect=AssertionError("hashed despite a stamp")):
+            dto = core_to_dto(rich_device)
 
-        lookup.assert_called_once_with(rich_device.driver)
-        assert dto.presentation_ref == PresentationReference(revision="rev-listing")
+        assert dto.driver_revision == "drv-stamp"
+        assert dto.presentation_ref == PresentationReference(revision="rev-stamp")
 
-    def test_a_lookup_without_revision_leaves_no_presentation(self, rich_device):
-        dto = core_to_dto(rich_device, revision_of=lambda _driver: None)
+    def test_a_stamp_without_presentation_leaves_no_reference(self, rich_device):
+        rich_device.driver.revisions = DriverRevisions(driver="drv", presentation=None)
+
+        dto = core_to_dto(rich_device)
 
         assert dto.presentation_ref is None
+        assert dto.driver_revision == "drv"
 
-    def test_without_a_lookup_core_to_dto_hashes_the_driver(self, rich_device):
+    def test_an_unstamped_driver_is_hashed(self, rich_device):
+        assert rich_device.driver.revisions is None
+
         with patch(_HASH, return_value="rev-direct") as hashed:
             dto = core_to_dto(rich_device)
 
         hashed.assert_called_once_with(rich_device.driver)
         assert dto.presentation_ref == PresentationReference(revision="rev-direct")
+        assert dto.driver_revision == get_driver_revision(rich_device.driver)
 
-    def test_revision_per_driver_hashes_each_driver_once(
-        self, driver, thermostat_driver
-    ):
-        with patch(_HASH, side_effect=lambda d: f"rev-{d.id}") as hashed:
-            revision_of = revision_per_driver()
-            revisions = [
-                revision_of(d)
-                for d in (driver, thermostat_driver, driver, thermostat_driver, driver)
-            ]
+    def test_devices_of_one_driver_share_the_driver_revision(self, make_device, driver):
+        first = core_to_dto(make_device("a", "A", {}))
+        second = core_to_dto(make_device("b", "B", {}))
 
-        assert revisions == [
-            "rev-test_driver",
-            "rev-thermostat_driver",
-            "rev-test_driver",
-            "rev-thermostat_driver",
-            "rev-test_driver",
-        ]
-        assert hashed.call_count == 2
-
-    def test_revision_per_driver_remembers_a_driver_without_presentation(self, driver):
-        with patch(_HASH, return_value=None) as hashed:
-            revision_of = revision_per_driver()
-            assert revision_of(driver) is None
-            assert revision_of(driver) is None
-
-        hashed.assert_called_once_with(driver)
-
-    def test_each_lookup_hashes_afresh(self, driver):
-        # One lookup per listing: a driver edited between two listings is
-        # hashed again by the next one.
-        with patch(_HASH, side_effect=["rev-before-edit", "rev-after-edit"]):
-            first = revision_per_driver()(driver)
-            second = revision_per_driver()(driver)
-
-        assert (first, second) == ("rev-before-edit", "rev-after-edit")
+        assert first.driver_revision == second.driver_revision
+        assert first.driver_revision == get_driver_revision(driver)

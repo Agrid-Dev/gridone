@@ -10,7 +10,7 @@ from devices_manager.core.device import (
     CoreDevice,
     DeviceBase,
 )
-from devices_manager.core.presentation.revision import get_presentation_revision
+from devices_manager.core.revisions import revisions_of
 from devices_manager.dto.presentation_dto import PresentationReference
 from models.ids import gen_id
 from models.metadata import ResourceMetadata
@@ -22,8 +22,6 @@ if TYPE_CHECKING:
     from devices_manager.core.driver import Driver
     from devices_manager.core.transports import TransportClient
     from devices_manager.types import AttributeKind
-
-type RevisionOf = Callable[[Driver], str | None]
 
 
 # A device may be created nameless (labelled later), so name defaults to "".
@@ -56,6 +54,8 @@ class Device(ResourceMetadata):
     driver_id: str
     transport_id: str
     # Derived from the current driver, never persisted on the device snapshot.
+    # ``driver_revision`` keys the documents served per driver (labels).
+    driver_revision: str | None = None
     presentation_ref: PresentationReference | None = None
     write_state_revision: int = 0
 
@@ -106,34 +106,17 @@ class AttributeSelection:
         return device.model_copy(update={"attributes": self.apply(device.attributes)})
 
 
-def revision_per_driver() -> RevisionOf:
-    """A presentation-revision lookup that hashes each driver once.
-
-    ``get_presentation_revision`` serialises and hashes a driver's whole
-    contract, and the devices of a listing share their driver: computed per
-    device, it was most of ``GET /devices/``'s cost on large sites. Use one per
-    listing, so a driver edited afterwards is hashed again next time.
-    """
-    revisions: dict[int, str | None] = {}
-
-    def revision_of(driver: Driver) -> str | None:
-        if id(driver) not in revisions:
-            revisions[id(driver)] = get_presentation_revision(driver)
-        return revisions[id(driver)]
-
-    return revision_of
-
-
 def core_to_dto(
     device: CoreDevice,
     *,
-    revision_of: RevisionOf | None = None,
     attribute_selection: AttributeSelection | None = None,
 ) -> Device:
     """The public device. A selection trims its attributes, never what the
-    header derives from them: ``is_faulty`` still reads every fault."""
+    header derives from them: ``is_faulty`` still reads every fault.
+
+    The revisions are the registry's stamp on the driver."""
     device.project_write_states()
-    revision = (revision_of or get_presentation_revision)(device.driver)
+    revisions = revisions_of(device.driver)
     attributes = (
         device.attributes
         if attribute_selection is None
@@ -152,8 +135,11 @@ def core_to_dto(
         is_faulty=device.is_faulty,
         created_at=device.created_at,
         updated_at=device.updated_at,
+        driver_revision=revisions.driver,
         presentation_ref=(
-            PresentationReference(revision=revision) if revision is not None else None
+            PresentationReference(revision=revisions.presentation)
+            if revisions.presentation is not None
+            else None
         ),
     )
 

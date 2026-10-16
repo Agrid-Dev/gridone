@@ -199,6 +199,8 @@ export type TagGroupsResponse = Schemas["TagGroupsResponse"];
 
 // Drivers
 export type Driver = Schemas["DriverSpec-Output"];
+export type DriverLabels = Schemas["DriverLabels"];
+export type AttributeLabels = Schemas["AttributeLabels"];
 export type DriverInput = Schemas["DriverSpec-Input"];
 export type DriverYaml = Schemas["DriverYaml"];
 export type DriverPatch = Schemas["DriverPatch"];

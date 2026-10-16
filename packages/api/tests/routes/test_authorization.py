@@ -88,7 +88,7 @@ from devices_manager import (
 from devices_manager.core.device import Attribute
 from devices_manager.core.device.connection_status import AttributeLogs
 from devices_manager.core.presentation.resources import StoredResource
-from devices_manager.dto import FaultView
+from devices_manager.dto import DriverLabels, FaultView
 from devices_manager.dto.device_dto import AttributeSelection, Device
 from devices_manager.dto.presentation_dto import UnavailablePresentationResponse
 from devices_manager.types import DataType
@@ -1543,6 +1543,7 @@ def _build_drivers_app() -> FastAPI:
     )
     dm.export_driver_package = AsyncMock(return_value=b"PK")
     dm.get_driver_presentation_response = AsyncMock(return_value=None)
+    dm.get_driver_labels.return_value = DriverLabels(revision="rev")
     dm.add_driver = AsyncMock()
     dm.create_driver_attribute = AsyncMock()
     dm.patch_driver = AsyncMock()
@@ -1578,6 +1579,7 @@ DRIVERS_ACCESS_CONTROL_SCENARIOS = [
             ("PUT", "/drivers/any-id/package"),
             ("GET", "/drivers/any-id/package"),
             ("GET", "/drivers/any-id/presentation"),
+            ("GET", "/drivers/any-id/labels"),
         ]
         for role, expected in [
             (None, 401),
@@ -2499,6 +2501,9 @@ _UNSCOPED_ALLOWED = {
     # Vocabulary, not device data.
     ("GET", "/devices/standard-types"),
     ("GET", "/presentations/schema"),
+    # A driver's labels are not sensitive: any role reading devices reads
+    # them whole (AGR-1702).
+    ("GET", "/drivers/{driver_id}/labels"),
     ("GET", "/devices/timeseries/aggregate/options"),
     # Documents naming devices by filter or by id, never their values:
     # metadata a scoped role may see, like `excluded_device_ids` (ADR 0004 §5).
