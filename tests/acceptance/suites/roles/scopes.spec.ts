@@ -294,6 +294,291 @@ describe("devices:read scopes", () => {
     });
   });
 
+  // A devices:command scope narrows what a role may command, and commanding
+  // implies reading. The receptionist is the example role of ADR 0004.
+  describe("devices:command scopes", () => {
+    const OTHER_DRIVER_ID = "thermocktat_http_scopes_other";
+    let receptionist: GridoneClient;
+    let receptionistId: string;
+    let setpointCommander: GridoneClient;
+    let driverCommander: GridoneClient;
+    let operator: GridoneClient;
+    let otherThermostatId: string;
+
+    // The ids pin each multi-device target to this suite's thermostat:
+    // other suites seed thermostats of their own on the same stack.
+    const thermostats = () => ({ ids: [thermostatId], types: ["thermostat"] });
+    const otherSetpoint = async () =>
+      (await readThermocktat(thermostatUrl)).temperature_setpoint === 24
+        ? 25
+        : 24;
+
+    beforeAll(async () => {
+      const receptionistRole = await admin.users.createRole({
+        id: `receptionist_${RUN}`,
+        name: "Receptionist",
+        permissions: [
+          "devices:read",
+          "devices:command",
+          "timeseries:read",
+          "dashboards:read",
+        ],
+        scopes: {
+          "devices:read": [{ devices: { types: ["thermostat"] } }],
+          "devices:command": [
+            {
+              devices: { types: ["thermostat"] },
+              attributes: ["temperature_setpoint", "hvac_mode", "fan_speed"],
+            },
+          ],
+        },
+      });
+      const setpointCommanderRole = await admin.users.createRole({
+        id: `setpoint_commander_${RUN}`,
+        name: "Setpoint commander",
+        permissions: ["devices:command"],
+        scopes: {
+          "devices:command": [
+            {
+              devices: { types: ["thermostat"] },
+              attributes: ["temperature_setpoint"],
+            },
+          ],
+        },
+      });
+      const driverCommanderRole = await admin.users.createRole({
+        id: `driver_commander_${RUN}`,
+        name: "Driver commander",
+        permissions: ["devices:read", "devices:command"],
+        scopes: {
+          "devices:command": [
+            { devices: { driver_ids: [THERMOSTAT_FIXTURE.driverId] } },
+          ],
+        },
+      });
+      roleIds.push(
+        receptionistRole.id,
+        setpointCommanderRole.id,
+        driverCommanderRole.id,
+      );
+
+      const receptionistUser = await makeRoleUser(receptionistRole.id);
+      const setpointUser = await makeRoleUser(setpointCommanderRole.id);
+      const driverUser = await makeRoleUser(driverCommanderRole.id);
+      const operatorUser = await makeRoleUser("operator");
+      receptionist = receptionistUser.client;
+      receptionistId = receptionistUser.userId;
+      setpointCommander = setpointUser.client;
+      driverCommander = driverUser.client;
+      operator = operatorUser.client;
+      userIds.push(
+        receptionistUser.userId,
+        setpointUser.userId,
+        driverUser.userId,
+        operatorUser.userId,
+      );
+
+      // A second thermostat, same emulator, under another driver id: the
+      // driver scope grants the first and not this one.
+      const yaml = readFileSync(
+        new URL(
+          `../../fixtures/${THERMOSTAT_FIXTURE.driverFixture}`,
+          import.meta.url,
+        ),
+        "utf8",
+      ).replace(
+        `id: ${THERMOSTAT_FIXTURE.driverId}\n`,
+        `id: ${OTHER_DRIVER_ID}\n`,
+      );
+      try {
+        await admin.drivers.create(OTHER_DRIVER_ID, { yaml });
+      } catch (error) {
+        const alreadyExists = isGridoneError(error) && error.status === 409;
+        if (!alreadyExists) throw error;
+      }
+      const thermostat = await admin.devices.get(thermostatId);
+      const other = await admin.devices.create({
+        name: `Thermocktat scopes other ${RUN}`,
+        driver_id: OTHER_DRIVER_ID,
+        transport_id: thermostat.transport_id,
+        config: { ip: "http://thermocktat-scopes:8080" },
+      });
+      otherThermostatId = other.id;
+    });
+
+    afterAll(async () => {
+      if (otherThermostatId) {
+        await admin.devices.delete(otherThermostatId).catch(() => undefined);
+      }
+    });
+
+    it("serves write only on the attributes the role may command", async () => {
+      const device = await receptionist.devices.get(thermostatId);
+
+      expect(
+        device.attributes?.temperature_setpoint?.read_write_modes,
+      ).toContain("write");
+      // Readable, not commandable: served as a read-only attribute.
+      expect(device.attributes?.onoff_state?.read_write_modes).toEqual([
+        "read",
+      ]);
+      expect(await statusOf(receptionist.devices.get(roomId))).toBe(404);
+    });
+
+    it("commands a granted attribute", async () => {
+      const value = await otherSetpoint();
+
+      await receptionist.devices.sendCommand(thermostatId, {
+        attribute: "temperature_setpoint",
+        value,
+      });
+
+      expect((await readThermocktat(thermostatUrl)).temperature_setpoint).toBe(
+        value,
+      );
+    });
+
+    it("refuses an attribute it reads but may not command, and writes nothing", async () => {
+      const { enabled } = await readThermocktat(thermostatUrl);
+      const command = { attribute: "onoff_state", value: !enabled };
+
+      expect(
+        await statusOf(
+          receptionist.devices.previewDeviceCommand(thermostatId, command),
+        ),
+      ).toBe(403);
+      expect(
+        await statusOf(receptionist.devices.sendCommand(thermostatId, command)),
+      ).toBe(403);
+      expect((await readThermocktat(thermostatUrl)).enabled).toBe(enabled);
+    });
+
+    it("dispatches nothing in a batch on an attribute it may not command", async () => {
+      const { enabled } = await readThermocktat(thermostatUrl);
+      const batch = {
+        target: thermostats(),
+        attribute: "onoff_state",
+        value: !enabled,
+      };
+
+      // The thermostat is excluded, which leaves no recipient.
+      expect(await statusOf(receptionist.devices.sendBatchCommand(batch))).toBe(
+        422,
+      );
+      const preview = await receptionist.devices.previewCommand(batch);
+      expect(preview.members.map((m) => m.device_id)).not.toContain(
+        thermostatId,
+      );
+      // "dispatches nothing": no command from this user ever reached it.
+      const history = await admin.devices.listCommands({
+        device_id: thermostatId,
+        attribute: "onoff_state",
+        user_id: receptionistId,
+      });
+      expect(history.total).toBe(0);
+      expect((await readThermocktat(thermostatUrl)).enabled).toBe(enabled);
+    });
+
+    it("dispatches a batch on a granted attribute", async () => {
+      const dispatch = await receptionist.devices.sendBatchCommand({
+        target: thermostats(),
+        attribute: "temperature_setpoint",
+        value: await otherSetpoint(),
+      });
+
+      expect(dispatch.commands.map((c) => c.device_id)).toEqual([thermostatId]);
+    });
+
+    it("may neither save nor run a template on an attribute it may not command", async () => {
+      const { enabled } = await readThermocktat(thermostatUrl);
+      const template = {
+        target: thermostats(),
+        write: {
+          attribute: "onoff_state",
+          value: !enabled,
+          data_type: "bool" as const,
+        },
+      };
+
+      expect(
+        await statusOf(receptionist.devices.commandTemplates.create(template)),
+      ).toBe(422);
+      const saved = await admin.devices.commandTemplates.create({
+        ...template,
+        name: `Switch scopes thermostat (${RUN})`,
+      });
+      expect(saved.write.attribute).toBe("onoff_state");
+      // Running a template someone else saved is a write like any other.
+      expect(
+        await statusOf(
+          receptionist.devices.commandTemplates.dispatch(saved.id),
+        ),
+      ).toBe(422);
+      expect((await readThermocktat(thermostatUrl)).enabled).toBe(enabled);
+    });
+
+    it("reads, without devices:read, exactly the attributes it may command", async () => {
+      const device = await setpointCommander.devices.get(thermostatId);
+
+      expect(Object.keys(device.attributes ?? {})).toEqual([
+        "temperature_setpoint",
+      ]);
+      expect(
+        device.attributes?.temperature_setpoint?.read_write_modes,
+      ).toContain("write");
+      expect(await statusOf(setpointCommander.devices.get(roomId))).toBe(404);
+    });
+
+    it("writes only to the devices its scope grants", async () => {
+      const dispatch = await driverCommander.devices.sendBatchCommand({
+        target: { ids: [thermostatId, otherThermostatId] },
+        attribute: "temperature_setpoint",
+        value: await otherSetpoint(),
+      });
+
+      expect(dispatch.commands.map((c) => c.device_id)).toEqual([thermostatId]);
+      // A saved target is dispatched later, by automations, over every
+      // device: it may not reach one the role cannot command.
+      expect(
+        await statusOf(
+          driverCommander.devices.commandTemplates.create({
+            target: { ids: [thermostatId, otherThermostatId] },
+            write: {
+              attribute: "temperature_setpoint",
+              value: 22,
+              data_type: "float",
+            },
+          }),
+        ),
+      ).toBe(403);
+    });
+
+    it("leaves an unscoped operator every write", async () => {
+      const { enabled } = await readThermocktat(thermostatUrl);
+
+      const device = await operator.devices.get(thermostatId);
+      expect(device.attributes?.onoff_state?.read_write_modes).toContain(
+        "write",
+      );
+      await operator.devices.sendCommand(thermostatId, {
+        attribute: "onoff_state",
+        value: !enabled,
+      });
+      expect((await readThermocktat(thermostatUrl)).enabled).toBe(!enabled);
+      const batch = await operator.devices.sendBatchCommand({
+        target: thermostats(),
+        attribute: "onoff_state",
+        value: enabled,
+      });
+      expect(batch.commands.map((c) => c.device_id)).toEqual([thermostatId]);
+      const template = await operator.devices.commandTemplates.create({
+        target: thermostats(),
+        write: { attribute: "onoff_state", value: enabled, data_type: "bool" },
+      });
+      expect(template.write.attribute).toBe("onoff_state");
+    });
+  });
+
   it("leaves an unscoped role's view untouched", async () => {
     const device = await admin.devices.get(thermostatId);
 
