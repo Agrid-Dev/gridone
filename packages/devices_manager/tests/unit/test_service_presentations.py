@@ -13,6 +13,7 @@ from devices_manager.core.device import CoreDevice, DeviceBase
 from devices_manager.core.driver import DeviceConfigField, LocalizedText
 from devices_manager.core.presentation import PresentationEnvelope
 from devices_manager.core.presentation.resources import StoredResource
+from devices_manager.core.revisions import driver_revisions
 from devices_manager.dto.driver_dto import core_to_dto
 from devices_manager.dto.driver_dto.package_errors import PackageImportError
 from devices_manager.dto.presentation_dto import AvailablePresentationResponse
@@ -120,6 +121,8 @@ async def test_only_declared_assets_are_read_using_resource_pointer(loaded, scop
         | {"assets": {"bezel": {"path": "assets/bezel.png"}}}
     )
     driver.presentation_revision = "resource-pointer"
+    # Mutated in place, outside the registry: restamp as the registry would.
+    driver.revisions = driver_revisions(driver)
     revision = service.get_device("device").presentation_ref.revision
     get_asset = (
         service.get_device_presentation_asset
@@ -148,10 +151,14 @@ async def test_revision_changed_during_resource_read_conflicts(loaded, scope):
         | {"assets": {"bezel": {"path": "assets/bezel.png"}}}
     )
     driver.presentation_revision = "resource-pointer"
+    # Mutated in place, outside the registry: restamp as the registry would.
+    driver.revisions = driver_revisions(driver)
     revision = service.get_device("device").presentation_ref.revision
 
     async def read(*_args: object) -> StoredResource:
+        # A concurrent install lands: the registry restamps the driver.
         driver.presentation_revision = "replacement"
+        driver.revisions = driver_revisions(driver)
         return StoredResource(b"PNG", "image/png", "digest", 10, 10)
 
     storage.presentation_resources.read.side_effect = read

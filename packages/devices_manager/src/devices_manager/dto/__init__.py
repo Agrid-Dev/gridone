@@ -3,7 +3,6 @@ from .device_dto import (
     Device,
     DeviceCreate,
     DeviceUpdate,
-    revision_per_driver,
 )
 from .device_dto import core_to_dto as device_to_public
 from .device_dto import create_to_base as device_create_from_public
@@ -75,7 +74,6 @@ __all__ = [
     "driver_from_public",
     "driver_to_public",
     "mask_transport_secrets",
-    "revision_per_driver",
     "standard_schema_to_public",
     "transport_create_from_public",
     "transport_from_public",

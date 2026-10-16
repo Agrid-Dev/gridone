@@ -13,6 +13,7 @@ from .device_config_field import DeviceConfigField
 from .discovery_listener import DiscoveryListener
 from .driver_metadata import DriverMetadata
 from .healthcheck import HealthCheck
+from .revision import DriverRevisions
 from .update_strategy import UpdateStrategy
 from .write_validation import validate_write_declarations, write_references
 
@@ -108,6 +109,11 @@ class Driver:
     # the registry, on import.
     presentation: PresentationEnvelope | None = None
     presentation_revision: str | None = None
+    # Stamped by the driver registry at every mutation, never authored:
+    # a driver built outside the registry carries none and readers hash it.
+    revisions: DriverRevisions | None = field(
+        default=None, init=False, repr=False, compare=False
+    )
 
     def __post_init__(self) -> None:
         validate_polling_groups(self.update_strategy, self.attributes.values())

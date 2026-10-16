@@ -9,10 +9,24 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from .driver import Driver
+
+
+@dataclass(frozen=True)
+class DriverRevisions:
+    """The cache keys a device hands clients for its driver's documents.
+
+    Hashing them walks every attribute of the driver, so the registry stamps
+    them on the driver at each mutation (``Driver.revisions``) and readers
+    never hash per device.
+    """
+
+    driver: str
+    presentation: str | None
 
 
 def attribute_contracts(driver: Driver) -> dict[str, dict[str, Any]]:
