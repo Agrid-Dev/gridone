@@ -2,10 +2,10 @@ import { Routes, Route, Navigate } from "react-router";
 import { lazy, FC, Suspense } from "react";
 import DevicesList from "./DevicesList";
 import Device from "./device";
+import { ViewsRedirect } from "./views/ViewsRedirect";
 
 const TagEditorPage = lazy(() => import("./views/TagEditorPage"));
 const ViewsListPage = lazy(() => import("./views/ViewsListPage"));
-const ViewFormPage = lazy(() => import("./views/ViewFormPage"));
 const ViewDetailPage = lazy(() => import("./views/ViewDetailPage"));
 
 const CommandsPage = lazy(() => import("./commands/CommandsPage"));
@@ -40,14 +40,8 @@ const Devices: FC = () => (
           </Suspense>
         }
       />
-      <Route
-        path="new"
-        element={
-          <Suspense>
-            <ViewFormPage />
-          </Suspense>
-        }
-      />
+      {/* Creating and editing a group moved to Configuration › Groups. */}
+      <Route path="new" element={<ViewsRedirect />} />
       <Route
         path=":viewId"
         element={
@@ -56,14 +50,7 @@ const Devices: FC = () => (
           </Suspense>
         }
       />
-      <Route
-        path=":viewId/edit"
-        element={
-          <Suspense>
-            <ViewFormPage />
-          </Suspense>
-        }
-      />
+      <Route path=":viewId/edit" element={<ViewsRedirect />} />
     </Route>
     {/* Legacy /devices/history → /devices/commands */}
     <Route

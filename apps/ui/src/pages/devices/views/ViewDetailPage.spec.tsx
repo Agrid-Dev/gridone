@@ -8,14 +8,12 @@ import ViewDetailPage from "./ViewDetailPage";
 const api = vi.hoisted(() => ({
   get: vi.fn(),
   list: vi.fn(),
-  delete: vi.fn(),
-  bulkTags: vi.fn(),
   canWrite: true,
 }));
 vi.mock("@/contexts/GridoneClientContext", () => ({
   useGridoneClient: () => ({
     deviceViews: api,
-    devices: { list: api.list, bulkTags: api.bulkTags },
+    devices: { list: api.list },
   }),
 }));
 vi.mock("@/contexts/AuthContext", () => ({
@@ -123,19 +121,6 @@ describe("tag drilldown", () => {
     await screen.findByText("views.empty");
     expect(screen.queryByTestId("driver-thermostat")).not.toBeInTheDocument();
   });
-  it("deletes display settings with no device mutation", async () => {
-    api.delete.mockResolvedValue(undefined);
-    setup();
-    await screen.findByRole("button", { name: "common.delete" });
-    fireEvent.click(screen.getByRole("button", { name: "common.delete" }));
-    fireEvent.click(
-      screen.getAllByRole("button", { name: "common.delete" }).at(-1)!,
-    );
-    await screen.findByText("All views");
-    expect(api.delete).toHaveBeenCalledWith("building");
-    expect(api.bulkTags).not.toHaveBeenCalled();
-  });
-
   it("opens a manually selected group directly on its controls, without tag navigation", async () => {
     api.get.mockResolvedValue({
       id: "building",
@@ -156,76 +141,55 @@ describe("tag drilldown", () => {
     expect(
       screen.queryByRole("navigation", { name: "views.path" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "groups.edit" })).toHaveAttribute(
-      "href",
-      "/devices/views/building/edit",
-    );
+    expect(
+      screen.getByRole("link", { name: "groups.editInConfiguration" }),
+    ).toHaveAttribute("href", "/groups/building/edit");
     expect(
       JSON.parse(screen.getByTestId("driver-thermostat").textContent!).filter
         .tags,
     ).toEqual({ group: ["comfort"] });
   });
 
-  it("removes only the group's tag before deleting its display entry", async () => {
-    api.get.mockResolvedValue({
-      id: "building",
-      name: "Comfort",
-      filter: { tags: { group: ["comfort"] } },
-      group_by: [],
-    });
-    api.list.mockResolvedValue([
-      {
-        id: "a",
-        name: "Thermostat",
-        driver_id: "thermostat",
-        tags: { group: ["comfort", "other"] },
-      },
-    ]);
-    api.bulkTags.mockResolvedValue([{ device_id: "a", status: "changed" }]);
+  it("edits groups and views in Configuration only, and never deletes here", async () => {
     setup();
-    fireEvent.click(
-      await screen.findByRole("button", { name: "common.delete" }),
-    );
-    fireEvent.click(
-      screen.getAllByRole("button", { name: "common.delete" }).at(-1)!,
-    );
-    await screen.findByText("All views");
-    expect(api.bulkTags).toHaveBeenCalledWith({
-      target: { ids: ["a"] },
-      key: "group",
-      values: ["comfort"],
-      operation: "remove",
-    });
-    expect(api.delete).toHaveBeenCalledWith("building");
-    expect(api.bulkTags.mock.invocationCallOrder[0]).toBeLessThan(
-      api.delete.mock.invocationCallOrder[0],
-    );
+    expect(
+      await screen.findByRole("link", { name: "groups.editInConfiguration" }),
+    ).toHaveAttribute("href", "/groups/building/edit");
+    expect(
+      screen.queryByRole("button", { name: "common.delete" }),
+    ).not.toBeInTheDocument();
   });
 
-  it("keeps the group available when removing a member fails during deletion", async () => {
+  it("sends an empty group to Configuration to choose its devices", async () => {
     api.get.mockResolvedValue({
       id: "building",
       name: "Comfort",
       filter: { tags: { group: ["comfort"] } },
       group_by: [],
     });
-    api.list.mockResolvedValue([
-      {
-        id: "a",
-        name: "Thermostat",
-        driver_id: "thermostat",
-        tags: { group: ["comfort"] },
-      },
-    ]);
-    api.bulkTags.mockResolvedValue([{ device_id: "a", status: "failed" }]);
+    api.list.mockResolvedValue([]);
     setup();
-    fireEvent.click(
-      await screen.findByRole("button", { name: "common.delete" }),
-    );
-    fireEvent.click(
-      screen.getAllByRole("button", { name: "common.delete" }).at(-1)!,
-    );
-    await screen.findByRole("alert");
-    expect(api.delete).not.toHaveBeenCalled();
+    await screen.findByText("groups.empty");
+    expect(
+      screen
+        .getAllByRole("link", { name: "groups.editInConfiguration" })
+        .map((link) => link.getAttribute("href")),
+    ).toEqual(["/groups/building/edit", "/groups/building/edit"]);
+  });
+
+  it("offers viewers no way to edit, even on an empty group", async () => {
+    api.canWrite = false;
+    api.get.mockResolvedValue({
+      id: "building",
+      name: "Comfort",
+      filter: { tags: { group: ["comfort"] } },
+      group_by: [],
+    });
+    api.list.mockResolvedValue([]);
+    setup();
+    await screen.findByText("groups.empty");
+    expect(
+      screen.queryByRole("link", { name: "groups.editInConfiguration" }),
+    ).not.toBeInTheDocument();
   });
 });
