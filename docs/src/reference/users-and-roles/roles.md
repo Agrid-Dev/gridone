@@ -49,7 +49,7 @@ Devices are the one resource where "write" is two different things: configuring 
 | `devices:command` | Operating devices: sending a [command](../glossary.md#command) to writable attributes, alone, in batch or through a template |
 | `devices:logs:read` | Reading the communication log of an attribute, for troubleshooting |
 
-`devices:command` does not include `devices:read`. A role that operates equipment normally holds both.
+`devices:command` is the one exception to "writing never implies reading": a role reads what it may command, even without `devices:read` (see [Commanding through a scope](#commanding-through-a-scope)). A role that operates equipment normally holds both.
 
 ### Always allowed
 
@@ -110,7 +110,7 @@ An administrator can define additional roles when the built-in ones do not fit. 
 | `name` | Display name |
 | `description` | Free text, shown in the user form |
 | `permissions` | Any subset of the [permissions](#permissions) above |
-| `scopes` | Optional. Narrows `devices:read` to specific devices and attributes, see [Scopes](#scopes) |
+| `scopes` | Optional. Narrows `devices:read` and `devices:command` to specific devices and attributes, see [Scopes](#scopes) |
 
 Custom roles are managed through the [API](../../api-reference.md) and require the `roles:write` permission. That permission is reserved for the built-in `admin` role: a custom role cannot hold it. Assigning a role to a user, in turn, requires holding every permission of that role. Together the two rules mean no role can hand out more than it has, whether by editing roles or by editing users.
 
@@ -141,10 +141,7 @@ Without `devices:write`, a user with this role cannot create, edit or delete a d
 
 ## Scopes
 
-A permission is all-or-nothing: `devices:read` shows a role every attribute of every device. A **scope** narrows a device permission to a subset of devices and attributes.
-
-!!! note "Reading only, for now"
-    Only `devices:read` accepts a scope in this release. A scope on `devices:command` is rejected as "not scopable yet", so that no one believes a write restriction is in force before Gridone enforces one.
+A permission is all-or-nothing: `devices:read` shows a role every attribute of every device, and `devices:command` lets it command every writable one. A **scope** narrows one of these two permissions to a subset of devices and attributes.
 
 Scopes are keyed by the permission they narrow. Each scope has two parts: which **devices** it reaches, selected by [standard type](../standard-devices.md) or by driver, and optionally which **attributes** of those devices. A part left out is no restriction. A role that reads thermostats, and only their comfort values:
 
@@ -174,3 +171,28 @@ What a scoped role is served follows one rule: what it cannot read does not exis
 The live feed applies the role as it was when the connection opened; a connection lasts no longer than the access token behind it, so an edit to the role reaches the feed at the next reconnection.
 
 Roles without scopes, built-in or custom, are unaffected: scopes only narrow, they never grant.
+
+### Commanding through a scope
+
+A scope on `devices:command` narrows what the role may command. A front desk role that sees the thermostats and changes their comfort settings, nothing technical:
+
+```json
+{
+  "id": "receptionist",
+  "name": "Receptionist",
+  "description": "Front desk: comfort settings on thermostats, nothing technical.",
+  "permissions": ["devices:read", "devices:command", "timeseries:read", "dashboards:read"],
+  "scopes": {
+    "devices:read": [
+      { "devices": { "types": ["thermostat"] } }
+    ],
+    "devices:command": [
+      { "devices": { "types": ["thermostat"] }, "attributes": ["temperature_setpoint", "hvac_mode", "fan_speed"] }
+    ]
+  }
+}
+```
+
+An attribute the role reads but may not command is served as read-only: its `read_write_modes` loses `write`, exactly as if its driver could not write it. A command on it alone is refused as "forbidden". A command on several devices, a grouped command, a command on an asset and the run of a command template leave out the devices the role may not command; a dispatch with none left is refused. Running a template someone else saved is checked the same way, against the role of whoever runs it. Saving a template is stricter: automations run it later, on every device its target reaches, so a role may not save or edit a template whose target reaches a device it may not command.
+
+Commanding implies reading. An attribute a `devices:command` scope reaches is readable even when the `devices:read` scope does not list it, and a role holding a scoped `devices:command` without `devices:read` reads exactly what it may command.
