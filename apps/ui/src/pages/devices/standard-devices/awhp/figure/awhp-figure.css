@@ -43,15 +43,17 @@
   --anatomy-lit-shade: var(--aw-metal);
   --anatomy-hi: hsl(var(--synoptic-stroke));
   --anatomy-mid: var(--aw-edge);
-  --anatomy-lo: color-mix(in srgb, var(--aw-edge), var(--awhp-card) 35%);
-  --anatomy-faint: color-mix(in srgb, var(--aw-edge), var(--awhp-card) 65%);
+  --anatomy-lo: var(--aw-edge);
+  --anatomy-faint: color-mix(in srgb, var(--aw-edge), var(--awhp-card) 50%);
   --anatomy-lit: var(--awhp-ink);
   --anatomy-halo: hsl(var(--synoptic-dark));
   --anatomy-halo-opacity: 0.3;
   --anatomy-dot: hsl(var(--synoptic-dark));
   --anatomy-text: hsl(var(--foreground));
   --anatomy-muted: hsl(var(--muted-foreground));
-  --anatomy-weight: 0.6px;
+  /* The kit draws every edge 1 px; the line tiers collapse onto the edge
+     tone, the strongest one on the stroke tone. */
+  --anatomy-weight: 1px;
   --anatomy-ease: cubic-bezier(0.32, 0.72, 0, 1);
   --anatomy-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   /* The hues of the temperature scale; the hook mixes the gradients from the
