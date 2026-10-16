@@ -1,6 +1,6 @@
 export { ExchangerGlyph, SynopticCard } from "@/components/synoptic/duct";
 export { useAhuSynopticLabel, type AhuSynopticLabelKey } from "./labels";
-export { useReadingFormat, type ReadingFormat } from "./format";
+export { useReadingFormat, type ReadingFormat } from "@/hooks/useReadingFormat";
 export {
   AHU_CONVENTION_UNITS,
   AHU_WIRE_NAMES,
