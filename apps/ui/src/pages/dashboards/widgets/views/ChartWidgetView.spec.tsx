@@ -103,6 +103,7 @@ vi.mock("@/components/charts/TimeSeriesChart", () => ({
 }));
 
 // Imported after the mocks are registered.
+import { StaticDriverLabels } from "@/contexts/DriverLabelsContext";
 import { ChartWidgetView } from "./ChartWidgetView";
 
 const CONFIG = {
@@ -756,9 +757,16 @@ describe("ChartWidgetView with several targets", () => {
   const PUMP = {
     id: "dhw",
     name: "Hot water plant",
-    attributes: {
-      pump_1: { label: { default: "Pump 1 history" } },
-      pump_2: { label: { default: "Pump 2 history" } },
+    driver_id: "dhw_driver",
+    attributes: { pump_1: {}, pump_2: {} },
+  };
+  const PUMP_LABELS = {
+    dhw_driver: {
+      revision: "rev",
+      attributes: {
+        pump_1: { label: { default: "Pump 1 history" } },
+        pump_2: { label: { default: "Pump 2 history" } },
+      },
     },
   };
   const target = (attribute: string, ids = ["dhw"]) => ({
@@ -780,12 +788,14 @@ describe("ChartWidgetView with several targets", () => {
     ]);
 
     render(
-      <ChartWidgetView
-        config={{
-          type: "chart",
-          targets: [target("pump_1"), target("pump_2")],
-        }}
-      />,
+      <StaticDriverLabels labels={PUMP_LABELS}>
+        <ChartWidgetView
+          config={{
+            type: "chart",
+            targets: [target("pump_1"), target("pump_2")],
+          }}
+        />
+      </StaticDriverLabels>,
     );
 
     expect(useTargetDevices).toHaveBeenCalledWith(

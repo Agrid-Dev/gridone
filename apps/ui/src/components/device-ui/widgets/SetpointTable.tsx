@@ -42,9 +42,9 @@ export function SetpointTable({
     describedAttributes(
       rows.map((row) => ({
         caption: localize(row.label, language),
-        attribute: pick(row),
+        attribute: pick(row)?.name ?? null,
       })),
-      language,
+      runtime.attributeDescription,
     );
   const demandedHints = columnHints((row) =>
     "control" in row.demanded

@@ -4,7 +4,9 @@ import type {
   UnitCommand,
   User,
 } from "@gridone/sdk";
+import type { DriverRef } from "@/contexts/DriverLabelsContext";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import { useAttributeLabel } from "@/hooks/useAttributeLabel";
 import { useCommandsByIds } from "@/hooks/useCommandsByIds";
 import { useDeviceSeries, useSeriesPoints } from "@/hooks/useDeviceTimeSeries";
 import { useTimeRangeUrlState } from "@/hooks/useTimeRangeUrlState";
@@ -64,6 +66,8 @@ export const HISTORY_DEFAULT_PRESET: TimeRangePreset = "1d";
 
 type DeviceHistoryContextValue = {
   series: TimeSeries[];
+  /** How the device's driver names an attribute, in the current language. */
+  attributeLabel: (name: string) => string;
   dataTypes: Record<string, string>;
   /** What each attribute's driver declares about it — label, unit, wording
    *  of boolean states — keyed by attribute name. */
@@ -105,6 +109,8 @@ const DeviceHistoryContext = createContext<DeviceHistoryContextValue | null>(
 
 type DeviceHistoryProviderProps = {
   deviceId: string;
+  /** The device, whose driver names the attributes. */
+  device: DriverRef;
   /** Display name used for export filenames; falls back to the id upstream. */
   deviceName: string;
   /** The device's attributes as the API exposes them to this user, in
@@ -140,6 +146,7 @@ export function exportFilename(
 
 export function DeviceHistoryProvider({
   deviceId,
+  device,
   deviceName,
   attributes,
   standardAttributeNames,
@@ -149,6 +156,11 @@ export function DeviceHistoryProvider({
   const { t } = useTranslation("devices");
   const client = useGridoneClient();
   const [searchParams, setSearchParams] = useSearchParams();
+  const labelFor = useAttributeLabel();
+  const attributeLabel = useCallback(
+    (name: string) => labelFor(name, device),
+    [labelFor, device],
+  );
 
   const { timeRange, applyRange, applyPreset } = useTimeRangeUrlState({
     defaultPreset: HISTORY_DEFAULT_PRESET,
@@ -414,6 +426,7 @@ export function DeviceHistoryProvider({
   const value = useMemo<DeviceHistoryContextValue>(
     () => ({
       series,
+      attributeLabel,
       dataTypes,
       attributes,
       deviceType,
@@ -438,6 +451,7 @@ export function DeviceHistoryProvider({
     }),
     [
       series,
+      attributeLabel,
       dataTypes,
       attributes,
       deviceType,

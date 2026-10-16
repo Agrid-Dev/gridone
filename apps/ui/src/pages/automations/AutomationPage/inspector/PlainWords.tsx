@@ -122,7 +122,7 @@ function WriteWords({ action }: { action: Action }) {
   return (
     <>
       {t("plain.writePrefix", {
-        attribute: attributeLabel(attribute, device?.attributes?.[attribute]),
+        attribute: attributeLabel(attribute, device),
         device: write?.device_id
           ? (device?.name ?? write.device_id)
           : t("plain.eventDevice"),

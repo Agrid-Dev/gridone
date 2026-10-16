@@ -14,6 +14,8 @@ import {
   type ConditionJudge,
   type Scalar,
 } from "@/components/device-ui/conditions";
+import { localize } from "@/lib/localizedText";
+import { toLabel } from "@/lib/textFormat";
 import type { GroupAttribute } from "./groupAttributes";
 
 /** Controls edit local targets; measurements and conditions use reported values. */
@@ -26,9 +28,18 @@ export function useGroupRuntime(
   drafts: Readonly<Record<string, Scalar>> = {},
   judge?: ConditionJudge,
 ): DeviceUiRuntime {
-  const { t } = useTranslation("devices");
+  const { t, i18n } = useTranslation("devices");
+  const language = i18n.language;
   return useMemo(() => {
     const reported = (name: string) => attributes[name]?.current_value ?? null;
+    const attributeLabel = (name: string) => {
+      const label = attributes[name]?.label;
+      return label ? localize(label, language) : toLabel(name);
+    };
+    const attributeDescription = (name: string) => {
+      const description = attributes[name]?.description;
+      return description ? localize(description, language) : undefined;
+    };
     const holds = judge ?? judgeWith(reported);
     const valueLabel = (name: string) => {
       const attribute = attributes[name];
@@ -79,6 +90,8 @@ export function useGroupRuntime(
     return {
       reported,
       valueLabel,
+      attributeLabel,
+      attributeDescription,
       readControl,
       chooseValue: (id) => {
         const state = readControl(id);
@@ -107,5 +120,15 @@ export function useGroupRuntime(
         else stage(state.spec.attribute, value);
       },
     };
-  }, [attributes, controls, canWrite, stage, choose, drafts, judge, t]);
+  }, [
+    attributes,
+    controls,
+    canWrite,
+    stage,
+    choose,
+    drafts,
+    judge,
+    t,
+    language,
+  ]);
 }

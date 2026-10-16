@@ -91,7 +91,7 @@ export function CommandStep({
               deviceId={device.id}
               attribute={selectedAttribute}
               labels={(state.missing_attributes ?? []).map((name) =>
-                labelFor(name, attributes[name]),
+                labelFor(name, device),
               )}
             />
           ) : null;

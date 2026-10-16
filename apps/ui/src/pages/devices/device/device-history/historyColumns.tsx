@@ -15,7 +15,7 @@ type BuildHistoryColumnsOptions = {
   locale: string;
   /** The selected attributes, one column each, in the order to show them. */
   selectedAttributes: string[];
-  labelFor: (name: string, attribute?: AttributeFields) => string;
+  labelFor: (name: string) => string;
   attributes: Record<string, AttributeFields | undefined>;
   dataTypes: Record<string, string>;
   deviceType: DeviceType | undefined;
@@ -88,7 +88,7 @@ export function buildHistoryColumns({
           : undefined;
       return {
         id: name,
-        header: () => labelFor(name, attribute),
+        header: () => labelFor(name),
         cell: ({ row }) => {
           const value = row.original.values[name];
           const isNew = row.original.isNew[name];

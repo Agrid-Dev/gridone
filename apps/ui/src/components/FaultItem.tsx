@@ -2,18 +2,21 @@ import type { KeyboardEvent } from "react";
 import { CircleCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { SeverityChip } from "./SeverityChip";
+import type { DriverRef } from "@/contexts/DriverLabelsContext";
 import type { FaultAttribute } from "@/lib/faults";
 import { useFaultLabel } from "@/hooks/useFaultLabel";
 import { cn, relativeLastChanged } from "@/lib/utils";
 
 type FaultItemProps = {
   attribute: FaultAttribute;
+  /** The device the fault belongs to, whose driver names the attribute. */
+  device: DriverRef;
   onClick?: () => void;
 };
 
-export function FaultItem({ attribute, onClick }: FaultItemProps) {
+export function FaultItem({ attribute, device, onClick }: FaultItemProps) {
   const { t } = useTranslation();
-  const label = useFaultLabel()(attribute);
+  const label = useFaultLabel()(attribute, device);
   const interactive = Boolean(onClick);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {

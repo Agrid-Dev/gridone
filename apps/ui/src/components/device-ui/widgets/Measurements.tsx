@@ -5,7 +5,6 @@ import type { Scalar } from "../conditions";
 import type { MeasurementItem, MeasurementLayout } from "../document";
 import { localize } from "../face";
 import type { AttributeLike } from "../runtime";
-import type { useAttributeLabel } from "@/hooks/useAttributeLabel";
 import { formatMeasurement } from "./formatters";
 
 /**
@@ -20,7 +19,8 @@ export type MeasurementsProps = {
   layout?: MeasurementLayout;
   reported: (binding: string) => Scalar | null;
   attributeOf: (binding: string) => AttributeLike | null;
-  attributeLabel: ReturnType<typeof useAttributeLabel>;
+  /** How the subject's driver names an attribute. */
+  attributeLabel: (attribute: string) => string;
   language: string;
 };
 
@@ -98,7 +98,7 @@ function MeasurementRow({
   const label = item.label
     ? localize(item.label, language)
     : attribute
-      ? attributeLabel(attribute.name, attribute)
+      ? attributeLabel(attribute.name)
       : item.binding;
   const text = formatMeasurement(
     value,

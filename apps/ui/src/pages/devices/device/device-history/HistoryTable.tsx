@@ -18,7 +18,6 @@ import {
   TableRow,
   Th,
 } from "@/components/ui";
-import { useAttributeLabel } from "@/hooks/useAttributeLabel";
 import { buildHistoryColumns } from "./historyColumns";
 import { useDeviceHistoryContext } from "./DeviceHistoryContext";
 
@@ -37,8 +36,8 @@ export default function HistoryTable() {
     deviceType,
     commandsMap,
     usersMap,
+    attributeLabel,
   } = useDeviceHistoryContext();
-  const labelFor = useAttributeLabel();
 
   const columns = useMemo(
     () =>
@@ -46,7 +45,7 @@ export default function HistoryTable() {
         t,
         locale: i18n.language,
         selectedAttributes,
-        labelFor,
+        labelFor: attributeLabel,
         attributes,
         dataTypes,
         deviceType,
@@ -57,7 +56,7 @@ export default function HistoryTable() {
       t,
       i18n.language,
       selectedAttributes,
-      labelFor,
+      attributeLabel,
       attributes,
       dataTypes,
       deviceType,

@@ -89,8 +89,8 @@ export function ControlRow({
             <DescriptionHint
               name={label}
               entries={describedAttributes(
-                [{ caption: label, attribute: state.attribute }],
-                language,
+                [{ caption: label, attribute: state.spec.attribute }],
+                runtime.attributeDescription,
               )}
             />
           </p>

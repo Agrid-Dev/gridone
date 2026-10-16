@@ -10,15 +10,16 @@ import {
 } from "./meterTree";
 
 /**
- * What each meter's driver declares about the attribute it reads — its label
- * and unit — for the meters the tree currently draws.
+ * What is known about the attribute each meter reads — its unit, and the
+ * device whose driver names it — for the meters the tree currently draws.
  *
  * One query per *device*, not per meter: a concentrator exposes many meters as
  * attributes of a single device, and fetching it once serves them all. Keyed
  * like `useDevice`, so a device already loaded elsewhere is not fetched again.
  *
  * A device that fails to load leaves its meters out of the map, which the tree
- * reads as "unit unknown": the figures still draw, just bare.
+ * reads as "unit unknown": the figures still draw, just bare, under the
+ * attribute's catalogue name.
  */
 export function useMeterTreeAttributes(
   root: MeterTreeNode | undefined,
@@ -50,8 +51,15 @@ export function useMeterTreeAttributes(
     const device = devices.get(deviceId);
     if (!device) continue;
     // A device that no longer exposes the attribute still answered: the meter
-    // is known to have no label or unit, rather than not known yet.
-    attributes.set(key, device.attributes?.[attribute] ?? {});
+    // is known to have no unit, rather than not known yet.
+    const unit = device.attributes?.[attribute]?.unit;
+    attributes.set(key, {
+      unit: typeof unit === "string" ? unit : null,
+      device: {
+        driver_id: device.driver_id,
+        driver_revision: device.driver_revision,
+      },
+    });
   }
   return attributes;
 }

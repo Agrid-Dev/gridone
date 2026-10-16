@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { createI18nMock } from "@/test/i18nMock";
 import { FaultItem } from "./FaultItem";
+import { StaticDriverLabels } from "@/contexts/DriverLabelsContext";
 import type { FaultAttribute } from "@/lib/faults";
 import type { Severity } from "@/lib/severity";
 
@@ -18,6 +19,8 @@ vi.mock("react-i18next", () =>
     "common.duration.days": "{{count}} days",
   }),
 );
+
+const DEVICE = { driver_id: "vendor_ahu", driver_revision: "rev" };
 
 const baseActive: FaultAttribute = {
   kind: "fault",
@@ -51,6 +54,7 @@ describe("FaultItem — active mode", () => {
       ).toISOString();
       render(
         <FaultItem
+          device={DEVICE}
           attribute={{ ...baseActive, severity, last_changed: lastChanged }}
         />,
       );
@@ -61,7 +65,12 @@ describe("FaultItem — active mode", () => {
   );
 
   it("falls back to 'just now' when lastChanged is null", () => {
-    render(<FaultItem attribute={{ ...baseActive, last_changed: null }} />);
+    render(
+      <FaultItem
+        device={DEVICE}
+        attribute={{ ...baseActive, last_changed: null }}
+      />,
+    );
     expect(
       screen.getByText("Active for less than a minute"),
     ).toBeInTheDocument();
@@ -71,15 +80,23 @@ describe("FaultItem — active mode", () => {
 describe("FaultItem — attribute naming", () => {
   it("names the fault by the driver's label when it declares one", () => {
     render(
-      <FaultItem
-        attribute={{
-          ...baseActive,
-          label: {
-            default: "Supply filter clogged",
-            translations: { fr: "Filtre soufflage encrassé" },
+      <StaticDriverLabels
+        labels={{
+          [DEVICE.driver_id]: {
+            revision: "rev",
+            attributes: {
+              filter_alarm: {
+                label: {
+                  default: "Supply filter clogged",
+                  translations: { fr: "Filtre soufflage encrassé" },
+                },
+              },
+            },
           },
         }}
-      />,
+      >
+        <FaultItem device={DEVICE} attribute={baseActive} />
+      </StaticDriverLabels>,
     );
     // The i18n mock resolves labels in French.
     expect(screen.getByText("Filtre soufflage encrassé")).toBeInTheDocument();
@@ -95,7 +112,7 @@ describe("FaultItem — healthy mode", () => {
   };
 
   it("shows label + OK and no severity chip", () => {
-    render(<FaultItem attribute={healthy} />);
+    render(<FaultItem device={DEVICE} attribute={healthy} />);
     expect(screen.getByText("Filter Alarm")).toBeInTheDocument();
     expect(screen.getByText("OK")).toBeInTheDocument();
     expect(screen.queryByText("alert")).not.toBeInTheDocument();
@@ -108,6 +125,7 @@ describe("FaultItem — edge cases", () => {
   it("applies truncate class on the label (long names)", () => {
     render(
       <FaultItem
+        device={DEVICE}
         attribute={{
           ...baseActive,
           name: "very_long_attribute_name_that_will_overflow_container",
@@ -123,14 +141,18 @@ describe("FaultItem — edge cases", () => {
 describe("FaultItem — onClick", () => {
   it("fires onClick on click when provided", () => {
     const onClick = vi.fn();
-    render(<FaultItem attribute={baseActive} onClick={onClick} />);
+    render(
+      <FaultItem device={DEVICE} attribute={baseActive} onClick={onClick} />,
+    );
     fireEvent.click(screen.getByRole("button"));
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 
   it("fires onClick on Enter and Space keys", () => {
     const onClick = vi.fn();
-    render(<FaultItem attribute={baseActive} onClick={onClick} />);
+    render(
+      <FaultItem device={DEVICE} attribute={baseActive} onClick={onClick} />,
+    );
     const row = screen.getByRole("button");
     fireEvent.keyDown(row, { key: "Enter" });
     fireEvent.keyDown(row, { key: " " });
@@ -139,13 +161,15 @@ describe("FaultItem — onClick", () => {
 
   it("does not fire on other keys", () => {
     const onClick = vi.fn();
-    render(<FaultItem attribute={baseActive} onClick={onClick} />);
+    render(
+      <FaultItem device={DEVICE} attribute={baseActive} onClick={onClick} />,
+    );
     fireEvent.keyDown(screen.getByRole("button"), { key: "a" });
     expect(onClick).not.toHaveBeenCalled();
   });
 
   it("has no button role when onClick is absent", () => {
-    render(<FaultItem attribute={baseActive} />);
+    render(<FaultItem device={DEVICE} attribute={baseActive} />);
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 });

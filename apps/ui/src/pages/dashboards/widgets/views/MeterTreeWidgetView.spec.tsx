@@ -7,7 +7,12 @@ import {
   screen,
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
-import type { MeterTreeNode, MeterTreeWidgetConfig } from "@gridone/sdk";
+import type {
+  DriverLabels,
+  MeterTreeNode,
+  MeterTreeWidgetConfig,
+} from "@gridone/sdk";
+import { StaticDriverLabels } from "@/contexts/DriverLabelsContext";
 import { createI18nMock } from "@/test/i18nMock";
 import { meterKey, type MeterAttributes } from "./meterTree";
 
@@ -61,6 +66,17 @@ const LIGHTS = meter("lights", "lights_energy");
 /** Reads below zero: a counter reset, drawn as a fault. */
 const RESET = meter("reset", "reset_energy");
 
+/** The device behind HVAC's meter, and what its driver calls the attribute. */
+const HVAC_DEVICE = { driver_id: "meters", driver_revision: "r1" };
+const METERS_LABELS: Record<string, DriverLabels> = {
+  meters: {
+    revision: "r1",
+    attributes: {
+      hvac_energy: { label: { default: "HVAC", translations: { fr: "CVC" } } },
+    },
+  },
+};
+
 function renderTree(
   root: MeterTreeNode,
   attributes: MeterAttributes,
@@ -86,9 +102,13 @@ function renderTree(
   });
   return render(
     <MemoryRouter>
-      <MeterTreeWidgetView
-        config={{ type: "meter_tree", root, variant } as MeterTreeWidgetConfig}
-      />
+      <StaticDriverLabels labels={METERS_LABELS}>
+        <MeterTreeWidgetView
+          config={
+            { type: "meter_tree", root, variant } as MeterTreeWidgetConfig
+          }
+        />
+      </StaticDriverLabels>
     </MemoryRouter>,
   );
 }
@@ -125,22 +145,17 @@ beforeEach(() => vi.clearAllMocks());
 afterEach(cleanup);
 
 describe("MeterTreeWidgetView", () => {
-  it("names an unlabelled node after its attribute's declared label", () => {
+  it("names an unlabelled node the way the driver of its device does", () => {
     renderTree(
       { label: "Building", meter: MAIN, children: [{ meter: HVAC }] },
-      new Map([
-        [
-          meterKey(HVAC) as string,
-          { label: { default: "HVAC", translations: { fr: "CVC" } } },
-        ],
-      ]),
+      new Map([[meterKey(HVAC) as string, { device: HVAC_DEVICE }]]),
     );
 
     expect(screen.getByText("Building")).toBeTruthy();
     expect(screen.getByText("CVC")).toBeTruthy();
   });
 
-  it("falls back to the attribute's name when its driver declares no label", () => {
+  it("falls back to the attribute's name while its device is unknown or unlabelled", () => {
     renderTree({ meter: HVAC }, new Map());
 
     expect(screen.getByText("Hvac Energy")).toBeTruthy();

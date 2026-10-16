@@ -23,8 +23,8 @@ export function useAttributeSearch(
               (Array.isArray(attribute.read_write_modes) &&
                 attribute.read_write_modes.includes("write")),
           )
-          .map(([attribute, metadata]) => {
-            const label = `${device.name} · ${attributeLabel(attribute, metadata)}`;
+          .map(([attribute]) => {
+            const label = `${device.name} · ${attributeLabel(attribute, device)}`;
             return {
               reference: { device_id: device.id, attribute },
               key: JSON.stringify([device.id, attribute]),

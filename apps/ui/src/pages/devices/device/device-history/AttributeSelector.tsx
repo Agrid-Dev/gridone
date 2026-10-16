@@ -16,7 +16,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { useAttributeLabel } from "@/hooks/useAttributeLabel";
 import { filterByAllWords } from "@/lib/textSearch";
 import { compareText } from "@/lib/sortByName";
 import { cn } from "@/lib/utils";
@@ -96,19 +95,18 @@ function AttributeOptions() {
   const {
     availableAttributes,
     selectedAttributes,
-    attributes,
+    attributeLabel,
     toggleAttribute,
   } = useDeviceHistoryContext();
-  const labelFor = useAttributeLabel();
   const options = useMemo(
     () =>
       availableAttributes
         .map((attribute) => ({
           attribute,
-          label: labelFor(attribute, attributes[attribute]),
+          label: attributeLabel(attribute),
         }))
         .sort((a, b) => compareText(a.label, b.label)),
-    [availableAttributes, attributes, labelFor],
+    [availableAttributes, attributeLabel],
   );
   const selected = new Set(selectedAttributes);
 

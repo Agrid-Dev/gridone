@@ -104,7 +104,7 @@ export function ActiveFaultsSection({ device }: ActiveFaultsSectionProps) {
       {expanded && (
         <div className="mt-3 space-y-1.5 pl-3">
           {faults.map((fault) => (
-            <FaultItem key={fault.name} attribute={fault} />
+            <FaultItem key={fault.name} attribute={fault} device={device} />
           ))}
         </div>
       )}
