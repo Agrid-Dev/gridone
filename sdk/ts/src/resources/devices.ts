@@ -15,6 +15,8 @@ import type {
   BatchDeviceCommand,
   BatchDispatchResponse,
   Device,
+  DeviceFacets,
+  DevicesPage,
   SingleCommandPreview,
   DeviceCreate,
   DeviceUpdate,
@@ -32,6 +34,13 @@ import { CommandTemplatesResource } from "./commandTemplates";
 export type DeviceListParams = NonNullable<
   operations["list_devices_devices__get"]["parameters"]["query"]
 >;
+/** The device filters alone: what selects a device set, without paging. */
+export type DeviceFilterParams = Omit<
+  DeviceListParams,
+  "page" | "size" | "sort_by"
+>;
+/** The filters and the order, for a listing that walks every page. */
+export type DeviceListAllParams = Omit<DeviceListParams, "page" | "size">;
 export type DeviceAttributesParams = NonNullable<
   operations["list_device_attributes_devices_attributes_get"]["parameters"]["query"]
 >;
@@ -45,12 +54,37 @@ export type FaultListParams = NonNullable<
 >;
 
 /** Empty arrays disappear from query strings, so preserve the empty selection locally. */
-function hasEmptySelection(params?: DeviceListParams): boolean {
+function hasEmptySelection(params?: DeviceFilterParams): boolean {
   return (
     params?.ids?.length === 0 ||
     params?.type?.length === 0 ||
     params?.tags?.length === 0
   );
+}
+
+/** The largest page the API serves; `listAll` walks pages of this size. */
+const MAX_PAGE_SIZE = 500;
+const DEFAULT_PAGE_SIZE = 100;
+
+const NO_FACETS: DeviceFacets = {
+  type: {},
+  health: { healthy: 0, faulty: 0 },
+  connection_status: { idle: 0, ok: 0, degraded: 0, error: 0 },
+};
+
+/** The page an empty selection would get, without asking the API for it. */
+function emptyPage(params?: DeviceListParams): DevicesPage {
+  const size = params?.size ?? DEFAULT_PAGE_SIZE;
+  const link = `/devices/?page=1&size=${size}`;
+  return {
+    items: [],
+    total: 0,
+    page: 1,
+    size,
+    total_pages: 0,
+    links: { self: link, first: link, last: link },
+    facets: NO_FACETS,
+  };
 }
 
 /** `client.devices` — CRUD, tags, commands, faults and attribute logs. */
@@ -62,7 +96,7 @@ export class DevicesResource {
     this.commandTemplates = new CommandTemplatesResource(request);
   }
 
-  listTags(params?: DeviceListParams): Promise<TagFacet[]> {
+  listTags(params?: DeviceFilterParams): Promise<TagFacet[]> {
     if (hasEmptySelection(params)) return Promise.resolve([]);
     return this.request("GET", "/devices/tags", { searchParams: params });
   }
@@ -106,9 +140,30 @@ export class DevicesResource {
     );
   }
 
-  list(params?: DeviceListParams): Promise<Device[]> {
-    if (hasEmptySelection(params)) return Promise.resolve([]);
+  /**
+   * One page of the devices the filters match (100 by default, 500 at
+   * most), in `sort_by` order, with `facets` counting the whole match. The
+   * cost of a call follows the page size, not the size of the site.
+   */
+  list(params?: DeviceListParams): Promise<DevicesPage> {
+    if (hasEmptySelection(params)) return Promise.resolve(emptyPage(params));
     return this.request("GET", "/devices/", { searchParams: params });
+  }
+
+  /**
+   * Every device the filters match, in `sort_by` order, read page by page.
+   * The pages are read together, so a device created or deleted meanwhile
+   * may be missed or seen twice; read `list` when one page is enough.
+   */
+  async listAll(params?: DeviceListAllParams): Promise<Device[]> {
+    if (hasEmptySelection(params)) return [];
+    const first = await this.list({ ...params, size: MAX_PAGE_SIZE });
+    const rest = await Promise.all(
+      Array.from({ length: Math.max(0, first.total_pages - 1) }, (_, i) =>
+        this.list({ ...params, size: MAX_PAGE_SIZE, page: i + 2 }),
+      ),
+    );
+    return [first, ...rest].flatMap((page) => page.items);
   }
 
   /** Reports attribute coverage over the device set matched by the filters. */

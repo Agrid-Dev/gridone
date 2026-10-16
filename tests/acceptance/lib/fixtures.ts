@@ -95,7 +95,7 @@ export async function seedFixtureSet(
   );
 
   const existingDevices = await step(`list ${seed.key} devices`, () =>
-    client.devices.list({ driver_id: seed.driverId }),
+    client.devices.listAll({ driver_id: seed.driverId }),
   );
 
   const seeded: SeededDevice[] = [];
@@ -132,7 +132,7 @@ export async function deleteFixtureSet(
 ): Promise<void> {
   const seededNames = new Set(seed.devices.map((device) => device.name));
   const devices = await client.devices
-    .list({ driver_id: seed.driverId })
+    .listAll({ driver_id: seed.driverId })
     .catch(() => []);
   for (const device of devices) {
     if (seededNames.has(device.name)) {

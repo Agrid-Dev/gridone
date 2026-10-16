@@ -4,8 +4,10 @@ import type { RequestFn } from "../http/httpClient";
 import type {
   AssetAssignment,
   BatchDeviceCommand,
+  Device,
   DeviceCreate,
   DeviceUpdate,
+  DevicesPage,
   SingleDeviceCommand,
 } from "../types";
 import { CommandTemplatesResource } from "./commandTemplates";
@@ -142,18 +144,96 @@ const CASES: Case[] = [
   ],
 ];
 
+function device(id: string): Device {
+  return {
+    id,
+    name: id,
+    config: {},
+    driver_id: "drv1",
+    transport_id: "trp1",
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-01-01T00:00:00Z",
+  } as Device;
+}
+
+function page(
+  items: Device[],
+  current: number,
+  totalPages: number,
+): DevicesPage {
+  return {
+    items,
+    total: items.length * totalPages,
+    page: current,
+    size: items.length,
+    total_pages: totalPages,
+    links: { self: "s", first: "f", last: "l" },
+    facets: {
+      type: {},
+      health: { healthy: 0, faulty: 0 },
+      connection_status: { idle: 0, ok: 0, degraded: 0, error: 0 },
+    },
+  };
+}
+
 describe("DevicesResource", () => {
   it.each([{ ids: [] }, { type: [] }, { tags: [] }])(
     "does not serialize empty selection %j as an unrestricted GET",
     async (params) => {
       const { devices, request } = makeResource();
 
-      await expect(devices.list(params)).resolves.toEqual([]);
+      await expect(devices.listAll(params)).resolves.toEqual([]);
       await expect(devices.listTags(params)).resolves.toEqual([]);
+      const empty = await devices.list({ ...params, size: 20 });
+      expect(empty.items).toEqual([]);
+      expect([empty.total, empty.page, empty.size, empty.total_pages]).toEqual([
+        0, 1, 20, 0,
+      ]);
+      expect(empty.facets.health).toEqual({ healthy: 0, faulty: 0 });
+      expect(empty.facets.connection_status).toEqual({
+        idle: 0,
+        ok: 0,
+        degraded: 0,
+        error: 0,
+      });
 
       expect(request).not.toHaveBeenCalled();
     },
   );
+
+  it("listAll walks every page of the match at the largest size", async () => {
+    const pages = [
+      page([device("a"), device("b")], 1, 3),
+      page([device("c"), device("d")], 2, 3),
+      page([device("e")], 3, 3),
+    ];
+    const request = vi.fn(
+      async (_m: string, _p: string, options) =>
+        pages[(options.searchParams.page ?? 1) - 1],
+    );
+    const devices = new DevicesResource(request as unknown as RequestFn);
+
+    const all = await devices.listAll({
+      type: ["thermostat"],
+      sort_by: "type",
+    });
+
+    expect(all.map((d) => d.id)).toEqual(["a", "b", "c", "d", "e"]);
+    expect(request.mock.calls.map((call) => call[2].searchParams)).toEqual([
+      { type: ["thermostat"], sort_by: "type", size: 500 },
+      { type: ["thermostat"], sort_by: "type", size: 500, page: 2 },
+      { type: ["thermostat"], sort_by: "type", size: 500, page: 3 },
+    ]);
+  });
+
+  it("listAll reads a single page once, an empty match included", async () => {
+    const request = vi.fn(async () => page([], 1, 0));
+    const devices = new DevicesResource(request as unknown as RequestFn);
+
+    await expect(devices.listAll()).resolves.toEqual([]);
+
+    expect(request).toHaveBeenCalledOnce();
+  });
 
   it.each(CASES)(
     "%s calls the wire endpoint and returns the response",

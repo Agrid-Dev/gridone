@@ -97,6 +97,23 @@ export type TreeImportResponse = Schemas["TreeImportResponse"];
 
 // Devices
 export type Device = Schemas["Device"];
+export type DeviceHealth = Schemas["DeviceHealth"];
+/** Device counts per filter value over everything a device list matched,
+ *  not only the page served. `type` carries the buckets present (`other`
+ *  for devices outside the standard types); `health` and
+ *  `connection_status` carry every value, zero included, which the generated
+ *  type cannot say: it only sees the index signature. */
+export interface DeviceFacets {
+  type: Record<string, number>;
+  health: Record<DeviceHealth, number>;
+  connection_status: Record<ConnectionStatus, number>;
+}
+/** `name` (default) or `type`: standard types A→Z, `other` last, then name. */
+export type DeviceSortKey = Schemas["DeviceSortKey"];
+/** One page of devices, plus facets over the whole match. */
+export interface DevicesPage extends Page<Device> {
+  facets: DeviceFacets;
+}
 export type DeviceCreate = Schemas["DeviceCreate"];
 export type DeviceUpdate = Schemas["DeviceUpdate"];
 export type DevicesFilterBody = Schemas["DevicesFilterBody"];

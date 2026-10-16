@@ -927,7 +927,13 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** List Devices */
+    /**
+     * List Devices
+     * @description One page of the matched devices, with facets over the whole match.
+     *
+     *     Only the page is built in the public shape, so the response time follows
+     *     the page size and not the size of the site.
+     */
     get: operations["list_devices_devices__get"];
     put?: never;
     /** Create Device */
@@ -1404,9 +1410,8 @@ export interface paths {
      * Get Driver Labels
      * @description The labels of the driver's attributes, once per driver.
      *
-     *     Gated like device reads and projected through the caller's scope: the
-     *     document names only attributes the caller may read on the driver's
-     *     devices (ADR 0008 §3).
+     *     Gated like device reads but not projected through the caller's scope:
+     *     labels are not sensitive, so any role reading devices reads them whole.
      */
     get: operations["get_driver_labels_drivers__driver_id__labels_get"];
     put?: never;
@@ -4695,6 +4700,33 @@ export interface components {
       )[];
     };
     /**
+     * DeviceFacets
+     * @description Device counts per filter value, over everything a listing matched.
+     *
+     *     ``type`` only carries the buckets present; ``health`` and
+     *     ``connection_status`` carry every value, zero included. A device without
+     *     a connection status attribute counts in no connection bucket.
+     */
+    DeviceFacets: {
+      /** Type */
+      type: {
+        [key: string]: number;
+      };
+      /** Health */
+      health: {
+        [key: string]: number;
+      };
+      /** Connection Status */
+      connection_status: {
+        [key: string]: number;
+      };
+    };
+    /**
+     * DeviceHealth
+     * @enum {string}
+     */
+    DeviceHealth: "healthy" | "faulty";
+    /**
      * DeviceScope
      * @description One cell of the devices-by-attributes grid a permission is narrowed to.
      *
@@ -4723,6 +4755,11 @@ export interface components {
       /** Driver Ids */
       driver_ids?: string[] | null;
     };
+    /**
+     * DeviceSortKey
+     * @enum {string}
+     */
+    DeviceSortKey: "name" | "type";
     /** DeviceUpdate */
     DeviceUpdate: {
       /** Name */
@@ -4859,6 +4896,28 @@ export interface components {
       } | null;
       /** Asset Id */
       asset_id?: string | null;
+    };
+    /**
+     * DevicesPageResponse
+     * @description Response body for ``GET /devices``.
+     *
+     *     One page of the matched devices, and ``facets`` counting every device the
+     *     filters matched, not only the page: a client renders filter chips and a
+     *     fleet summary from the same call.
+     */
+    DevicesPageResponse: {
+      /** Items */
+      items: components["schemas"]["Device"][];
+      /** Total */
+      total: number;
+      /** Page */
+      page: number;
+      /** Size */
+      size: number;
+      /** Total Pages */
+      total_pages: number;
+      links: components["schemas"]["PaginationLinks"];
+      facets: components["schemas"]["DeviceFacets"];
     };
     /**
      * DiagnosticCode
@@ -11345,6 +11404,7 @@ export interface operations {
   list_devices_devices__get: {
     parameters: {
       query?: {
+        sort_by?: components["schemas"]["DeviceSortKey"];
         type?: string[] | null;
         ids?: string[] | null;
         tags?: string[] | null;
@@ -11354,6 +11414,8 @@ export interface operations {
         search?: string | null;
         driver_id?: string | null;
         transport_id?: string | null;
+        page?: number;
+        size?: number;
       };
       header?: never;
       path?: never;
@@ -11367,7 +11429,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["Device"][];
+          "application/json": components["schemas"]["DevicesPageResponse"];
         };
       };
       /** @description Validation Error */

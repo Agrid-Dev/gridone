@@ -41,6 +41,8 @@ export { DeviceViewsResource } from "./resources/deviceViews";
 export { DevicesResource } from "./resources/devices";
 export type {
   CommandListParams,
+  DeviceFilterParams,
+  DeviceListAllParams,
   DeviceListParams,
   FaultListParams,
 } from "./resources/devices";

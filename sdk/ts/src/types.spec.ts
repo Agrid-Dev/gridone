@@ -9,6 +9,8 @@ import { describe, expectTypeOf, it } from "vitest";
 import type { components, paths } from "./generated/openapi";
 import type {
   DataPoint,
+  DeviceFacets,
+  DevicesPage,
   Driver,
   FetchPointsResultResponse,
   Page,
@@ -27,6 +29,21 @@ describe("public types match the generated OpenAPI types", () => {
     >();
     expectTypeOf<Page<Schemas["NotificationDispatch"]>>().toEqualTypeOf<
       Schemas["PaginatedResponse_NotificationDispatch_"]
+    >();
+  });
+
+  it("DevicesPage matches the devices list response", () => {
+    type Wire =
+      paths["/devices/"]["get"]["responses"]["200"]["content"]["application/json"];
+    expectTypeOf<Wire>().toEqualTypeOf<Schemas["DevicesPageResponse"]>();
+    // The facets narrow the generated index signatures to the enum keys the
+    // API always serves; everything else is the generated envelope.
+    expectTypeOf<DevicesPage>().toExtend<Wire>();
+    expectTypeOf<Omit<DevicesPage, "facets">>().toEqualTypeOf<
+      Omit<Wire, "facets">
+    >();
+    expectTypeOf<keyof DeviceFacets>().toEqualTypeOf<
+      keyof Schemas["DeviceFacets"]
     >();
   });
 
