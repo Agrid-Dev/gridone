@@ -102,8 +102,8 @@ function makeAwhp(
   };
 }
 
-function renderControl(device: Device = makeAwhp()) {
-  const props: StandardControlProps = {
+function propsOf(device: Device): StandardControlProps {
+  return {
     device,
     draft: {},
     savingAttr: null,
@@ -111,7 +111,10 @@ function renderControl(device: Device = makeAwhp()) {
     onDraftChange: vi.fn(),
     onSave: vi.fn(),
   };
-  return render(<AwhpControl {...props} />);
+}
+
+function renderControl(device: Device = makeAwhp()) {
+  return render(<AwhpControl {...propsOf(device)} />);
 }
 
 /** The drawing once its lazy chunk has mounted. */
@@ -239,5 +242,83 @@ describe("AwhpControl", () => {
     const { container } = renderControl(device);
 
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it("updates a mounted figure in place: a reading, the mode, on/off, and a reading that goes away", async () => {
+    const { rerender } = renderControl();
+    const figure = await findFigure();
+    expect(callout(figure, "inlet_t")).toHaveTextContent("12,3°");
+    expect(figure).toHaveAttribute("data-mode", "cool");
+    expect(figure).toHaveAttribute("data-running");
+
+    rerender(
+      <AwhpControl
+        {...propsOf(
+          makeAwhp({
+            inlet_temperature: attr("inlet_temperature", "float", 20.5),
+            mode: attr("mode", "string", "heat"),
+            onoff_state: attr("onoff_state", "bool", false),
+            outlet_temperature: undefined,
+          }),
+        )}
+      />,
+    );
+
+    // The same DOM node, driven by the effects, not a remount.
+    expect(screen.getByTestId("awhp-figure")).toBe(figure);
+    expect(callout(figure, "inlet_t")).toHaveTextContent("20,5°");
+    expect(figure).toHaveAttribute("data-mode", "heat");
+    expect(
+      figure.querySelector('.aw-flow[data-flow-of="plate"]'),
+    ).toHaveAttribute("data-dir", "fwd");
+    expect(figure).not.toHaveAttribute("data-running");
+    expect(callout(figure, "outlet_t")).toHaveAttribute("data-absent");
+    expect(arrow(figure, "outlet_t")).toHaveAttribute("data-absent");
+  });
+
+  it("gives each figure on a page its own gradient ids, so two units keep their own colours", async () => {
+    render(
+      <>
+        <AwhpControl {...propsOf(makeAwhp())} />
+        <AwhpControl
+          {...propsOf({
+            ...makeAwhp({ mode: attr("mode", "string", "heat") }),
+            id: "dev-2",
+          })}
+        />
+      </>,
+    );
+    const figures = await screen.findAllByTestId("awhp-figure");
+    expect(figures).toHaveLength(2);
+
+    const ids = figures.map(
+      (figure) =>
+        [...figure.querySelectorAll("[id]")].map((el) => el.id).sort()[0],
+    );
+    expect(ids[0]).not.toBe(ids[1]);
+    expect(document.querySelectorAll(`[id="${ids[0]}"]`)).toHaveLength(1);
+    // Every fill points at an id of its own figure.
+    for (const figure of figures) {
+      const own = new Set(
+        [...figure.querySelectorAll("[id]")].map((el) => el.id),
+      );
+      // Filtered by hand: jsdom's selector engine stumbles on a "#" in an
+      // attribute value.
+      const fills = [...figure.querySelectorAll("[fill]")]
+        .map((el) => el.getAttribute("fill")!)
+        .filter((fill) => fill.startsWith("url(#"))
+        .map((fill) => fill.slice("url(#".length, -1));
+      expect(fills.length).toBeGreaterThan(0);
+      for (const fill of fills) expect(own.has(fill)).toBe(true);
+    }
+    // And the two units are coloured for their own mode: the plate's hot
+    // gas stop is only on the heating one.
+    const stopOf = (figure: HTMLElement) =>
+      [...figure.getElementsByTagName("stop")].find(
+        (stop) => stop.parentElement?.getAttribute("data-flow") === "plate",
+      );
+    expect(stopOf(figures[0])?.getAttribute("stop-color")).not.toBe(
+      stopOf(figures[1])?.getAttribute("stop-color"),
+    );
   });
 });

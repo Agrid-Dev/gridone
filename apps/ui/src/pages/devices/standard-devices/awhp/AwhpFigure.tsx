@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useId, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { AwhpAttributes } from "@/lib/devices";
 import { useReadingFormat } from "@/hooks/useReadingFormat";
@@ -19,6 +19,22 @@ import { AWHP_CONVENTION_UNITS, type AwhpUnits } from "./units";
 
 const DATA = parseFigureData(figureData);
 const READING_DIGITS = 1;
+/** The prefix every id of the generated SVG starts with. */
+const SVG_ID_PREFIX = "aw-";
+
+/**
+ * The drawing with its ids made unique to one instance. Its gradients and
+ * clip paths are referenced by `url(#id)`, which resolves to the first
+ * element of that id in the whole document: two figures on one page would
+ * otherwise paint with the first one's colours, and a hidden first figure
+ * would strip the visible ones of their tints.
+ */
+function instanceSvg(svg: string, instance: string): string {
+  const prefix = `aw${instance.replace(/[^a-zA-Z0-9]/g, "")}-`;
+  return svg
+    .replaceAll(`id="${SVG_ID_PREFIX}`, `id="${prefix}`)
+    .replaceAll(`url(#${SVG_ID_PREFIX}`, `url(#${prefix}`);
+}
 
 export type AwhpFigureProps = {
   values: AwhpAttributes;
@@ -46,6 +62,8 @@ export default function AwhpFigure({
   const { t } = useTranslation("devices");
   const format = useReadingFormat();
   const root = useRef<HTMLDivElement>(null);
+  const instance = useId();
+  const svg = useMemo(() => instanceSvg(figureSvg, instance), [instance]);
 
   const mode = figureMode(values.mode);
   const running = isRunning(values);
@@ -85,7 +103,7 @@ export default function AwhpFigure({
       role="img"
       aria-label={t("controls.awhp.figureLabel")}
       data-testid="awhp-figure"
-      dangerouslySetInnerHTML={{ __html: figureSvg }}
+      dangerouslySetInnerHTML={{ __html: svg }}
     />
   );
 }
