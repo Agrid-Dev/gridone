@@ -93,7 +93,7 @@
       "byDayFooter_other": "{{count}} alertes {{span}} · reconstituées depuis l'historique des appareils",
       "byDeviceFooter_one": "{{count}} alerte {{span}}",
       "byDeviceFooter_other": "{{count}} alertes différentes {{span}}, les plus longues d'abord",
-      "truncated": "Certains appareils ont trop de changements sur la période : les plus récents peuvent manquer. Réduisez la période.",
+      "truncated": "Historique incomplet. Seuls les épisodes vérifiés sont affichés. Les totaux, récurrences et l’export CSV sont indisponibles.",
       "emptyTitle": "Aucune alerte sur la période",
       "emptyDescription": "Aucun appareil n'a été en alerte sur cette période.",
       "filteredEmpty": "Aucune alerte pour ces filtres",
@@ -107,7 +107,11 @@
         "lastTime": "Dernière fois",
         "totalMinutes": "Cumul (min)",
         "count": "Fois"
-      }
+      },
+      "noVerifiedEpisodes": "Aucun épisode n’a pu être vérifié sur cette période.",
+      "unavailable": "Indisponible",
+      "verifiedRows_one": "{{count}} ligne vérifiée",
+      "verifiedRows_other": "{{count}} lignes vérifiées"
     }
   }
 }

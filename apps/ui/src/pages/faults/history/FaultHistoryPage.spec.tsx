@@ -177,6 +177,7 @@ function returnEpisodes(episodes: FaultEpisode[], truncated = false) {
   mockUseFaultEpisodes.mockReturnValue({
     episodes,
     period: PERIOD,
+    asOf: NOW.getTime(),
     truncated,
     loading: false,
     error: null,
@@ -464,4 +465,54 @@ describe("FaultHistoryPage", () => {
       screen.getByText("Unable to load the alert history"),
     ).toBeInTheDocument();
   });
+});
+
+describe("incomplete history", () => {
+  it("does not claim an empty period when no episode was verified", () => {
+    returnEpisodes([], true);
+    renderPage();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Some changes may be missing",
+    );
+    expect(
+      screen.queryByText("No alerts over this period"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Time in alert")).not.toBeInTheDocument();
+  });
+  it("keeps verified rows but disables export and recurrence claims", async () => {
+    returnEpisodes(EPISODES, true);
+    renderPage();
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(screen.queryByText("3 times over 7 days")).not.toBeInTheDocument();
+    expect(screen.queryByText("Most frequent")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Export" })).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: "Export" }));
+    expect(mockDownloadCsv).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "By device" }));
+    expect(screen.getAllByText("faults.history.unavailable")).toHaveLength(9);
+  });
+  it("never extends a stale snapshot to the browser clock", () => {
+    vi.setSystemTime(new Date(NOW.getTime() + 3_600_000));
+    renderPage();
+    expect(
+      within(episodeRow("13:30")).getByText("depuis 1 h 10"),
+    ).toBeInTheDocument();
+    expect(figure("Time in alert")).toHaveTextContent("8 h 55");
+  });
+  it("normalizes unsupported all-time links to seven days", () => {
+    renderPage("/faults/history?last=all");
+    expect(mockUseFaultEpisodes).toHaveBeenLastCalledWith({ last: "7d" });
+    expect(location).toBe("/faults/history");
+    expect(screen.getByRole("button", { name: "7 j" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+});
+
+it("keeps incomplete messaging when filters hide verified rows", () => {
+  returnEpisodes(EPISODES, true);
+  renderPage("/faults/history?search=nothing");
+  expect(screen.getByRole("status")).toBeInTheDocument();
+  expect(screen.getByText("No alerts match these filters")).toBeInTheDocument();
 });

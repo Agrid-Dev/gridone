@@ -18,6 +18,7 @@ type TimeRangeUrlStateOptions = {
   /** Opt in to remembering the picked preset under this key. Views without one
    *  keep their period for the lifetime of the URL only. */
   storageKey?: string;
+  allowAll?: boolean;
 };
 
 /**
@@ -30,13 +31,16 @@ export function useTimeRangeUrlState({
   defaultPreset = DEFAULT_PRESET,
   onChangeParamsReset = [],
   storageKey,
+  allowAll = true,
 }: TimeRangeUrlStateOptions = {}) {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const timeRange = useMemo(
-    () => parseRangeParams(searchParams, defaultPreset),
-    [searchParams, defaultPreset],
-  );
+  const timeRange = useMemo(() => {
+    const parsed = parseRangeParams(searchParams, defaultPreset);
+    return !allowAll && parsed.kind === "preset" && parsed.preset === "all"
+      ? { kind: "preset" as const, preset: defaultPreset }
+      : parsed;
+  }, [searchParams, defaultPreset, allowAll]);
 
   const applyRange = useCallback(
     (range: TimeRange) => {
@@ -56,6 +60,12 @@ export function useTimeRangeUrlState({
     // callback changes every render and the restore effect below re-fires.
     [setSearchParams, defaultPreset, onChangeParamsReset.join(",")],
   );
+
+  useEffect(() => {
+    if (!allowAll && searchParams.get("last") === "all") {
+      applyRange({ kind: "preset", preset: defaultPreset });
+    }
+  }, [allowAll, searchParams, defaultPreset, applyRange]);
 
   // Seed a bare URL from the remembered preset. The URL stays the single source
   // of truth — restoring writes to it, so every reader agrees — and a link that

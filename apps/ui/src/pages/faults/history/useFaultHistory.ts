@@ -7,18 +7,17 @@ import { useFaultLabel } from "@/hooks/useFaultLabel";
 import { useTimeRangeUrlState } from "@/hooks/useTimeRangeUrlState";
 import { downloadCsv } from "@/lib/csv";
 import { deviceTypeName } from "@/lib/deviceTypes";
-import { foldText } from "@/lib/textFormat";
+import { SEVERITIES } from "@/lib/severity";
+import { capitalize, foldText } from "@/lib/textFormat";
 import { matchesAllWords } from "@/lib/textSearch";
 import {
   type TimeRange,
   type TimeRangePreset,
-  rangeEndsNow,
   resolveTimeRange,
 } from "@/lib/timeRange";
 import { useSeverityParam } from "../useSeverityParam";
 import {
   type EpisodeRow,
-  countByAlert,
   episodeDuration,
   groupByDay,
   historyFigures,
@@ -59,13 +58,14 @@ const isoDay = (milliseconds: number) =>
 export function useFaultHistory() {
   const { t } = useTranslation("faults");
   // Severity names and compact durations live in the default namespace.
-  const { t: tCommon } = useTranslation();
+  const { t: tCommon, i18n } = useTranslation();
   const { t: tTypes } = useTranslation("standardDevices");
   const { timeRange, applyRange, applyPreset } = useTimeRangeUrlState({
     defaultPreset: DEFAULT_PRESET,
+    allowAll: false,
   });
   const params = useMemo(() => resolveTimeRange(timeRange), [timeRange]);
-  const { episodes, period, truncated, loading, error } =
+  const { episodes, period, asOf, truncated, loading, error } =
     useFaultEpisodes(params);
   const { assetByDeviceId } = useAssetTree();
   const { severity, setSeverity } = useSeverityParam();
@@ -109,16 +109,39 @@ export function useFaultHistory() {
     [allRows, severity, search, labelOf, typeOf],
   );
 
-  // Ongoing episodes run up to now, and so does a period that ends now.
-  const now = Date.now();
-  const shown = period && {
-    start: period.start,
-    end: rangeEndsNow(timeRange) ? now : period.end,
-  };
+  const now = asOf ?? 0;
+  const shown = period;
   const days = useMemo(() => groupByDay(rows), [rows]);
-  const recurrences = useMemo(() => countByAlert(rows), [rows]);
-  const summaries = shown ? summarizeByAlert(rows, shown, now) : [];
-  const figures = shown ? historyFigures(rows, shown, now) : null;
+  const summaries = useMemo(
+    () => (shown ? summarizeByAlert(rows, shown, now) : []),
+    [rows, shown, now],
+  );
+  const recurrences = useMemo(
+    () =>
+      new Map(
+        truncated
+          ? []
+          : summaries.map((summary) => [summary.key, summary.count]),
+      ),
+    [summaries, truncated],
+  );
+  const figures = shown && !truncated ? historyFigures(rows, summaries) : null;
+  const most = Math.max(1, ...summaries.map((summary) => summary.count));
+  const severityOptions = [...SEVERITIES]
+    .reverse()
+    .map((value) => ({
+      key: value,
+      label: capitalize(tCommon(`common.severity.${value}`), i18n.language),
+      count: truncated
+        ? undefined
+        : allRows.filter((row) => row.severity === value).length,
+    }))
+    .filter(
+      (option) =>
+        option.count === undefined ||
+        option.count > 0 ||
+        option.key === severity,
+    );
 
   const setView = (next: HistoryView) =>
     setSearchParams(
@@ -146,7 +169,7 @@ export function useFaultHistory() {
    *  alert by device. Instants travel raw and durations in whole minutes, so
    *  the file sorts and sums in a spreadsheet. */
   const exportCsv = () => {
-    if (!shown) return;
+    if (!shown || truncated || error) return;
     const columns = [
       t("faults.columns.severity"),
       t("faults.columns.fault"),
@@ -216,6 +239,8 @@ export function useFaultHistory() {
     rows,
     days,
     summaries,
+    most,
+    severityOptions,
     figures,
     recurrences,
     now,

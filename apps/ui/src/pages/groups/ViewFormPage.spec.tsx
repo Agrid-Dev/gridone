@@ -9,6 +9,8 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { createI18nMock } from "@/test/i18nMock";
+import { ResourceBoundary } from "@/components/ResourceBoundary";
+import { GridoneError } from "@gridone/sdk";
 import ViewFormPage from "./ViewFormPage";
 const api = vi.hoisted(() => ({
   create: vi.fn(),
@@ -75,8 +77,22 @@ function setup(path = "/groups/new?advanced=1") {
     <MemoryRouter initialEntries={[path]}>
       <QueryClientProvider client={cache}>
         <Routes>
-          <Route path="/groups/new" element={<ViewFormPage />} />
-          <Route path="/groups/:viewId/edit" element={<ViewFormPage />} />
+          <Route
+            path="/groups/new"
+            element={
+              <ResourceBoundary resetKeys={[path]}>
+                <ViewFormPage />
+              </ResourceBoundary>
+            }
+          />
+          <Route
+            path="/groups/:viewId/edit"
+            element={
+              <ResourceBoundary resetKeys={[path]}>
+                <ViewFormPage />
+              </ResourceBoundary>
+            }
+          />
           <Route path="/groups" element={<p>Groups list</p>} />
         </Routes>
       </QueryClientProvider>
@@ -391,3 +407,18 @@ describe("delete from the edit page", () => {
     expect(screen.queryByText("Groups list")).not.toBeInTheDocument();
   });
 });
+
+it.each([
+  [500, "errors.default"],
+  [404, "errors.notFound"],
+  [403, "errors.forbidden"],
+])(
+  "maps a failed group read (%s) to the resource fallback",
+  async (status, text) => {
+    api.get.mockRejectedValue(new GridoneError(Number(status), "failed"));
+    setup("/groups/missing/edit");
+    expect(await screen.findByText(String(text))).toBeInTheDocument();
+    if (status !== 404)
+      expect(screen.queryByText("errors.notFound")).not.toBeInTheDocument();
+  },
+);

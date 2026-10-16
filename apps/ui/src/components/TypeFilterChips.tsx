@@ -5,7 +5,7 @@ export type TypeFilterOption = {
   /** Value written to the `?type=` query param. */
   key: string;
   label: string;
-  count: number;
+  count?: number;
 };
 
 type TypeFilterChipsProps = {
@@ -13,7 +13,7 @@ type TypeFilterChipsProps = {
    *  only — a chip that always yields an empty list is noise. */
   options: TypeFilterOption[];
   /** Unfiltered resource count, shown on the leading "all" chip. */
-  total: number;
+  total?: number;
   allLabel: string;
   ariaLabel: string;
   /** Optional controlled mode for filters that do not use the `type` query
@@ -129,7 +129,7 @@ function Chip({
   onClick,
 }: {
   label: string;
-  count: number;
+  count?: number;
   active: boolean;
   onClick: () => void;
 }) {
@@ -146,14 +146,16 @@ function Chip({
       )}
     >
       <span>{label}</span>
-      <span
-        className={cn(
-          "tabular-nums",
-          active ? "text-primary-foreground/70" : "text-muted-foreground/70",
-        )}
-      >
-        {count}
-      </span>
+      {count !== undefined && (
+        <span
+          className={cn(
+            "tabular-nums",
+            active ? "text-primary-foreground/70" : "text-muted-foreground/70",
+          )}
+        >
+          {count}
+        </span>
+      )}
     </button>
   );
 }

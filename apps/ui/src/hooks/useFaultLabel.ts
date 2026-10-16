@@ -1,12 +1,14 @@
-import { useCallback } from "react";
 import type { DriverRef } from "@/contexts/DriverLabelsContext";
-import { faultFields, faultLabel, type LabelledFault } from "@/lib/faultLabel";
+import { useCallback } from "react";
+import {
+  faultFields,
+  faultLabel,
+  type LabelledFault,
+  type FaultLabeller,
+} from "@/lib/faultLabel";
 import { useAttributeLabel } from "./useAttributeLabel";
 
-export type FaultLabeller = (
-  fault: LabelledFault,
-  device?: DriverRef,
-) => string;
+export type { FaultLabeller } from "@/lib/faultLabel";
 
 /** Name faults through their device's driver or the server-labelled row. */
 export function useFaultLabel(): FaultLabeller {

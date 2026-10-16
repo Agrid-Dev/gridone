@@ -17,13 +17,12 @@ import type { FaultHistory } from "./useFaultHistory";
 export function EpisodesByDevice({ history }: { history: FaultHistory }) {
   const { t, i18n } = useTranslation("faults");
   const { t: tCommon } = useTranslation();
-  const { summaries, span, now, labelOf, typeOf } = history;
+  const { summaries, span, now, labelOf, typeOf, most, truncated } = history;
   const today = new Date(now);
   const time = new Intl.DateTimeFormat(i18n.language, {
     hour: "2-digit",
     minute: "2-digit",
   });
-  const most = Math.max(1, ...summaries.map((summary) => summary.count));
 
   return (
     <div className="overflow-hidden rounded-lg border">
@@ -63,31 +62,41 @@ export function EpisodesByDevice({ history }: { history: FaultHistory }) {
               <DeviceCell row={latest} type={typeOf(latest)} />
               <ZoneCell row={latest} />
               <TableCell className="whitespace-nowrap py-2.5 text-sm text-muted-foreground">
-                {`${dayName(new Date(latest.startMs), today, t, i18n.language)} · ${time.format(latest.startMs)}`}
+                {truncated
+                  ? t("faults.history.unavailable")
+                  : `${dayName(new Date(latest.startMs), today, t, i18n.language)} · ${time.format(latest.startMs)}`}
               </TableCell>
               <TableCell className="whitespace-nowrap py-2.5 text-sm font-medium tabular-nums">
-                {formatCompactDuration(totalMs, tCommon)}
+                {truncated
+                  ? t("faults.history.unavailable")
+                  : formatCompactDuration(totalMs, tCommon)}
               </TableCell>
               <TableCell className="py-2.5">
-                <span className="flex items-center gap-2">
-                  <span className="font-semibold tabular-nums">{count}</span>
-                  {/* The bar compares how often each alert came back. */}
-                  <span
-                    aria-hidden
-                    className="h-1.5 rounded-full bg-foreground/20"
-                    style={{ width: `${8 + (52 * count) / most}px` }}
-                  />
-                </span>
+                {truncated ? (
+                  t("faults.history.unavailable")
+                ) : (
+                  <span className="flex items-center gap-2">
+                    <span className="font-semibold tabular-nums">{count}</span>
+                    {/* The bar compares how often each alert came back. */}
+                    <span
+                      aria-hidden
+                      className="h-1.5 rounded-full bg-foreground/20"
+                      style={{ width: `${8 + (52 * count) / most}px` }}
+                    />
+                  </span>
+                )}
               </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
       <div className="border-t px-4 py-3 text-sm text-muted-foreground">
-        {t("faults.history.byDeviceFooter", {
-          count: summaries.length,
-          span: t(`faults.span.${span}`),
-        })}
+        {truncated
+          ? t("faults.history.verifiedRows", { count: summaries.length })
+          : t("faults.history.byDeviceFooter", {
+              count: summaries.length,
+              span: t(`faults.span.${span}`),
+            })}
       </div>
     </div>
   );

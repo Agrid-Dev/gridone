@@ -15,15 +15,16 @@ const RECURRENCE_PARAMS = { last: RECURRENCE_SPAN };
 export function useRecurrenceNotes(): ReadonlyMap<string, string> {
   const { t } = useTranslation("faults");
   const can = usePermissions();
-  const { episodes } = useFaultEpisodes(RECURRENCE_PARAMS, {
+  const { episodes, truncated, error } = useFaultEpisodes(RECURRENCE_PARAMS, {
     enabled: can("timeseries:read"),
   });
   return useMemo(() => {
+    if (truncated || error) return new Map<string, string>();
     const span = t(`faults.span.${RECURRENCE_SPAN}`);
     return new Map(
       [...countByAlert(episodes)]
         .filter(([, count]) => count > 1)
         .map(([key, count]) => [key, t("faults.recurrence", { count, span })]),
     );
-  }, [episodes, t]);
+  }, [episodes, truncated, error, t]);
 }

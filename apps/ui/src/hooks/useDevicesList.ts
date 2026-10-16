@@ -27,6 +27,7 @@ export function useDevicesList(filter?: DevicesFilter) {
   return {
     devices: data ?? [],
     loading: isLoading,
+    queryError,
     error,
   };
 }

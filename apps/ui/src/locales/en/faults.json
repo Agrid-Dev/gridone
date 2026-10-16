@@ -93,7 +93,7 @@
       "byDayFooter_other": "{{count}} alerts {{span}} · rebuilt from the devices' history",
       "byDeviceFooter_one": "{{count}} alert {{span}}",
       "byDeviceFooter_other": "{{count}} different alerts {{span}}, longest first",
-      "truncated": "Some devices changed too often over the period: their latest changes may be missing. Shorten the period.",
+      "truncated": "History is incomplete. Only verified episodes are shown. Totals, recurrence counts and CSV export are unavailable.",
       "emptyTitle": "No alerts over this period",
       "emptyDescription": "No device was in alert over this period.",
       "filteredEmpty": "No alerts match these filters",
@@ -107,7 +107,11 @@
         "lastTime": "Last time",
         "totalMinutes": "Total (min)",
         "count": "Times"
-      }
+      },
+      "noVerifiedEpisodes": "No episodes could be verified for this period.",
+      "unavailable": "Unavailable",
+      "verifiedRows_one": "{{count}} verified row",
+      "verifiedRows_other": "{{count}} verified rows"
     }
   }
 }

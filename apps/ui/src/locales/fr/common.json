@@ -13,7 +13,15 @@
     "segment24h": "24 h",
     "segment7d": "7 j",
     "segment30d": "30 j",
-    "segmentCustom": "Personnalisé"
+    "segmentCustom": "Personnalisé",
+    "start": "Début",
+    "end": "Fin",
+    "errors": {
+      "required": "Saisissez une date de début ou de fin.",
+      "invalid": "Saisissez une date et une heure locales valides.",
+      "future": "Les dates ne peuvent pas être dans le futur.",
+      "reversed": "La fin doit être postérieure au début."
+    }
   },
   "appearance": {
     "theme": "Thème",

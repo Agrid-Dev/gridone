@@ -13,7 +13,7 @@ import { formatCompactDuration } from "@/lib/compactDuration";
 import { cn } from "@/lib/utils";
 import { deviceHistoryPath } from "@/pages/devices/device/deviceSections";
 import { SEVERITY_TEXT_CLASS } from "../components/SeverityLabel";
-import { faultKey } from "../useFaultsPage";
+import { faultKey } from "@/lib/faults";
 import { type EpisodeRow, episodeDuration } from "./faultHistory";
 import { dayHeading, episodeRange } from "./formatEpisode";
 import { DeviceCell, SeverityCell, ZoneCell } from "./historyCells";
@@ -27,7 +27,7 @@ const HISTORY_MARGIN_MS = 30 * 60_000;
  *  opened on, newest first, each linked to its device's history around it. */
 export function EpisodesByDay({ history }: { history: FaultHistory }) {
   const { t, i18n } = useTranslation("faults");
-  const { days, rows, span, now } = history;
+  const { days, rows, span, now, truncated } = history;
   const spanLabel = t(`faults.span.${span}`);
   const today = new Date(now);
 
@@ -68,7 +68,13 @@ export function EpisodesByDay({ history }: { history: FaultHistory }) {
                 >
                   {dayHeading(day, today, t, i18n.language)}{" "}
                   <span className="font-normal">
-                    · {t("faults.history.dayCount", { count: dayRows.length })}
+                    ·{" "}
+                    {t(
+                      truncated
+                        ? "faults.history.verifiedRows"
+                        : "faults.history.dayCount",
+                      { count: dayRows.length },
+                    )}
                   </span>
                 </TableCell>
               </TableRow>
@@ -85,10 +91,12 @@ export function EpisodesByDay({ history }: { history: FaultHistory }) {
         </TableBody>
       </Table>
       <div className="border-t px-4 py-3 text-sm text-muted-foreground">
-        {t("faults.history.byDayFooter", {
-          count: rows.length,
-          span: spanLabel,
-        })}
+        {truncated
+          ? t("faults.history.verifiedRows", { count: rows.length })
+          : t("faults.history.byDayFooter", {
+              count: rows.length,
+              span: spanLabel,
+            })}
       </div>
     </div>
   );

@@ -9,12 +9,7 @@ import { useGridoneClient } from "@/contexts/GridoneClientContext";
 
 const NO_EPISODES: FaultEpisode[] = [];
 
-/**
- * Alert episodes over a period, rebuilt by the API from the devices' recorded
- * history. Read on demand rather than polled: the past does not change, and
- * an alert still on is followed live by the ongoing list. Keyed under
- * `faults`, so whatever refreshes the alerts refreshes their history too.
- */
+/** History and recurrence share a clock and refresh only while visible. */
 export function useFaultEpisodes(
   params: FaultEpisodeListParams,
   { enabled = true }: { enabled?: boolean } = {},
@@ -30,6 +25,14 @@ export function useFaultEpisodes(
     queryKey: ["faults", "episodes", params],
     queryFn: () => client.devices.listFaultEpisodes(params),
     staleTime: 60_000,
+    refetchInterval: (query) =>
+      !params.end ||
+      query.state.data?.truncated ||
+      query.state.data?.episodes.some((episode) => episode.ended_at == null)
+        ? 60_000
+        : false,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
     enabled,
   });
 
@@ -45,6 +48,7 @@ export function useFaultEpisodes(
     period: data
       ? { start: Date.parse(data.start), end: Date.parse(data.end) }
       : null,
+    asOf: data ? Date.parse(data.as_of) : null,
     truncated: data?.truncated ?? false,
     loading: isLoading,
     error,

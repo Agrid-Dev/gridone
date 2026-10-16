@@ -13,7 +13,15 @@
     "segment24h": "24 h",
     "segment7d": "7 d",
     "segment30d": "30 d",
-    "segmentCustom": "Custom"
+    "segmentCustom": "Custom",
+    "start": "Start",
+    "end": "End",
+    "errors": {
+      "required": "Enter a start or end date.",
+      "invalid": "Enter a valid local date and time.",
+      "future": "Dates must not be in the future.",
+      "reversed": "End must be after start."
+    }
   },
   "appearance": {
     "theme": "Theme",

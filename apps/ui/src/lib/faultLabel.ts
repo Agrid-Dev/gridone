@@ -1,3 +1,4 @@
+import type { DriverRef } from "@/contexts/DriverLabelsContext";
 import type { FaultEpisode, FaultView } from "@gridone/sdk";
 import type { FaultAttribute } from "@/lib/faults";
 import { toLabel } from "./textFormat";
@@ -37,3 +38,8 @@ export function faultFields(fault: LabelledFault) {
     current_value: "value" in fault ? fault.value : fault.current_value,
   };
 }
+
+export type FaultLabeller = (
+  fault: LabelledFault,
+  device?: DriverRef,
+) => string;

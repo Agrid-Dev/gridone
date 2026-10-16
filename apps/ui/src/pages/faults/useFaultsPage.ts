@@ -26,14 +26,6 @@ function compareRows(a: FaultRow, b: FaultRow): number {
   return Date.parse(a.last_changed) - Date.parse(b.last_changed);
 }
 
-/** Stable key for a fault — the API exposes no fault id, and a device can only
- *  hold one fault per attribute. Its past episodes share the key. */
-export function faultKey(
-  fault: Pick<FaultView, "device_id" | "attribute_name">,
-): string {
-  return `${fault.device_id}:${fault.attribute_name}`;
-}
-
 /**
  * Everything the faults page renders: rows enriched with their zone, the
  * per-severity counts behind the summary cards, and the CSV export. With

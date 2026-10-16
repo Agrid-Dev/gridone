@@ -33,7 +33,11 @@ export default function FaultHistoryPage() {
         caption={t("faults.history.caption")}
         actions={
           history.rows.length > 0 && (
-            <Button variant="outline" onClick={history.exportCsv}>
+            <Button
+              variant="outline"
+              onClick={history.exportCsv}
+              disabled={history.truncated || !!history.error}
+            >
               <Download className="h-4 w-4" />
               {t("faults.export")}
             </Button>
@@ -42,6 +46,18 @@ export default function FaultHistoryPage() {
         aside={<ViewSwitch view={history.view} onChange={history.setView} />}
       />
       <HistoryFilters history={history} />
+      {history.truncated && (
+        <p
+          role="status"
+          className="flex items-start gap-2 rounded-lg border border-status-warning/40 bg-status-warning/5 p-3 text-sm"
+        >
+          <TriangleAlert
+            className="mt-0.5 h-4 w-4 shrink-0 text-status-warning"
+            aria-hidden
+          />
+          {t("faults.history.truncated")}
+        </p>
+      )}
       <HistoryContent history={history} />
     </section>
   );
@@ -66,6 +82,14 @@ function HistoryContent({ history }: { history: FaultHistory }) {
 
   if (error) {
     return <ErrorFallback title={t("faults.history.unableToLoad")} />;
+  }
+
+  if (truncated && allRows.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        {t("faults.history.noVerifiedEpisodes")}
+      </p>
+    );
   }
 
   if (allRows.length === 0) {
@@ -94,15 +118,6 @@ function HistoryContent({ history }: { history: FaultHistory }) {
 
   return (
     <>
-      {truncated && (
-        <p
-          role="status"
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-status-warning"
-        >
-          <TriangleAlert className="h-3.5 w-3.5" aria-hidden />
-          {t("faults.history.truncated")}
-        </p>
-      )}
       {figures && (
         <HistoryFigureTiles
           figures={figures}

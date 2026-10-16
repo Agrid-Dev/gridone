@@ -1,6 +1,6 @@
 import { useState } from "react";
+import { CustomTimeRangeForm } from "./CustomTimeRangeForm";
 import { useTranslation } from "react-i18next";
-import { Button } from "@/components/ui";
 import {
   Popover,
   PopoverContent,
@@ -47,8 +47,6 @@ export function TimeRangeSegments({
 }: TimeRangeSegmentsProps) {
   const { t } = useTranslation("common");
   const [open, setOpen] = useState(false);
-  const [customStart, setCustomStart] = useState("");
-  const [customEnd, setCustomEnd] = useState("");
 
   const activePreset = timeRange.kind === "preset" ? timeRange.preset : null;
   const inSegments = SEGMENTS.some((s) => s.preset === activePreset);
@@ -56,21 +54,6 @@ export function TimeRangeSegments({
     activePreset && !inSegments
       ? rangeLabel(timeRange, t)
       : t("timeRange.segmentCustom");
-
-  const handleOpenChange = (nextOpen: boolean) => {
-    if (nextOpen && timeRange.kind === "custom") {
-      setCustomStart(timeRange.start.slice(0, 16));
-      setCustomEnd(timeRange.end.slice(0, 16));
-    }
-    setOpen(nextOpen);
-  };
-
-  const handleCustomApply = () => {
-    applyRange({ kind: "custom", start: customStart, end: customEnd });
-    setOpen(false);
-  };
-
-  const nowLocal = new Date().toISOString().slice(0, 16);
 
   return (
     <div className="inline-flex items-center rounded-md bg-muted p-1">
@@ -86,7 +69,7 @@ export function TimeRangeSegments({
         </button>
       ))}
 
-      <Popover open={open} onOpenChange={handleOpenChange}>
+      <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <button
             type="button"
@@ -97,33 +80,13 @@ export function TimeRangeSegments({
           </button>
         </PopoverTrigger>
         <PopoverContent align="end" className="w-64 space-y-2 p-3">
-          <p className="text-xs font-medium text-muted-foreground">
-            {t("timeRange.rangeCustom")}
-          </p>
-          <input
-            type="datetime-local"
-            aria-label="start"
-            className="w-full rounded-md border px-2 py-1 text-sm"
-            max={nowLocal}
-            value={customStart}
-            onChange={(e) => setCustomStart(e.target.value)}
+          <CustomTimeRangeForm
+            timeRange={timeRange}
+            onApply={(range) => {
+              applyRange(range);
+              setOpen(false);
+            }}
           />
-          <input
-            type="datetime-local"
-            aria-label="end"
-            className="w-full rounded-md border px-2 py-1 text-sm"
-            max={nowLocal}
-            value={customEnd}
-            onChange={(e) => setCustomEnd(e.target.value)}
-          />
-          <Button
-            variant="secondary"
-            size="sm"
-            className="w-full"
-            onClick={handleCustomApply}
-          >
-            {t("timeRange.rangeApply")}
-          </Button>
         </PopoverContent>
       </Popover>
     </div>

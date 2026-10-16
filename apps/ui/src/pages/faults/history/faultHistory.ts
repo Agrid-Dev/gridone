@@ -1,5 +1,5 @@
 import type { FaultEpisode } from "@gridone/sdk";
-import { faultKey } from "../useFaultsPage";
+import { faultKey } from "@/lib/faults";
 
 /** An episode as the history lists it: joined with the zone its device sits
  *  in, its bounds read once as epoch milliseconds. */
@@ -115,10 +115,8 @@ export type HistoryFigures = {
 
 export function historyFigures(
   rows: EpisodeRow[],
-  period: Period,
-  now: number,
+  summaries: AlertSummary[],
 ): HistoryFigures {
-  const summaries = summarizeByAlert(rows, period, now);
   // Summaries arrive longest in alert first and the sort is stable, so a tie
   // in frequency goes to the alert that lasted longer.
   const [mostFrequent = null] = [...summaries].sort(

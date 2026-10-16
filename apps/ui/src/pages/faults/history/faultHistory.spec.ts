@@ -165,7 +165,7 @@ describe("summarizeByAlert", () => {
 
 describe("historyFigures", () => {
   it("counts the episodes, those still on, and the time spent in alert", () => {
-    const figures = historyFigures(
+    const figures = figuresFor(
       [
         episode({ start: "2026-10-14T13:30:00Z" }),
         episode({ start: "2026-10-14T07:12:00Z", end: "2026-10-14T07:58:00Z" }),
@@ -185,7 +185,7 @@ describe("historyFigures", () => {
   });
 
   it("gives a tie in frequency to the alert that lasted longer", () => {
-    const figures = historyFigures(
+    const figures = figuresFor(
       [
         episode({
           device: "a",
@@ -215,7 +215,7 @@ describe("historyFigures", () => {
   });
 
   it("has no most frequent alert over an empty period", () => {
-    expect(historyFigures([], PERIOD, NOW)).toEqual({
+    expect(figuresFor([], PERIOD, NOW)).toEqual({
       count: 0,
       ongoing: 0,
       totalMs: 0,
@@ -223,3 +223,11 @@ describe("historyFigures", () => {
     });
   });
 });
+
+function figuresFor(
+  rows: EpisodeRow[],
+  period: { start: number; end: number },
+  now: number,
+) {
+  return historyFigures(rows, summarizeByAlert(rows, period, now));
+}

@@ -22,6 +22,7 @@ export default function ViewFormPage() {
   const { t } = useTranslation("devices");
   if (viewId && view.isLoading)
     return <p role="status">{t("presentation.loading")}</p>;
+  if (view.error) throw view.error;
   if (viewId && !view.data) return <NotFoundFallback />;
   const actions = view.data && <DeleteViewButton view={view.data} />;
   if (

@@ -3,6 +3,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { createI18nMock } from "@/test/i18nMock";
+import { ResourceBoundary } from "@/components/ResourceBoundary";
 import GroupsListPage from "./GroupsListPage";
 
 const api = vi.hoisted(() => ({ list: vi.fn(), devices: vi.fn() }));
@@ -38,7 +39,9 @@ function setup() {
       }
     >
       <MemoryRouter initialEntries={["/groups"]}>
-        <GroupsListPage />
+        <ResourceBoundary resetKeys={["/groups"]}>
+          <GroupsListPage />
+        </ResourceBoundary>
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -74,3 +77,15 @@ describe("Configuration › Groups list", () => {
     ).toHaveAttribute("href", "/groups/new");
   });
 });
+
+it.each(["list", "devices"] as const)(
+  "shows a resource error when %s fails, never an empty list",
+  async (method) => {
+    api[method].mockRejectedValue(new Error("unavailable"));
+    setup();
+    expect(await screen.findByText("errors.default")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /common:empty.create/ }),
+    ).not.toBeInTheDocument();
+  },
+);

@@ -14,7 +14,8 @@ import { useFaultLabel } from "@/hooks/useFaultLabel";
 import type { Severity } from "@/lib/severity";
 import { cn, formatDurationSince } from "@/lib/utils";
 import { SeverityLabel } from "./SeverityLabel";
-import { faultKey, type FaultRow } from "../useFaultsPage";
+import { faultKey } from "@/lib/faults";
+import type { FaultRow } from "../useFaultsPage";
 
 /** A slim rail makes every severity visible before the operator reaches the
  * severity column. Alerts also keep their stronger row wash. */

@@ -98,3 +98,10 @@ export function getAllFaultAttributes(device: Device): FaultAttribute[] {
       return a.name.localeCompare(b.name);
     });
 }
+
+export function faultKey(fault: {
+  device_id: string;
+  attribute_name: string;
+}): string {
+  return `${fault.device_id}:${fault.attribute_name}`;
+}
