@@ -22,7 +22,7 @@ from api.dependencies import get_auth_service, get_users_service
 from models.errors import BlockedUserError
 from users import UsersService
 from users.auth import AuthService, InvalidTokenError, TokenPayload
-from users.permissions import Permission
+from users.permissions import Permission, effective
 from users.roles import Role
 
 _oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)
@@ -172,8 +172,9 @@ async def get_current_role(
 async def get_current_permissions(
     role: Role | None = Depends(get_current_role),
 ) -> frozenset[Permission]:
-    """The permissions the caller's role grants; none for a role that is gone."""
-    return frozenset(role.permissions) if role is not None else frozenset()
+    """The permissions the caller's role grants, implied ones included; none
+    for a role that is gone."""
+    return effective(role.permissions) if role is not None else frozenset()
 
 
 def require_permission(perm: Permission) -> Callable:

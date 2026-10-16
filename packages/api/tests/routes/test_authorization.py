@@ -107,7 +107,15 @@ from notifications import (
 from operating_rules import OperatingRulesService
 from synoptics import Synoptic, SynopticsServiceInterface
 from timeseries.domain import FetchPointsResult
-from users import DeviceScope, DeviceSelector, Role, RoleCreate, RoleUpdate, User
+from users import (
+    DeviceScope,
+    DeviceSelector,
+    Role,
+    RoleCreate,
+    RoleUpdate,
+    User,
+    UserUpdate,
+)
 from users.auth import AuthService
 from users.permissions import Permission
 from users.roles import BUILTIN_ROLES, find_builtin_role
@@ -633,6 +641,75 @@ def test_custom_role_permissions_gate_requests(app: FastAPI) -> None:
         assert me["role"] == "integration"
         assert "users:read" not in me["permissions"]
         assert "devices:command" in me["permissions"]
+
+
+# --- Writing implies reading: route gate, /auth/me and role assignment ---
+
+# Commands devices and manages users, but lists no read permission.
+COMMANDER_ROLE = Role(
+    id="commander",
+    name="Commander",
+    permissions=[Permission.DEVICES_COMMAND, Permission.USERS_WRITE],
+)
+DEVICE_READER_ROLE = Role(
+    id="device_reader", name="Device reader", permissions=[Permission.DEVICES_READ]
+)
+_IMPLIED_ROLES = {r.id: r for r in (COMMANDER_ROLE, DEVICE_READER_ROLE)}
+
+
+class _ImpliedUsersService(MockUsersService):
+    """The shared users, plus one holding the commander role."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._credentials["commander"] = "commander"
+        self._users["commander"] = User(
+            id="commander-id", username="commander", role=COMMANDER_ROLE.id
+        )
+
+    async def find_role(self, role_id: str) -> Role | None:
+        return _IMPLIED_ROLES.get(role_id) or await super().find_role(role_id)
+
+    async def update_user(self, user_id: str, update_data: UserUpdate) -> User:
+        user = await self.get_by_id(user_id)
+        return user.model_copy(update=update_data.model_dump(exclude_none=True))
+
+
+def test_me_lists_the_reads_a_role_implies() -> None:
+    app = _build_app()
+    app.dependency_overrides[get_users_service] = _ImpliedUsersService
+    with TestClient(app) as client:
+        token = _login(client, "commander")
+        me = client.get("/auth/me", headers=_auth_header(token)).json()
+    assert me["permissions"] == [
+        "devices:command",
+        "devices:read",
+        "users:read",
+        "users:write",
+    ]
+
+
+def test_a_command_role_passes_the_devices_read_gate() -> None:
+    app = _build_scoped_devices_app()
+    app.dependency_overrides[get_users_service] = _ImpliedUsersService
+    with TestClient(app) as client:
+        token = _login(client, "commander")
+        resp = client.get("/devices/", headers=_auth_header(token))
+    assert resp.status_code == 200, resp.text
+
+
+def test_a_role_holding_a_read_it_only_implies_can_be_assigned() -> None:
+    app = _build_app()
+    app.dependency_overrides[get_users_service] = _ImpliedUsersService
+    with TestClient(app) as client:
+        token = _login(client, "commander")
+        resp = client.patch(
+            "/users/viewer-id",
+            json={"role": DEVICE_READER_ROLE.id},
+            headers=_auth_header(token),
+        )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["role"] == DEVICE_READER_ROLE.id
 
 
 # --- Unauthenticated request is 401 ---
