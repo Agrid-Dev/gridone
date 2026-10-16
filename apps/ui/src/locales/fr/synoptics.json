@@ -51,7 +51,7 @@
     "stale": "valeur ancienne",
     "silent": "aucune valeur",
     "note": "donnée saisie, non mesurée",
-    "fault": "Défaut",
+    "fault": "Alerte",
     "led": {
       "on": "en marche",
       "off": "à l'arrêt",
@@ -75,7 +75,7 @@
   },
   "slots": {
     "state": "État",
-    "fault": "Défaut",
+    "fault": "Alerte",
     "supply_temp": "T° départ",
     "power": "Puissance",
     "temperature": "Température",
@@ -102,10 +102,10 @@
     "loop_heater": "réchauffeur de boucle"
   },
   "faults": {
-    "title": "Défauts sur cette vue",
-    "none": "Aucun défaut actif sur les appareils de cette vue.",
-    "count_one": "{{count}} défaut",
-    "count_other": "{{count}} défauts"
+    "title": "Alertes sur cette vue",
+    "none": "Aucune alerte active sur les appareils de cette vue.",
+    "count_one": "{{count}} alerte",
+    "count_other": "{{count}} alertes"
   },
   "editor": {
     "new": "Nouveau synoptique",

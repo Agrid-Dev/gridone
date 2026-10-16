@@ -116,7 +116,7 @@
     "editable": "Editable",
     "driver": "Driver",
     "device": "Device",
-    "fault": "Fault",
+    "fault": "Alert",
     "notification": "notification",
     "transport": "Network",
     "type": "Type",
@@ -174,13 +174,13 @@
       "days_other": "{{count}} days"
     },
     "severity": {
-      "alert": "alert",
+      "alert": "critical",
       "warning": "warning",
       "info": "info"
     },
     "severityCount": {
-      "alert_one": "{{count}} alert",
-      "alert_other": "{{count}} alerts",
+      "alert_one": "{{count}} critical alert",
+      "alert_other": "{{count}} critical alerts",
       "warning_one": "{{count}} warning",
       "warning_other": "{{count}} warnings",
       "info_one": "{{count}} info",
@@ -266,7 +266,7 @@
     "networks": "Networks",
     "apps": "Apps",
     "automations": "Automations",
-    "faults": "Faults",
+    "faults": "Alerts",
     "users": "Users",
     "building": "Building",
     "groups": "Groups",
@@ -293,8 +293,8 @@
       "floors_one": "{{count}} floor",
       "floors_other": "{{count}} floors"
     },
-    "faultsBadge_one": "{{count}} active fault",
-    "faultsBadge_other": "{{count}} active faults",
+    "faultsBadge_one": "{{count}} active alert",
+    "faultsBadge_other": "{{count}} active alerts",
     "devicesBadge_one": "{{count}} device",
     "devicesBadge_other": "{{count}} devices",
     "appRequestsBadge_one": "{{count}} pending registration request",
@@ -304,8 +304,8 @@
     "notifications": "Notifications",
     "search": {
       "label": "Global search",
-      "placeholder": "Search a device, a zone, a fault…",
-      "description": "Search and open a device, a zone or a fault.",
+      "placeholder": "Search a device, a zone, an alert…",
+      "description": "Search and open a device, a zone or an alert.",
       "moreDevices_one": "{{count}} more matching device. Refine your search to see it.",
       "moreDevices_other": "{{count}} more matching devices. Refine your search to see them.",
       "showingDevices": "Showing {{shown}} of {{total}} devices",
@@ -314,7 +314,7 @@
       "groups": {
         "devices": "Devices",
         "zones": "Zones",
-        "faults": "Faults"
+        "faults": "Alerts"
       },
       "action": "Search"
     },
@@ -350,7 +350,7 @@
       "devices": "Back to devices",
       "operating-rules": "Back to device operating rules",
       "assets": "Back to zones",
-      "faults": "Back to faults",
+      "faults": "Back to alerts",
       "commands": "Back to commands",
       "transports": "Back to networks",
       "drivers": "Back to drivers",

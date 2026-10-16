@@ -48,12 +48,12 @@
     },
     "saving": "Saving...",
     "health": {
-      "healthy": "No fault",
-      "faulty": "Faulty"
+      "healthy": "No alert",
+      "faulty": "In alert"
     },
     "filters": {
       "type": "Type",
-      "health": "Faults",
+      "health": "Alerts",
       "search": "Filter…",
       "empty": "No results",
       "clear": "Clear selection",
@@ -77,8 +77,8 @@
       "running_other": "{{count}} running",
       "stopped_one": "{{count}} stopped",
       "stopped_other": "{{count}} stopped",
-      "faulty_one": "{{count}} faulty",
-      "faulty_other": "{{count}} faulty"
+      "faulty_one": "{{count}} in alert",
+      "faulty_other": "{{count}} in alert"
     },
     "card": {
       "lead": {
@@ -129,16 +129,16 @@
       "config": "Configuration"
     },
     "activeFaults": {
-      "title": "Active faults",
-      "empty": "No active faults",
-      "badge_one": "{{count}} fault",
-      "badge_other": "{{count}} faults",
+      "title": "Active alerts",
+      "empty": "No active alerts",
+      "badge_one": "{{count}} alert",
+      "badge_other": "{{count}} alerts",
       "expand": "Show details",
       "collapse": "Hide details"
     },
     "panes": {
       "standard": "Attributes",
-      "faults": "Faults",
+      "faults": "Alerts",
       "internal": "Internal"
     },
     "attributeDetails": {

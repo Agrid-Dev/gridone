@@ -40,7 +40,7 @@ export function DeviceGroupHeading({
 }
 
 /**
- * "6 en marche · 1 à l'arrêt · 1 déconnecté · 1 en défaut" — the states of a
+ * "6 en marche · 1 à l'arrêt · 1 déconnecté · 1 en alerte" — the states of a
  * type group's cards, beside its heading. Zero counts are left out, and so is
  * the whole line for a single device, whose card says it all; disconnected
  * and faulty counts take their status colour. On a narrow screen the line

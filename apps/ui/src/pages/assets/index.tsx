@@ -34,10 +34,11 @@ const Assets: FC = () => {
               </RequirePermission>
             }
           />
+          {/* The command page and the API both require devices:command. */}
           <Route
             path=":assetId/commands/new"
             element={
-              <RequirePermission permission="devices:write">
+              <RequirePermission permission="devices:command">
                 <Suspense>
                   <NewCommandPage />
                 </Suspense>

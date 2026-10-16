@@ -1,15 +1,15 @@
 {
   "faults": {
-    "title": "Active faults",
+    "title": "Active alerts",
     "caption": "Active issues across your fleet — investigate and resolve.",
-    "emptyTitle": "No active faults across your fleet.",
+    "emptyTitle": "No active alerts across your fleet.",
     "emptyDescription": "All devices are reporting healthy attributes.",
-    "unableToLoad": "Unable to load faults",
+    "unableToLoad": "Unable to load alerts",
     "export": "Export",
-    "exportFilenameStem": "active-faults",
+    "exportFilenameStem": "active-alerts",
     "summary": {
-      "alert_one": "Alert — immediate action",
-      "alert_other": "Alerts — immediate action",
+      "alert_one": "Critical — immediate action",
+      "alert_other": "Critical — immediate action",
       "warning_one": "Warning — keep watching",
       "warning_other": "Warnings — keep watching",
       "info_one": "Info — for information",
@@ -18,12 +18,12 @@
     "columns": {
       "device": "Device",
       "zone": "Zone",
-      "fault": "Fault",
+      "fault": "Alert",
       "severity": "Severity",
       "activeSince": "Active for",
       "since": "Since (timestamp)"
     },
-    "filteredEmpty": "No faults match this filter",
+    "filteredEmpty": "No alerts match this filter",
     "clearFilter": "Clear filter",
     "activeFilter": "Active filter"
   }

@@ -48,12 +48,12 @@
     },
     "saving": "Enregistrement...",
     "health": {
-      "healthy": "Sans défaut",
-      "faulty": "En défaut"
+      "healthy": "Sans alerte",
+      "faulty": "En alerte"
     },
     "filters": {
       "type": "Type",
-      "health": "Défauts",
+      "health": "Alertes",
       "search": "Filtrer…",
       "empty": "Aucun résultat",
       "clear": "Effacer la sélection",
@@ -77,8 +77,8 @@
       "running_other": "{{count}} en marche",
       "stopped_one": "{{count}} à l'arrêt",
       "stopped_other": "{{count}} à l'arrêt",
-      "faulty_one": "{{count}} en défaut",
-      "faulty_other": "{{count}} en défaut"
+      "faulty_one": "{{count}} en alerte",
+      "faulty_other": "{{count}} en alerte"
     },
     "card": {
       "lead": {
@@ -129,16 +129,16 @@
       "config": "Configuration"
     },
     "activeFaults": {
-      "title": "Défauts actifs",
-      "empty": "Aucun défaut actif",
-      "badge_one": "{{count}} défaut",
-      "badge_other": "{{count}} défauts",
+      "title": "Alertes actives",
+      "empty": "Aucune alerte active",
+      "badge_one": "{{count}} alerte",
+      "badge_other": "{{count}} alertes",
       "expand": "Voir le détail",
       "collapse": "Masquer le détail"
     },
     "panes": {
       "standard": "Attributs",
-      "faults": "Défauts",
+      "faults": "Alertes",
       "internal": "Interne"
     },
     "attributeDetails": {
