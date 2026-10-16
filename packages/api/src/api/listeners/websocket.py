@@ -26,6 +26,12 @@ def _readable(policy: AccessPolicy, device: CoreDevice, attribute: str) -> bool:
     )
 
 
+def _commandable(policy: AccessPolicy, device: CoreDevice, attribute: str) -> bool:
+    return policy.can_command(
+        type=device.type, driver_id=device.driver_id, attribute=attribute
+    )
+
+
 def broadcast_device_update(websocket_manager: WebSocketManager) -> DeviceListener:
     """Publish the replacement contract and presentation reference together."""
 
@@ -102,10 +108,12 @@ def broadcast_write_state(websocket_manager: WebSocketManager) -> DeviceListener
                 return None  # a device the caller cannot see at all
             return message.model_copy(
                 update={
+                    # Projected devices carry no write state where the caller
+                    # may not command: neither does the update.
                     "attributes": {
                         n: policy.project_write_state(s, readable)
                         for n, s in message.attributes.items()
-                        if n in readable
+                        if _commandable(policy, device, n)
                     },
                     "resolutions": {
                         n: r for n, r in message.resolutions.items() if n in readable

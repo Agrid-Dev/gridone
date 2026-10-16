@@ -6,6 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from api import selection_commands
+from api.access import UNRESTRICTED, AccessPolicy, ScopedDeviceReads
 from api.schemas.command import DevicesFilterBody
 from api.selection_commands import (
     SelectionCommandConfirm,
@@ -22,8 +23,10 @@ from devices_manager.types import TransportProtocols
 from models.attribute_metadata import LocalizedText
 from models.errors import InvalidError, NotFoundError
 from models.resource_conflict import ResourceConflictError
+from models.targets import AttributeTarget, DevicesFilter
 from models.types import DataType
-from models.write_rules import WriteReason
+from models.write_rules import AttributeWriteState, WriteReason
+from users.roles import DeviceScope, DeviceSelector
 
 pytestmark = pytest.mark.asyncio
 
@@ -91,6 +94,10 @@ def context():
     return SelectionCommands(dm, commands), dm, commands, devices
 
 
+def everything(coordinator: SelectionCommands) -> ScopedDeviceReads:
+    return ScopedDeviceReads(coordinator.dm, UNRESTRICTED)
+
+
 def prepare(coordinator, **kwargs: Any):
     return coordinator.prepare(
         SelectionCommandPrepare(
@@ -100,6 +107,7 @@ def prepare(coordinator, **kwargs: Any):
             **kwargs,
         ),
         "operator",
+        everything(coordinator),
     )
 
 
@@ -124,7 +132,8 @@ async def test_confirmation_freezes_ids_and_is_idempotent_under_double_click(con
     devices.append(devices[0].model_copy(update={"id": "c"}))
     body = SelectionCommandConfirm(token=preview.token, device_ids=["a", "a"])
     first, second = await asyncio.gather(
-        coordinator.confirm(body, "operator"), coordinator.confirm(body, "operator")
+        coordinator.confirm(body, "operator", everything(coordinator)),
+        coordinator.confirm(body, "operator", everything(coordinator)),
     )
     assert first == second
     commands.dispatch_batch.assert_awaited_once()
@@ -160,7 +169,9 @@ async def test_changed_recipient_requires_new_preview(context, change):
         )
     with pytest.raises(ResourceConflictError, match="preview"):
         await coordinator.confirm(
-            SelectionCommandConfirm(token=preview.token, device_ids=["a"]), "operator"
+            SelectionCommandConfirm(token=preview.token, device_ids=["a"]),
+            "operator",
+            everything(coordinator),
         )
     commands.dispatch_batch.assert_not_awaited()
 
@@ -170,7 +181,9 @@ async def test_preview_is_bound_to_user(context):
     preview = prepare(coordinator)
     with pytest.raises(NotFoundError):
         await coordinator.confirm(
-            SelectionCommandConfirm(token=preview.token, device_ids=["a"]), "other"
+            SelectionCommandConfirm(token=preview.token, device_ids=["a"]),
+            "other",
+            everything(coordinator),
         )
     commands.dispatch_batch.assert_not_awaited()
 
@@ -180,7 +193,9 @@ async def test_unpreviewed_recipient_is_refused(context):
     preview = prepare(coordinator, device_ids=["a"])
     with pytest.raises(InvalidError):
         await coordinator.confirm(
-            SelectionCommandConfirm(token=preview.token, device_ids=["b"]), "operator"
+            SelectionCommandConfirm(token=preview.token, device_ids=["b"]),
+            "operator",
+            everything(coordinator),
         )
     commands.dispatch_batch.assert_not_awaited()
 
@@ -196,7 +211,9 @@ async def test_expired_preview_cannot_dispatch(context, monkeypatch):
     monkeypatch.setattr(selection_commands, "PREVIEW_TTL_SECONDS", -1)
     with pytest.raises(ResourceConflictError):
         await coordinator.confirm(
-            SelectionCommandConfirm(token=preview.token, device_ids=["a"]), "operator"
+            SelectionCommandConfirm(token=preview.token, device_ids=["a"]),
+            "operator",
+            everything(coordinator),
         )
     commands.dispatch_batch.assert_not_awaited()
 
@@ -207,9 +224,9 @@ async def test_failed_dispatch_is_never_repeated_with_same_token(context):
     commands.dispatch_batch.side_effect = RuntimeError("failed")
     body = SelectionCommandConfirm(token=preview.token, device_ids=["a"])
     with pytest.raises(RuntimeError):
-        await coordinator.confirm(body, "operator")
+        await coordinator.confirm(body, "operator", everything(coordinator))
     with pytest.raises(ResourceConflictError):
-        await coordinator.confirm(body, "operator")
+        await coordinator.confirm(body, "operator", everything(coordinator))
     commands.dispatch_batch.assert_awaited_once()
 
 
@@ -220,7 +237,9 @@ async def test_preview_cache_is_bounded(context, monkeypatch):
     prepare(coordinator)
     with pytest.raises(ResourceConflictError):
         await coordinator.confirm(
-            SelectionCommandConfirm(token=first.token, device_ids=["a"]), "operator"
+            SelectionCommandConfirm(token=first.token, device_ids=["a"]),
+            "operator",
+            everything(coordinator),
         )
 
 
@@ -240,7 +259,9 @@ async def test_snapshot_is_detached_from_returned_preview(context):
     assert preview.target.tags is not None
     preview.target.tags.clear()
     await coordinator.confirm(
-        SelectionCommandConfirm(token=preview.token, device_ids=["a"]), "operator"
+        SelectionCommandConfirm(token=preview.token, device_ids=["a"]),
+        "operator",
+        everything(coordinator),
     )
     assert commands.dispatch_batch.call_args.kwargs["write"].value == 25
 
@@ -254,11 +275,14 @@ async def test_driver_binding_is_frozen_even_without_driver_filter(context):
             value=25,
         ),
         "operator",
+        everything(coordinator),
     )
     devices[0].driver_id = "other"
     with pytest.raises(ResourceConflictError):
         await coordinator.confirm(
-            SelectionCommandConfirm(token=preview.token, device_ids=["a"]), "operator"
+            SelectionCommandConfirm(token=preview.token, device_ids=["a"]),
+            "operator",
+            everything(coordinator),
         )
     commands.dispatch_batch.assert_not_awaited()
 
@@ -284,7 +308,9 @@ async def test_changed_write_destination_or_contract_requires_new_preview(
         devices[0].transport_id = "other-transport"
     with pytest.raises(ResourceConflictError):
         await coordinator.confirm(
-            SelectionCommandConfirm(token=preview.token, device_ids=["a"]), "operator"
+            SelectionCommandConfirm(token=preview.token, device_ids=["a"]),
+            "operator",
+            everything(coordinator),
         )
     commands.dispatch_batch.assert_not_awaited()
 
@@ -298,7 +324,9 @@ async def test_display_and_live_value_changes_preserve_preview(context):
     dm.get_driver.return_value.model = "Renamed driver"
     dm.get_driver.return_value.attributes[0].label = {"en": "New label"}
     await coordinator.confirm(
-        SelectionCommandConfirm(token=preview.token, device_ids=["a"]), "operator"
+        SelectionCommandConfirm(token=preview.token, device_ids=["a"]),
+        "operator",
+        everything(coordinator),
     )
     commands.dispatch_batch.assert_awaited_once()
 
@@ -317,7 +345,9 @@ async def test_changed_warning_requires_a_new_preview(context):
     )
     with pytest.raises(ResourceConflictError):
         await coordinator.confirm(
-            SelectionCommandConfirm(token=preview.token, device_ids=["a"]), "operator"
+            SelectionCommandConfirm(token=preview.token, device_ids=["a"]),
+            "operator",
+            everything(coordinator),
         )
     commands.dispatch_batch.assert_not_awaited()
 
@@ -350,6 +380,7 @@ async def test_confirmed_group_records_the_presented_context_per_target(context)
             confirmation_language="fr-CA",
         ),
         "operator",
+        everything(coordinator),
     )
     contexts = commands.dispatch_batch.call_args.kwargs["ui_confirmations"]
     assert contexts["a"].message == message.resolve("fr")
@@ -364,7 +395,9 @@ async def test_non_ui_confirmation_never_invents_context(context):
     add_confirmation(dm)
     preview = prepare(coordinator)
     await coordinator.confirm(
-        SelectionCommandConfirm(token=preview.token, device_ids=["a"]), "operator"
+        SelectionCommandConfirm(token=preview.token, device_ids=["a"]),
+        "operator",
+        everything(coordinator),
     )
     assert "ui_confirmations" not in commands.dispatch_batch.call_args.kwargs
 
@@ -420,3 +453,114 @@ async def test_unit_consent_is_consumed_once_and_keeps_old_value(context):
         coordinator.consume_unit_confirmation(
             preview.token, "operator", "a", "setpoint", 25, "en"
         )
+
+
+def _commands_nothing(coordinator: SelectionCommands) -> ScopedDeviceReads:
+    """Reads every device, may command none of their setpoints."""
+    return ScopedDeviceReads(
+        coordinator.dm, AccessPolicy(None, [DeviceScope(attributes=["other"])])
+    )
+
+
+async def test_preview_lists_only_the_devices_the_caller_may_command(context):
+    coordinator, *_ = context
+
+    preview = coordinator.prepare(
+        SelectionCommandPrepare(
+            target=DevicesFilterBody(tags={"loop": ["east"]}),
+            attribute="setpoint",
+            value=25,
+        ),
+        "operator",
+        _commands_nothing(coordinator),
+    )
+
+    # Members are the devices of the caller's view it may command.
+    assert preview.members == []
+
+
+async def test_confirmation_rechecks_what_the_caller_may_command(context):
+    coordinator, _, commands, _ = context
+    preview = prepare(coordinator)
+
+    with pytest.raises(InvalidError, match="writable"):
+        await coordinator.confirm(
+            SelectionCommandConfirm(token=preview.token, device_ids=["a"]),
+            "operator",
+            _commands_nothing(coordinator),
+        )
+    commands.dispatch_batch.assert_not_awaited()
+
+
+async def test_confirmation_dispatches_through_the_callers_view(context):
+    coordinator, _, commands, _ = context
+    preview = prepare(coordinator)
+    reads = everything(coordinator)
+    await coordinator.confirm(
+        SelectionCommandConfirm(token=preview.token, device_ids=["a"]),
+        "operator",
+        reads,
+    )
+    resolver = commands.dispatch_batch.call_args.kwargs["target_resolver"]
+    reads.list_devices = MagicMock(wraps=reads.list_devices)
+
+    await resolver.resolve(
+        AttributeTarget(devices=DevicesFilter(ids=["a"]), attribute="setpoint"),
+        writable=True,
+    )
+
+    # The recipients come from the caller's view, not from every device.
+    reads.list_devices.assert_called_once_with(ids=["a"])
+
+
+async def test_confirmation_is_refused_when_a_member_is_no_longer_commandable(context):
+    coordinator, _, commands, devices = context
+    preview = prepare(coordinator)
+    # The role now commands thermostats only, and only "a" is one.
+    devices[0].type = "thermostat"
+    thermostats_only = ScopedDeviceReads(
+        coordinator.dm,
+        AccessPolicy(None, [DeviceScope(devices=DeviceSelector(types=["thermostat"]))]),
+    )
+
+    with pytest.raises(ResourceConflictError):
+        await coordinator.confirm(
+            SelectionCommandConfirm(token=preview.token, device_ids=["a", "b"]),
+            "operator",
+            thermostats_only,
+        )
+    commands.dispatch_batch.assert_not_awaited()
+
+
+async def test_preview_rows_hide_the_names_the_caller_cannot_read(context):
+    coordinator, dm, _, _ = context
+    dm.preview_device_write.side_effect = lambda id_, *_args: DeviceWritePreview(
+        device_id=id_,
+        name=id_,
+        current_value=20,
+        eligible=False,
+        write_state=AttributeWriteState(
+            status="unknown",
+            missing_dependencies=True,
+            missing_attributes=["setpoint", "secret"],
+        ),
+    )
+    setpoints_only = ScopedDeviceReads(
+        coordinator.dm, AccessPolicy([DeviceScope(attributes=["setpoint"])])
+    )
+
+    preview = coordinator.prepare(
+        SelectionCommandPrepare(
+            target=DevicesFilterBody(tags={"loop": ["east"]}),
+            attribute="setpoint",
+            value=25,
+        ),
+        "operator",
+        setpoints_only,
+    )
+
+    states = [row.write_state for row in preview.members]
+    assert [s.missing_attributes for s in states if s is not None] == [
+        ["setpoint"],
+        ["setpoint"],
+    ]

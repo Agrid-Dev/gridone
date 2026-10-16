@@ -73,7 +73,7 @@ async def _require_readable_series(
     Only for a scoped caller; an unrestricted export keeps reaching series
     whose device is gone, as it always has.
     """
-    if reads.is_unrestricted:
+    if reads.reads_everything:
         return
     for series_id in series_ids:
         series = await ts.get_series(series_id)
@@ -134,7 +134,7 @@ async def list_device_timeseries(
 ) -> list[TimeSeriesResponse]:
     device = reads.get_device(device_id)
     results = await ts.list_series(owner_id=device_id, metric=metric)
-    if not reads.is_unrestricted:
+    if not reads.reads_everything:
         results = [s for s in results if s.metric in device.attributes]
     return [TimeSeriesResponse(**s.__dict__) for s in results]
 

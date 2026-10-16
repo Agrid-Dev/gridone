@@ -7,10 +7,13 @@ import pytest
 
 from api.access import UNRESTRICTED, AccessPolicy, ScopedDeviceReads
 from devices_manager import Attribute, DevicesServiceInterface
+from devices_manager.core.write_preview import DeviceWritePreview
 from devices_manager.dto import FaultView
 from devices_manager.dto.device_dto import AttributeSelection, Device
-from models.errors import NotFoundError
+from models.errors import ForbiddenError, NotFoundError
+from models.targets import DevicesFilter
 from models.types import DataType, Severity
+from models.write_rules import AttributeWriteState
 from users.permissions import Permission
 from users.roles import DeviceScope, DeviceSelector, Role
 
@@ -195,3 +198,110 @@ class TestListFaults:
         dm.list_active_faults.assert_called_once_with(
             severity=Severity.ALERT, device_id="room"
         )
+
+
+# Reads every device; commands nothing but the thermostat's temperature.
+TEMPERATURE_COMMANDER = AccessPolicy(
+    None,
+    [
+        DeviceScope(
+            devices=DeviceSelector(types=["thermostat"]), attributes=["temperature"]
+        )
+    ],
+)
+
+
+class TestRequireCommand:
+    def test_a_granted_attribute_returns_the_device(self, dm):
+        device = ScopedDeviceReads(dm, TEMPERATURE_COMMANDER).require_command(
+            "thermo", "temperature"
+        )
+
+        assert device.id == "thermo"
+
+    def test_a_readable_attribute_it_may_not_command_is_forbidden(self, dm):
+        with pytest.raises(ForbiddenError, match="mode"):
+            ScopedDeviceReads(dm, TEMPERATURE_COMMANDER).require_command(
+                "thermo", "mode"
+            )
+
+    def test_a_hidden_attribute_stays_not_found(self, dm):
+        with pytest.raises(NotFoundError, match="mode"):
+            ScopedDeviceReads(dm, TEMPERATURES_ONLY).require_command("thermo", "mode")
+
+    def test_a_hidden_device_stays_not_found(self, dm):
+        with pytest.raises(NotFoundError, match="room"):
+            ScopedDeviceReads(dm, THERMOSTATS_ONLY).require_command("room", "humidity")
+
+    def test_an_unknown_attribute_is_left_to_the_write_path(self, dm):
+        # Unrestricted or not, an attribute the device lacks keeps today's
+        # answer: the resolver's "not exposed" (422), not a 403.
+        for policy in (UNRESTRICTED, TEMPERATURE_COMMANDER):
+            device = ScopedDeviceReads(dm, policy).require_command("thermo", "ghost")
+            assert device.id == "thermo"
+
+
+MODE_COMMANDER = AccessPolicy(None, [DeviceScope(attributes=["mode"])])
+
+
+class TestRequireCommandable:
+    def test_a_target_reaching_a_device_it_may_not_command_is_forbidden(self, dm):
+        with pytest.raises(ForbiddenError, match="mode"):
+            ScopedDeviceReads(dm, TEMPERATURE_COMMANDER).require_commandable(
+                DevicesFilter(), "mode"
+            )
+
+    def test_a_target_it_may_command_everywhere_passes(self, dm):
+        ScopedDeviceReads(dm, MODE_COMMANDER).require_commandable(
+            DevicesFilter(), "mode"
+        )
+
+    def test_an_attribute_no_driver_writes_is_no_reach(self, dm):
+        # A read-only attribute is never dispatched to: nothing to bound.
+        ScopedDeviceReads(dm, TEMPERATURE_COMMANDER).require_commandable(
+            DevicesFilter(), "humidity"
+        )
+
+    def test_unrestricted_is_not_checked(self, dm):
+        ScopedDeviceReads(dm, UNRESTRICTED).require_commandable(DevicesFilter(), "mode")
+        dm.list_devices.assert_not_called()
+
+
+def test_a_writable_filter_is_rechecked_after_projection(dm):
+    # The service matched ``mode`` as writable; this caller may not command it.
+    reads = ScopedDeviceReads(dm, TEMPERATURE_COMMANDER)
+
+    assert reads.list_devices(writable_attribute="mode") == []
+    assert [
+        d.id
+        for d in ScopedDeviceReads(dm, MODE_COMMANDER).list_devices(
+            writable_attribute="mode"
+        )
+    ] == ["thermo"]
+
+
+class TestProjectPreview:
+    PREVIEW = DeviceWritePreview(
+        device_id="thermo",
+        name="Thermostat",
+        current_value=None,
+        eligible=False,
+        write_state=AttributeWriteState(
+            status="unknown",
+            missing_dependencies=True,
+            missing_attributes=["temperature", "mode"],
+        ),
+    )
+
+    def test_hides_the_names_the_caller_cannot_read(self, dm):
+        projected = ScopedDeviceReads(dm, TEMPERATURES_ONLY).project_preview(
+            self.PREVIEW
+        )
+
+        assert projected.write_state is not None
+        assert projected.write_state.missing_attributes == ["temperature"]
+
+    def test_a_caller_reading_everything_gets_it_as_is(self, dm):
+        reads = ScopedDeviceReads(dm, TEMPERATURE_COMMANDER)
+
+        assert reads.project_preview(self.PREVIEW) is self.PREVIEW

@@ -6,6 +6,7 @@ from api.access import UNRESTRICTED, AccessPolicy
 from devices_manager import Attribute
 from devices_manager.dto.device_dto import Device
 from models.types import DataType
+from models.write_rules import AttributeWriteState
 from users.permissions import Permission
 from users.roles import DeviceScope, DeviceSelector, Role
 
@@ -173,3 +174,155 @@ def test_missing_dependencies_do_not_disclose_restricted_attribute_names():
         "temperature",
         "private_lock",
     ]
+
+
+def _commander(
+    command: list[DeviceScope] | None,
+    read: list[DeviceScope] | None = None,
+    *,
+    holds_read: bool = True,
+) -> Role:
+    scopes = {Permission.DEVICES_COMMAND: command} if command is not None else {}
+    if read is not None:
+        scopes[Permission.DEVICES_READ] = read
+    permissions = [Permission.DEVICES_COMMAND]
+    if holds_read:
+        permissions.append(Permission.DEVICES_READ)
+    return Role(id="c", name="c", permissions=permissions, scopes=scopes)
+
+
+SETPOINT = [_scope(types=["thermostat"], attributes=["temperature_setpoint"])]
+
+
+@pytest.mark.parametrize(
+    ("role", "attribute", "readable", "commandable"),
+    [
+        pytest.param(_commander(None), "onoff_state", True, True, id="unscoped"),
+        pytest.param(
+            _commander(SETPOINT), "temperature_setpoint", True, True, id="granted"
+        ),
+        pytest.param(
+            _commander(SETPOINT), "onoff_state", True, False, id="read-not-command"
+        ),
+        # Commanding implies reading: the read scope does not list the setpoint.
+        pytest.param(
+            _commander(SETPOINT, [_scope(attributes=["temperature"])]),
+            "temperature_setpoint",
+            True,
+            True,
+            id="read-union",
+        ),
+        pytest.param(
+            _commander(SETPOINT, [_scope(attributes=["temperature"])]),
+            "onoff_state",
+            False,
+            False,
+            id="neither",
+        ),
+        pytest.param(
+            _commander(SETPOINT, holds_read=False),
+            "temperature_setpoint",
+            True,
+            True,
+            id="no-devices-read-reads-the-commanded",
+        ),
+        pytest.param(
+            _commander(SETPOINT, holds_read=False),
+            "temperature",
+            False,
+            False,
+            id="no-devices-read-reads-nothing-else",
+        ),
+        pytest.param(
+            _commander(None, holds_read=False),
+            "lockout",
+            True,
+            True,
+            id="no-devices-read-unscoped-command-reads-all",
+        ),
+        # A hidden attribute cannot be commanded, whatever devices:command says.
+        pytest.param(
+            _commander(None, [_scope(attributes=["temperature"])]),
+            "onoff_state",
+            False,
+            False,
+            id="hidden-not-commandable",
+        ),
+    ],
+)
+def test_can_command(role, attribute, readable, commandable):
+    policy = AccessPolicy.from_role(role)
+
+    assert policy.can_read(**THERMOSTAT, attribute=attribute) is readable
+    assert policy.can_command(**THERMOSTAT, attribute=attribute) is commandable
+
+
+def test_a_scoped_command_alone_restricts_the_policy():
+    policy = AccessPolicy.from_role(_commander(SETPOINT))
+
+    assert policy.is_unrestricted is False
+    assert policy.reads_everything is True
+
+
+def test_a_role_holding_neither_device_permission_stays_unrestricted():
+    role = Role(id="t", name="t", permissions=[Permission.TIMESERIES_READ])
+
+    assert AccessPolicy.from_role(role) is UNRESTRICTED
+
+
+SETPOINT_ATTRIBUTE = Attribute.create(
+    "temperature_setpoint", DataType.FLOAT, {"read", "write"}
+)
+ONOFF = Attribute.create("onoff_state", DataType.BOOL, {"read", "write"})
+
+
+class TestProjectCommands:
+    def _project(self, role: Role) -> Device:
+        ready = AttributeWriteState(status="ready")
+        device = _device(
+            temperature=TEMPERATURE,
+            temperature_setpoint=SETPOINT_ATTRIBUTE.model_copy(
+                update={"write_state": ready}
+            ),
+            onoff_state=ONOFF.model_copy(update={"write_state": ready}),
+        )
+        projected = AccessPolicy.from_role(role).project_device(device)
+        assert projected is not None
+        return projected
+
+    def test_a_readable_attribute_it_may_not_command_is_read_only(self):
+        projected = self._project(_commander(SETPOINT))
+
+        # "loses write in read_write_modes", like a driver without a write.
+        assert projected.attributes["onoff_state"].read_write_modes == {"read"}
+        assert projected.attributes["onoff_state"].write_state is None
+        assert projected.attributes["temperature_setpoint"].read_write_modes == {
+            "read",
+            "write",
+        }
+        assert projected.attributes["temperature_setpoint"].write_state is not None
+        assert set(projected.attributes) == {
+            "temperature",
+            "temperature_setpoint",
+            "onoff_state",
+        }
+
+    def test_a_command_scope_never_makes_an_attribute_writable(self):
+        projected = self._project(
+            _commander([_scope(attributes=["temperature", "temperature_setpoint"])])
+        )
+
+        assert projected.attributes["temperature"].read_write_modes == {"read"}
+
+    def test_without_devices_read_only_the_commanded_attributes_are_served(self):
+        projected = self._project(_commander(SETPOINT, holds_read=False))
+
+        assert list(projected.attributes) == ["temperature_setpoint"]
+
+    def test_an_unscoped_command_keeps_every_write(self):
+        projected = self._project(_commander(None, [_scope(types=["thermostat"])]))
+
+        assert projected.attributes["onoff_state"].read_write_modes == {
+            "read",
+            "write",
+        }

@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from api.access import AccessPolicy, ScopedDeviceReads
 from api.targets import (
     UNTAGGED_GROUP_LABEL,
     CompositeTargetResolver,
@@ -18,6 +19,7 @@ from devices_manager.types import DataType
 from models.attribute_metadata import LocalizedText, ValueLabel, WriteConstraints
 from models.errors import InvalidError
 from models.targets import AttributeTarget, DevicesFilter
+from users.roles import DeviceScope, DeviceSelector
 
 _NO_LABELS = DriverLabels(revision="rev")
 
@@ -134,6 +136,24 @@ class TestCompositeTargetResolver:
         )
         assert resolved.device_ids == ["t1"]
         assert resolved.excluded_device_ids == ["t2"]
+
+    @pytest.mark.asyncio
+    async def test_through_a_command_scope_the_others_are_excluded(self):
+        # "A non-commandable attribute lands in excluded_device_ids like a
+        # driver without a write address."
+        other = _THERMO_1.model_copy(update={"id": "t4", "driver_id": "other"})
+        drv_only = AccessPolicy(
+            None, [DeviceScope(devices=DeviceSelector(driver_ids=["drv"]))]
+        )
+        resolver = CompositeTargetResolver(
+            ScopedDeviceReads(_make_dm([_THERMO_1, other]), drv_only)
+        )
+        resolved = await resolver.resolve(
+            AttributeTarget(devices=DevicesFilter(), attribute="setpoint"),
+            writable=True,
+        )
+        assert resolved.device_ids == ["t1"]
+        assert resolved.excluded_device_ids == ["t4"]
 
     @pytest.mark.asyncio
     async def test_mixed_data_types_raise(self):

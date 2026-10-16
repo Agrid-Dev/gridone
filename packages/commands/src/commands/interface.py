@@ -20,7 +20,7 @@ if TYPE_CHECKING:
         WriteConsent,
     )
     from models.pagination import Page, PaginationParams
-    from models.targets import DevicesFilter
+    from models.targets import DevicesFilter, TargetResolver
 
 
 class CommandsServiceInterface(Protocol):
@@ -47,6 +47,7 @@ class CommandsServiceInterface(Protocol):
         confirm: bool = True,
         ui_confirmations: dict[str, UIConfirmationContext] | None = None,
         consents: dict[str, WriteConsent] | None = None,
+        target_resolver: TargetResolver | None = None,
     ) -> BatchCommandDispatch: ...
 
     async def dispatch_from_template(
@@ -63,6 +64,7 @@ class CommandsServiceInterface(Protocol):
         template: CommandTemplate,
         user_id: str,
         confirm: bool = True,
+        target_resolver: TargetResolver | None = None,
     ) -> BatchCommandDispatch: ...
 
     async def resolve_template_devices(

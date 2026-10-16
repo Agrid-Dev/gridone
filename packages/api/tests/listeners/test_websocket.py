@@ -215,3 +215,28 @@ class TestProjection:
         assert projected.attributes["temperature"].missing_attributes == ["temperature"]
         assert list(projected.resolutions) == ["temperature"]
         assert visible(UNRESTRICTED) is manager.broadcast.await_args.args[0]
+
+    async def test_write_state_leaves_out_what_the_role_may_not_command(self):
+        from api.listeners.websocket import broadcast_write_state
+        from models.write_rules import AttributeWriteState
+
+        device = _make_device()
+        device.write_state_revision = 1
+        setpoint, mode = _make_attribute(), _make_attribute()
+        setpoint.write_state = AttributeWriteState(status="ready")
+        mode.write_state = AttributeWriteState(status="ready")
+        device.attributes = {"temperature_setpoint": setpoint, "mode": mode}
+        manager = AsyncMock(spec=WebSocketManager)
+        pending = broadcast_write_state(manager)(device)
+        assert pending is not None
+        await pending
+        setpoint_only = AccessPolicy(
+            None, [DeviceScope(attributes=["temperature_setpoint"])]
+        )
+
+        projected = _projector(manager)(setpoint_only)
+
+        assert projected is not None
+        assert list(projected.attributes) == ["temperature_setpoint"]
+        # The value side is read data: both attributes are readable.
+        assert sorted(projected.resolutions) == ["mode", "temperature_setpoint"]

@@ -11,7 +11,8 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from api.access.dependencies import get_target_resolver
+from api.access import UNRESTRICTED, ScopedDeviceReads
+from api.access.dependencies import get_device_reads, get_target_resolver
 from api.auth import (
     get_current_permissions,
     get_current_role,
@@ -29,6 +30,7 @@ from commands import (
     CommandTemplate,
     UnitCommand,
 )
+from devices_manager import DevicesServiceInterface
 from devices_manager.types import DataType
 from models.errors import InvalidError, NotFoundError
 from models.pagination import Page, PaginationParams
@@ -62,6 +64,9 @@ def app(mock_commands_service, mock_target_resolver, admin_token_payload) -> Fas
     app.include_router(router)
     app.dependency_overrides[get_commands_service] = lambda: mock_commands_service
     app.dependency_overrides[get_target_resolver] = lambda: mock_target_resolver
+    app.dependency_overrides[get_device_reads] = lambda: ScopedDeviceReads(
+        MagicMock(spec=DevicesServiceInterface), UNRESTRICTED
+    )
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
     app.dependency_overrides[get_current_permissions] = lambda: frozenset(Permission)
     app.dependency_overrides[get_current_role] = lambda: None
@@ -448,6 +453,23 @@ class TestDispatchTemplate:
         mock_commands_service.dispatch_from_template.assert_not_awaited()
 
     @pytest.mark.asyncio
+    async def test_resolves_recipients_through_the_callers_view(
+        self,
+        async_client: AsyncClient,
+        mock_commands_service: AsyncMock,
+        mock_target_resolver: AsyncMock,
+    ):
+        # A template someone else saved runs as the caller's own write.
+        mock_commands_service.dispatch_template.return_value = _batch(
+            "abc1234567890def", ["t1"]
+        )
+        async with async_client as ac:
+            await ac.post("/commands/templates/abc1234567890def/dispatch")
+
+        kwargs = mock_commands_service.dispatch_template.call_args.kwargs
+        assert kwargs["target_resolver"] is mock_target_resolver
+
+    @pytest.mark.asyncio
     async def test_tag_target_requires_preview(
         self,
         async_client: AsyncClient,
@@ -532,6 +554,8 @@ class TestScopedReads:
         )
         app.dependency_overrides[get_device_manager] = lambda: dm
         app.dependency_overrides[get_current_role] = lambda: role
+        # The real scoped reads: the role's policy is what is under test.
+        del app.dependency_overrides[get_device_reads]
         coordinator = MagicMock()
         app.dependency_overrides[get_selection_commands] = lambda: coordinator
         return app
@@ -547,6 +571,69 @@ class TestScopedReads:
                 "/t1/commands/preview", json={"attribute": "mode", "value": "auto"}
             )
         assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_a_template_reaching_beyond_the_scope_is_refused(
+        self, scoped_app: FastAPI, mock_commands_service: AsyncMock
+    ):
+        # The resolver mock finds a writable device; the stored target still
+        # reaches the thermostat's ``mode``, which this caller cannot command.
+        async with AsyncClient(
+            transport=ASGITransport(app=scoped_app), base_url="http://test"
+        ) as ac:
+            response = await ac.post(
+                "/commands/templates/",
+                json={
+                    "target": {"types": ["thermostat"]},
+                    "write": {"attribute": "mode", "value": "auto", "data_type": "str"},
+                },
+            )
+        assert response.status_code == 403
+        mock_commands_service.save_template.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_a_template_edit_reaching_beyond_the_scope_is_refused(
+        self, scoped_app: FastAPI, mock_commands_service: AsyncMock
+    ):
+        async with AsyncClient(
+            transport=ASGITransport(app=scoped_app), base_url="http://test"
+        ) as ac:
+            response = await ac.patch(
+                "/commands/templates/abc1234567890def",
+                json={
+                    "write": {"attribute": "mode", "value": "heat", "data_type": "str"}
+                },
+            )
+        assert response.status_code == 403
+        mock_commands_service.update_template.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_single_preview_hides_unreadable_names(self, scoped_app: FastAPI):
+        from api.dependencies import get_device_manager
+        from devices_manager.core.write_preview import DeviceWritePreview
+        from models.write_rules import AttributeWriteState
+
+        dm = scoped_app.dependency_overrides[get_device_manager]()
+        dm.preview_device_write.return_value = DeviceWritePreview(
+            device_id="t1",
+            name="Thermostat",
+            current_value=None,
+            eligible=False,
+            write_state=AttributeWriteState(
+                status="unknown",
+                missing_dependencies=True,
+                missing_attributes=["temperature", "mode"],
+            ),
+        )
+        async with AsyncClient(
+            transport=ASGITransport(app=scoped_app), base_url="http://test"
+        ) as ac:
+            response = await ac.post(
+                "/t1/commands/preview", json={"attribute": "temperature", "value": 20}
+            )
+        assert response.status_code == 200
+        # ``mode`` is hidden from this caller on every other read path.
+        assert response.json()["write_state"]["missing_attributes"] == ["temperature"]
 
     @pytest.mark.asyncio
     async def test_history_keeps_the_readable_rows_only(self, scoped_app: FastAPI):

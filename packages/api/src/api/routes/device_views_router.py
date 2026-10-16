@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Request, status
 
-from api.auth import require_permission
+from api.auth import require_device_read, require_permission
 from device_views import DeviceView, DeviceViewInput, DeviceViewsService
 from users.permissions import Permission
 
@@ -11,16 +11,14 @@ def get_device_views_service(request: Request) -> DeviceViewsService:
     return request.app.state.device_views_service
 
 
-@router.get("", dependencies=[Depends(require_permission(Permission.DEVICES_READ))])
+@router.get("", dependencies=[Depends(require_device_read)])
 async def list_device_views(
     service: DeviceViewsService = Depends(get_device_views_service),
 ) -> list[DeviceView]:
     return await service.list()
 
 
-@router.get(
-    "/{view_id}", dependencies=[Depends(require_permission(Permission.DEVICES_READ))]
-)
+@router.get("/{view_id}", dependencies=[Depends(require_device_read)])
 async def get_device_view(
     view_id: str, service: DeviceViewsService = Depends(get_device_views_service)
 ) -> DeviceView:

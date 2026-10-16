@@ -8,6 +8,7 @@ from time import monotonic
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from api.access import ScopedDeviceReads
 from api.schemas.command import BatchDispatchResponse, DevicesFilterBody
 from api.targets import CompositeTargetResolver, resolve_devices
 from commands import AttributeWrite, CommandsServiceInterface
@@ -71,9 +72,12 @@ class SelectionCommands:
         self._preparations: dict[str, _Preparation] = {}
 
     def prepare(
-        self, body: SelectionCommandPrepare, user_id: str
+        self, body: SelectionCommandPrepare, user_id: str, reads: ScopedDeviceReads
     ) -> SelectionCommandPreview:
-        """Take a read-only snapshot; nothing is queued or persisted as a command."""
+        """Take a read-only snapshot; nothing is queued or persisted as a command.
+
+        Members are the devices of the caller's view it may command.
+        """
         now = monotonic()
         self._preparations = {
             key: item
@@ -95,8 +99,10 @@ class SelectionCommands:
             attribute_label=attribute.label if attribute else None,
             unit=attribute.unit if attribute else None,
             members=[
-                self.dm.preview_device_write(item, body.attribute, body.value)
-                for item in self._recipient_ids(body)
+                reads.project_preview(
+                    self.dm.preview_device_write(item, body.attribute, body.value)
+                )
+                for item in self._recipient_ids(body, reads)
             ],
         )
         self._preparations[preview.token] = _Preparation(
@@ -151,16 +157,20 @@ class SelectionCommands:
         canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(canonical.encode()).hexdigest()
 
-    def _recipient_ids(self, body: SelectionCommandPrepare) -> list[str]:
+    @staticmethod
+    def _recipient_ids(
+        body: SelectionCommandPrepare, reads: ScopedDeviceReads
+    ) -> list[str]:
         target = body.target.to_devices_filter()
         return [
             device.id
-            for device in resolve_devices(self.dm, target)
-            if body.device_ids is None or device.id in body.device_ids
+            for device in resolve_devices(reads, target)
+            if (body.device_ids is None or device.id in body.device_ids)
+            and reads.can_command(device, body.attribute)
         ]
 
     async def confirm(
-        self, body: SelectionCommandConfirm, user_id: str
+        self, body: SelectionCommandConfirm, user_id: str, reads: ScopedDeviceReads
     ) -> BatchDispatchResponse:
         """Validate and dispatch the snapshot once, under the devices mutation lock.
 
@@ -198,16 +208,21 @@ class SelectionCommands:
                 selected,
                 acknowledge_unknown=body.acknowledge_unknown_operating_rules,
             )
-            resolved = await CompositeTargetResolver(self.dm).resolve(
-                AttributeTarget(
-                    devices=DevicesFilter(ids=selected),
-                    attribute=item.preview.attribute,
-                ),
+            target = DevicesFilter(ids=selected)
+            resolver = CompositeTargetResolver(reads)
+            resolved = await resolver.resolve(
+                AttributeTarget(devices=target, attribute=item.preview.attribute),
                 writable=True,
             )
             item.consumed = True
+            if resolved.excluded_device_ids:
+                # A member the caller may no longer command: re-preview.
+                raise ResourceConflictError(
+                    ResourceConflictCode.COMMAND_PREVIEW_CHANGED, []
+                )
             dispatch = await self.commands.dispatch_batch(
-                target=DevicesFilter(ids=selected),
+                target=target,
+                target_resolver=resolver,
                 write=AttributeWrite(
                     attribute=item.preview.attribute,
                     value=item.preview.value,
