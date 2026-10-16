@@ -92,6 +92,16 @@ class MemoryStorage:
             points = points[: limit + 1]
         return list(points)
 
+    async def fetch_points_before(
+        self, key: SeriesKey, *, before: datetime, limit: int
+    ) -> list[DataPoint]:
+        series_id = self._key_index.get(key)
+        if series_id is None:
+            return []
+        points = self._series[series_id].data_points
+        index = bisect_left(points, before, key=lambda point: point.timestamp)
+        return list(reversed(points[max(0, index - limit - 1) : index]))
+
     async def fetch_point_before(
         self,
         key: SeriesKey,

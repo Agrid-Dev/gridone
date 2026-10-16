@@ -11,6 +11,7 @@ vi.mock("react-i18next", () =>
   createI18nMock({
     "zonesByLevel.viewer.alerts.label": "{{count}} zones in alert",
     "zonesByLevel.viewer.alerts.title": "Zones in alert",
+    "zonesByLevel.viewer.alerts.critical": "Critical",
     "zonesByLevel.viewer.alerts.warnings": "Warnings",
     "zonesByLevel.viewer.alerts.faults": "{{count}} faults",
     "zonesByLevel.viewer.alerts.offModel": "{{count}} outside the model",
@@ -182,7 +183,8 @@ describe("AlertsChip", () => {
     const chip = screen.getByRole("button", { name: "1 zones in alert" });
     expect(chip).toHaveTextContent("1");
     await userEvent.click(chip);
-    expect(screen.getByText("Zones in alert")).toBeInTheDocument();
+    // The list heads its sections with the severity levels.
+    expect(screen.getByText("Critical")).toBeInTheDocument();
     expect(screen.getByText("Warnings")).toBeInTheDocument();
   });
 

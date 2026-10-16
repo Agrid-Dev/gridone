@@ -51,7 +51,7 @@
     "stale": "stale value",
     "silent": "no value",
     "note": "authored fact, not measured",
-    "fault": "Fault",
+    "fault": "Alert",
     "led": {
       "on": "running",
       "off": "stopped",
@@ -75,7 +75,7 @@
   },
   "slots": {
     "state": "State",
-    "fault": "Fault",
+    "fault": "Alert",
     "supply_temp": "Supply temp.",
     "power": "Power",
     "temperature": "Temperature",
@@ -102,10 +102,10 @@
     "loop_heater": "loop heater"
   },
   "faults": {
-    "title": "Faults on this view",
-    "none": "No active fault on the devices of this view.",
-    "count_one": "{{count}} fault",
-    "count_other": "{{count}} faults"
+    "title": "Alerts on this view",
+    "none": "No active alert on the devices of this view.",
+    "count_one": "{{count}} alert",
+    "count_other": "{{count}} alerts"
   },
   "editor": {
     "new": "New synoptic",

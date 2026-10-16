@@ -236,8 +236,9 @@ describe("zone route permissions", () => {
     );
   });
 
-  it("requires devices:write to open zone commands even for an asset writer", async () => {
-    mocks.permissions.delete("devices:write");
+  // Sending a command takes devices:command, in the API as in the command
+  // page; writing devices or zones does not grant it.
+  it("requires devices:command to open zone commands, even for a device and asset writer", async () => {
     mount("/assets/zone/commands/new");
     expect(
       await screen.findByRole("heading", { name: "Access denied" }),
@@ -245,10 +246,37 @@ describe("zone route permissions", () => {
     expectNoAssetRequests();
   });
 
-  it("allows zone commands with devices:write without requiring assets:write", async () => {
-    mocks.permissions.delete("assets:write");
+  it("opens zone commands with devices:command alone, without device or asset write", async () => {
+    mocks.permissions = new Set(["assets:read", "devices:command"]);
     mount("/assets/zone/commands/new");
     expect(await screen.findByText("Zone command form")).toBeVisible();
+  });
+
+  function zoneWithDevice() {
+    mocks.listDevices.mockResolvedValue(["d1"]);
+    mocks.devices.mockResolvedValue([
+      { id: "d1", name: "Thermostat 204", type: "thermostat" },
+    ]);
+  }
+
+  it("hides the zone command from a device writer who may not send it", async () => {
+    mocks.permissions = new Set(["assets:read", "devices:write"]);
+    zoneWithDevice();
+    mount("/assets/zone");
+    // The button waits for the zone's devices: see one before judging it.
+    await screen.findByText("Thermostat 204");
+    expect(
+      screen.queryByRole("link", { name: "Send command" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("offers the zone command to a user who may send it", async () => {
+    mocks.permissions = new Set(["assets:read", "devices:command"]);
+    zoneWithDevice();
+    mount("/assets/zone");
+    expect(
+      await screen.findByRole("link", { name: "Send command" }),
+    ).toHaveAttribute("href", "/assets/zone/commands/new");
   });
 
   it("removes cached zone content when read permission is revoked", async () => {

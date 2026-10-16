@@ -13,6 +13,8 @@ const STORAGE_KEY = "test.dashboards.period";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
+    "timeRange.start": "start",
+    "timeRange.end": "end",
     "timeRange.rangeAll": "All time",
     "timeRange.rangeCustom": "Custom range",
     "timeRange.rangeApply": "Apply",

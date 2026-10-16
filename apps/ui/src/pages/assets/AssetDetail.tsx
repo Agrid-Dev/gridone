@@ -80,6 +80,7 @@ export default function AssetDetail() {
 
   const canWriteAssets = can("assets:write");
   const canWriteDevices = can("devices:write");
+  const canCommandDevices = can("devices:command");
 
   return (
     <>
@@ -94,7 +95,7 @@ export default function AssetDetail() {
         canWriteAssets={canWriteAssets}
         canWriteDevices={canWriteDevices}
         headerActions={
-          canWriteDevices && deviceIds.length > 0 ? (
+          canCommandDevices && deviceIds.length > 0 ? (
             <Button asChild className="h-11">
               <Link to={`/assets/${asset.id}/commands/new`}>
                 <Terminal />

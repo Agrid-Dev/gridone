@@ -13,10 +13,22 @@ export const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   );
 
 /** Group heading. The sidebar's only uppercase text, so it reads as the level
- *  above every entry. Collapses its top spacing when it is the first item. */
-export function SectionLabel({ children }: { children: ReactNode }) {
+ *  above every entry. Collapses its top spacing when it is the first item;
+ *  `className` tightens it after a rule, which already sets it apart. */
+export function SectionLabel({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <p className="px-3 pb-1.5 pt-5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground first:pt-1">
+    <p
+      className={cn(
+        "px-3 pb-1.5 pt-5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground first:pt-1",
+        className,
+      )}
+    >
       {children}
     </p>
   );

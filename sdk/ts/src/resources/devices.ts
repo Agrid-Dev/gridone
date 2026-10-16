@@ -18,6 +18,7 @@ import type {
   SingleCommandPreview,
   DeviceCreate,
   DeviceUpdate,
+  FaultEpisodes,
   FaultView,
   Page,
   PresentationResponse,
@@ -42,6 +43,9 @@ export type CommandListParams = NonNullable<
 >;
 export type FaultListParams = NonNullable<
   operations["list_faults_devices_faults__get"]["parameters"]["query"]
+>;
+export type FaultEpisodeListParams = NonNullable<
+  operations["list_fault_episodes_devices_faults_episodes_get"]["parameters"]["query"]
 >;
 
 /** Empty arrays disappear from query strings, so preserve the empty selection locally. */
@@ -224,6 +228,14 @@ export class DevicesResource {
 
   listFaults(params?: FaultListParams): Promise<FaultView[]> {
     return this.request("GET", "/devices/faults/", { searchParams: params });
+  }
+
+  /** Alert episodes, finished or ongoing, that share time with a period:
+   *  the last 7 days unless `start` and `end` say otherwise. */
+  listFaultEpisodes(params?: FaultEpisodeListParams): Promise<FaultEpisodes> {
+    return this.request("GET", "/devices/faults/episodes", {
+      searchParams: params,
+    });
   }
 
   /** Standard attribute schemas for well-known device types. */

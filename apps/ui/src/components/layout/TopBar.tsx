@@ -19,10 +19,10 @@ export function TopBar({ menu }: { menu?: ReactNode }) {
 
   return (
     /* Starts at the sidebar's right edge — see the stacking note in Sidebar.
-     * Opaque `bg-sidebar` (pure white in light mode) rather than a translucent
-     * background: it makes the topbar and sidebar one continuous chrome
-     * surface, and there is nothing left to blur behind an opaque bar. */
-    <header className="fixed left-0 right-0 top-0 z-40 flex h-16 items-center justify-between gap-2 border-b border-border bg-sidebar px-4 sm:gap-4 sm:px-6 lg:left-64">
+     * Opaque `bg-card` rather than a translucent background: there is nothing
+     * left to blur behind an opaque bar. It no longer follows the sidebar,
+     * which is dark in both themes. */
+    <header className="fixed left-0 right-0 top-0 z-40 flex h-16 items-center justify-between gap-2 border-b border-border bg-card px-4 sm:gap-4 sm:px-6 lg:left-64">
       {menu}
       <div className="min-w-0 flex-1 sm:max-w-[50%]">
         <GlobalSearch />

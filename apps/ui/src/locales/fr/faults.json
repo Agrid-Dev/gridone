@@ -1,15 +1,15 @@
 {
   "faults": {
-    "title": "Défauts actifs",
-    "caption": "Problèmes actifs sur l'ensemble de votre flotte — investiguez et résolvez.",
-    "emptyTitle": "Aucun défaut actif sur votre flotte.",
+    "title": "Alertes",
+    "caption": "Les alertes en cours sur tous les appareils, les plus graves d'abord",
+    "emptyTitle": "Aucune alerte active sur votre flotte.",
     "emptyDescription": "Tous les appareils signalent des attributs sains.",
-    "unableToLoad": "Impossible de charger les défauts",
+    "unableToLoad": "Impossible de charger les alertes",
     "export": "Exporter",
-    "exportFilenameStem": "defauts-actifs",
+    "exportFilenameStem": "alertes-actives",
     "summary": {
-      "alert_one": "Alerte — action immédiate",
-      "alert_other": "Alertes — action immédiate",
+      "alert_one": "Critique — action immédiate",
+      "alert_other": "Critiques — action immédiate",
       "warning_one": "Avertissement — à surveiller",
       "warning_other": "Avertissements — à surveiller",
       "info_one": "Info — pour information",
@@ -18,13 +18,100 @@
     "columns": {
       "device": "Appareil",
       "zone": "Zone",
-      "fault": "Défaut",
+      "fault": "Alerte",
       "severity": "Gravité",
       "activeSince": "Actif depuis",
       "since": "Depuis (horodatage)"
     },
-    "filteredEmpty": "Aucun défaut pour ce filtre",
+    "filteredEmpty": "Aucune alerte pour ce filtre",
     "clearFilter": "Effacer le filtre",
-    "activeFilter": "Filtre actif"
+    "activeFilter": "Filtre actif",
+    "tabs": {
+      "label": "Alertes",
+      "live": "En cours",
+      "history": "Historique"
+    },
+    "span": {
+      "1d": "sur 24 heures",
+      "7d": "sur 7 jours",
+      "1mo": "sur 30 jours",
+      "custom": "sur la période"
+    },
+    "recurrence_one": "{{count}} fois {{span}}",
+    "recurrence_other": "{{count}} fois {{span}}",
+    "liveFooter": {
+      "alerts_one": "{{count}} alerte en cours",
+      "alerts_other": "{{count}} alertes en cours",
+      "devices_one": "sur {{count}} appareil",
+      "devices_other": "sur {{count}} appareils",
+      "seeHistory": "Voir l'historique"
+    },
+    "history": {
+      "caption": "Toutes les alertes de la période, terminées ou en cours",
+      "views": {
+        "label": "Afficher",
+        "byDay": "Chronologie",
+        "byDevice": "Par appareil"
+      },
+      "severities": {
+        "label": "Gravité",
+        "all": "Toutes"
+      },
+      "search": {
+        "label": "Rechercher une alerte",
+        "placeholder": "Appareil, zone ou alerte"
+      },
+      "figures": {
+        "count": "Alertes {{span}}",
+        "ongoing_one": "dont {{count}} encore en cours",
+        "ongoing_other": "dont {{count}} encore en cours",
+        "allEnded": "toutes terminées",
+        "duration": "Durée cumulée",
+        "durationNote": "temps passé en alerte, tous appareils",
+        "mostFrequent": "La plus fréquente",
+        "mostFrequentNote_one": "{{device}} · {{count}} fois",
+        "mostFrequentNote_other": "{{device}} · {{count}} fois"
+      },
+      "columns": {
+        "range": "Début → fin",
+        "duration": "Durée",
+        "lastTime": "Dernière fois",
+        "total": "Cumul",
+        "count": "Fois"
+      },
+      "dayCount_one": "{{count}} alerte",
+      "dayCount_other": "{{count}} alertes",
+      "today": "aujourd'hui",
+      "yesterday": "hier",
+      "ongoing": "en cours",
+      "nextDay": "{{time}} (lendemain)",
+      "since": "depuis {{duration}}",
+      "stillOn": "en cours en ce moment",
+      "deviceHistory": "Historique",
+      "deviceHistoryTitle": "L'historique de l'appareil, à ce moment-là",
+      "byDayFooter_one": "{{count}} alerte {{span}} · reconstituée depuis l'historique des appareils",
+      "byDayFooter_other": "{{count}} alertes {{span}} · reconstituées depuis l'historique des appareils",
+      "byDeviceFooter_one": "{{count}} alerte {{span}}",
+      "byDeviceFooter_other": "{{count}} alertes différentes {{span}}, les plus longues d'abord",
+      "truncated": "Historique incomplet. Seuls les épisodes vérifiés sont affichés. Les totaux, récurrences et l’export CSV sont indisponibles.",
+      "emptyTitle": "Aucune alerte sur la période",
+      "emptyDescription": "Aucun appareil n'a été en alerte sur cette période.",
+      "filteredEmpty": "Aucune alerte pour ces filtres",
+      "clearFilters": "Effacer les filtres",
+      "unableToLoad": "Impossible de charger l'historique des alertes",
+      "exportFilenameStem": "historique-alertes",
+      "csv": {
+        "start": "Début",
+        "end": "Fin",
+        "durationMinutes": "Durée (min)",
+        "lastTime": "Dernière fois",
+        "totalMinutes": "Cumul (min)",
+        "count": "Fois"
+      },
+      "noVerifiedEpisodes": "Aucun épisode n’a pu être vérifié sur cette période.",
+      "unavailable": "Indisponible",
+      "verifiedRows_one": "{{count}} ligne vérifiée",
+      "verifiedRows_other": "{{count}} lignes vérifiées"
+    }
   }
 }

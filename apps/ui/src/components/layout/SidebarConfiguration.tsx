@@ -6,7 +6,9 @@ import {
   Blocks,
   Building2,
   Files,
+  Layers,
   LayoutDashboard,
+  LayoutGrid,
   Network,
   Puzzle,
   Users,
@@ -37,6 +39,8 @@ type ConfigurationPage =
   | "drivers"
   | "networks"
   | "building"
+  | "assets"
+  | "groups"
   | "users"
   | "documents";
 
@@ -108,6 +112,24 @@ const CONFIGURATION: readonly ConfigurationEntry[] = [
     icon: Building2,
     visible: (access) => access.can("assets:write"),
   },
+  // The building's tree. Every zone page is configuration, including those
+  // supervision links to, until the devices list gets its by-zone view.
+  {
+    group: "organization",
+    to: "/assets",
+    label: "app.assets",
+    icon: LayoutGrid,
+    visible: (access) => access.can("assets:read"),
+  },
+  // Creating and editing groups; consulting and commanding one stays in
+  // supervision, under /devices/views.
+  {
+    group: "organization",
+    to: "/groups",
+    label: "app.groups",
+    icon: Layers,
+    visible: (access) => access.can("devices:write"),
+  },
   {
     group: "organization",
     to: "/users",
@@ -124,11 +146,19 @@ const CONFIGURATION: readonly ConfigurationEntry[] = [
   },
 ];
 
+/** Former addresses of configuration pages, which now redirect there: the
+ *  group forms, e.g. `/devices/views/new` and `/devices/views/a1b2/edit`.
+ *  Read as supervision, they would be remembered as the way back, and that
+ *  way back would lead straight into configuration again. */
+const FORMER_CONFIGURATION = /^\/devices\/views\/(new|[^/]+\/edit)\/?$/;
+
 /** On any configuration route the sidebar shows the configuration entries
  *  instead of supervision, whether or not this user may open that page. */
 export function isConfigurationPath(pathname: string): boolean {
-  return CONFIGURATION.some(
-    ({ to }) => pathname === to || pathname.startsWith(`${to}/`),
+  return (
+    CONFIGURATION.some(
+      ({ to }) => pathname === to || pathname.startsWith(`${to}/`),
+    ) || FORMER_CONFIGURATION.test(pathname)
   );
 }
 

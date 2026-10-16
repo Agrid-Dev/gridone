@@ -1,36 +1,24 @@
-import { useCallback } from "react";
-import type { FaultView } from "@gridone/sdk";
 import type { DriverRef } from "@/contexts/DriverLabelsContext";
-import type { FaultAttribute } from "@/lib/faults";
-import { faultLabel } from "@/lib/faultLabel";
+import { useCallback } from "react";
+import {
+  faultFields,
+  faultLabel,
+  type LabelledFault,
+  type FaultLabeller,
+} from "@/lib/faultLabel";
 import { useAttributeLabel } from "./useAttributeLabel";
 
-/** A fault as the device page holds it (the attribute, named through its
- *  device's driver) or as a fault list receives it (the `FaultView` row,
- *  which the server labels). */
-export type LabelledFault = FaultAttribute | FaultView;
+export type { FaultLabeller } from "@/lib/faultLabel";
 
-export type FaultLabeller = (
-  fault: LabelledFault,
-  device?: DriverRef,
-) => string;
-
-/** {@link faultLabel} naming the attribute the way the device page does:
- *  the driver's label when it declares one, else the standard-attribute
- *  translation, else the prettified name. */
+/** Name faults through their device's driver or the server-labelled row. */
 export function useFaultLabel(): FaultLabeller {
   const attributeLabel = useAttributeLabel();
   return useCallback(
     (fault: LabelledFault, device?: DriverRef) => {
-      const name =
-        "attribute_name" in fault ? fault.attribute_name : fault.name;
+      const fields = faultFields(fault);
       return faultLabel(
-        {
-          name,
-          data_type: fault.data_type,
-          current_value: fault.current_value,
-        },
-        attributeLabel(name, "attribute_name" in fault ? fault : device),
+        fields,
+        attributeLabel(fields.name, "attribute_name" in fault ? fault : device),
       );
     },
     [attributeLabel],

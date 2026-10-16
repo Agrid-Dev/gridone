@@ -111,6 +111,7 @@ export function useResourceNavigation() {
     "/devices": "devices",
     "/assets": "assets",
     "/faults": "faults",
+    "/faults/history": "faults",
     "/transports": "transports",
     "/drivers": "drivers",
     "/automations": "automations",

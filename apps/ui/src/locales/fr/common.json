@@ -9,7 +9,19 @@
     "rangeLastMonths_other": "{{count}} derniers mois",
     "rangeAll": "Tout l'historique",
     "rangeCustom": "Plage personnalisée",
-    "rangeApply": "Appliquer"
+    "rangeApply": "Appliquer",
+    "segment24h": "24 h",
+    "segment7d": "7 j",
+    "segment30d": "30 j",
+    "segmentCustom": "Personnalisé",
+    "start": "Début",
+    "end": "Fin",
+    "errors": {
+      "required": "Saisissez une date de début ou de fin.",
+      "invalid": "Saisissez une date et une heure locales valides.",
+      "future": "Les dates ne peuvent pas être dans le futur.",
+      "reversed": "La fin doit être postérieure au début."
+    }
   },
   "appearance": {
     "theme": "Thème",
@@ -116,7 +128,7 @@
     "editable": "Modifiable",
     "driver": "Driver",
     "device": "Appareil",
-    "fault": "Défaut",
+    "fault": "Alerte",
     "notification": "notification",
     "transport": "Réseau",
     "type": "Type",
@@ -173,14 +185,22 @@
       "days_one": "{{count}} jour",
       "days_other": "{{count}} jours"
     },
+    "compactDuration": {
+      "lessThanAMinute": "< 1 min",
+      "minutes": "{{value}} min",
+      "hours": "{{value}} h",
+      "hoursMinutes": "{{hours}} h {{minutes}}",
+      "days": "{{value}} j",
+      "daysHours": "{{days}} j {{hours}} h"
+    },
     "severity": {
-      "alert": "alerte",
+      "alert": "critique",
       "warning": "avertissement",
       "info": "info"
     },
     "severityCount": {
-      "alert_one": "{{count}} alerte",
-      "alert_other": "{{count}} alertes",
+      "alert_one": "{{count}} alerte critique",
+      "alert_other": "{{count}} alertes critiques",
       "warning_one": "{{count}} avertissement",
       "warning_other": "{{count}} avertissements",
       "info_one": "{{count}} info",
@@ -266,9 +286,10 @@
     "networks": "Réseaux",
     "apps": "Applications",
     "automations": "Automatisations",
-    "faults": "Défauts",
+    "faults": "Alertes",
     "users": "Utilisateurs",
     "building": "Bâtiment",
+    "groups": "Groupes",
     "notifications": "Notifications",
     "documents": "Documents"
   },
@@ -292,8 +313,8 @@
       "floors_one": "{{count}} étage",
       "floors_other": "{{count}} étages"
     },
-    "faultsBadge_one": "{{count}} défaut actif",
-    "faultsBadge_other": "{{count}} défauts actifs",
+    "faultsBadge_one": "{{count}} alerte active",
+    "faultsBadge_other": "{{count}} alertes actives",
     "devicesBadge_one": "{{count}} appareil",
     "devicesBadge_other": "{{count}} appareils",
     "appRequestsBadge_one": "{{count}} demande d'enregistrement en attente",
@@ -303,8 +324,8 @@
     "notifications": "Notifications",
     "search": {
       "label": "Recherche globale",
-      "placeholder": "Rechercher un appareil, une zone, un défaut…",
-      "description": "Recherchez et ouvrez un appareil, une zone ou un défaut.",
+      "placeholder": "Rechercher un appareil, une zone, une alerte…",
+      "description": "Recherchez et ouvrez un appareil, une zone ou une alerte.",
       "moreDevices_one": "{{count}} autre appareil correspondant. Affinez votre recherche pour le voir.",
       "moreDevices_other": "{{count}} autres appareils correspondants. Affinez votre recherche pour les voir.",
       "showingDevices": "{{shown}} appareils affichés sur {{total}}",
@@ -313,7 +334,7 @@
       "groups": {
         "devices": "Appareils",
         "zones": "Zones",
-        "faults": "Défauts"
+        "faults": "Alertes"
       },
       "action": "Rechercher"
     },
@@ -349,7 +370,7 @@
       "devices": "Retour aux appareils",
       "operating-rules": "Retour aux règles de l’appareil",
       "assets": "Retour aux zones",
-      "faults": "Retour aux défauts",
+      "faults": "Retour aux alertes",
       "commands": "Retour aux commandes",
       "transports": "Retour aux réseaux",
       "drivers": "Retour aux drivers",

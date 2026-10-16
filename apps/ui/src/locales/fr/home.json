@@ -51,7 +51,7 @@
       "collapsePanel": "Replier le panneau des niveaux",
       "toggleZones": "Zones du niveau {{level}}",
       "levelZones": "Zones : {{count}}",
-      "levelAlerts": "Alertes : {{count}}",
+      "levelAlerts": "Critiques : {{count}}",
       "noZones": "Aucune zone à ce niveau.",
       "resetView": "Recadrer la vue",
       "explode": "Séparer les niveaux",
@@ -67,7 +67,7 @@
       "colorMode": {
         "temperature": "Température",
         "function": "Fonction",
-        "alerts": "Défauts",
+        "alerts": "Alertes",
         "connectivity": "Connectivité"
       },
       "functionFamily": {
@@ -91,7 +91,7 @@
         "unknown": "Sans donnée"
       },
       "alertsLegend": {
-        "alert": "Alerte",
+        "alert": "Critique",
         "warning": "Avertissement",
         "none": "Normal"
       },
@@ -116,12 +116,13 @@
         "label_one": "{{count}} zone en alerte",
         "label_other": "{{count}} zones en alerte",
         "title": "Zones en alerte",
+        "critical": "Critiques",
         "warnings": "Avertissements",
-        "faults_one": "{{count}} défaut",
-        "faults_other": "{{count}} défauts",
-        "offModel_one": "{{count}} appareil en défaut hors du modèle",
-        "offModel_other": "{{count}} appareils en défaut hors du modèle",
-        "viewAll": "Ouvrir la page des défauts"
+        "faults_one": "{{count}} alerte",
+        "faults_other": "{{count}} alertes",
+        "offModel_one": "{{count}} appareil en alerte hors du modèle",
+        "offModel_other": "{{count}} appareils en alerte hors du modèle",
+        "viewAll": "Ouvrir la page des alertes"
       },
       "legendShow": "Afficher la légende",
       "legendHide": "Masquer la légende"

@@ -500,7 +500,7 @@ class TestFetchPoints:
 
 
 class TestFetchPointsTruncation:
-    async def _setup(self, service: TimeSeriesService, n: int) -> list[DataPoint]:
+    async def setup_points(self, service: TimeSeriesService, n: int) -> list[DataPoint]:
         await service.create_series(
             data_type=DataType.FLOAT,
             owner_id=KEY.owner_id,
@@ -517,7 +517,7 @@ class TestFetchPointsTruncation:
     async def test_truncated_true_when_more_points_than_limit(
         self, service: TimeSeriesService
     ):
-        pts = await self._setup(service, 5)
+        pts = await self.setup_points(service, 5)
         result = await service.fetch_points(KEY, limit=3)
         assert result.truncated is True
         assert len(result.points) == 3
@@ -526,7 +526,7 @@ class TestFetchPointsTruncation:
     async def test_truncated_false_when_fewer_points_than_limit(
         self, service: TimeSeriesService
     ):
-        await self._setup(service, 3)
+        await self.setup_points(service, 3)
         result = await service.fetch_points(KEY, limit=10)
         assert result.truncated is False
         assert result.next_start is None
@@ -542,7 +542,7 @@ class TestFetchPointsTruncation:
     async def test_cursor_pagination_no_overlap_no_gap(
         self, service: TimeSeriesService
     ):
-        pts = await self._setup(service, 5)
+        pts = await self.setup_points(service, 5)
         page1 = await service.fetch_points(KEY, limit=3)
         assert page1.truncated is True
         assert page1.next_start is not None
@@ -555,7 +555,7 @@ class TestFetchPointsTruncation:
     async def test_carry_forward_with_truncation_respects_limit(
         self, service: TimeSeriesService
     ):
-        pts = await self._setup(service, 5)
+        pts = await self.setup_points(service, 5)
         old = pts[0].timestamp - timedelta(hours=1)
         await service.upsert_points(KEY, [DataPoint(timestamp=old, value=99.0)])
 
@@ -566,3 +566,40 @@ class TestFetchPointsTruncation:
         assert result.truncated is True
         assert result.points[0].value == 99.0
         assert result.next_start == pts[2].timestamp
+
+
+class TestFetchPointsBefore:
+    async def test_descending_pages_preserve_points_and_exclude_bound(self, service):
+        points = await TestFetchPointsTruncation().setup_points(service, 5)
+        first = await service.fetch_points_before(
+            KEY, before=points[-1].timestamp, limit=2
+        )
+        assert first.truncated
+        assert first.points == [points[3], points[2]]
+        second = await service.fetch_points_before(
+            KEY, before=first.next_before, limit=2
+        )
+        assert second.points == [points[1], points[0]]
+        assert not second.truncated
+        assert second.next_before is None
+
+    async def test_missing_series_is_empty(self, service):
+        result = await service.fetch_points_before(KEY, before=datetime.now(UTC))
+        assert result.points == []
+        assert not result.truncated
+
+    @pytest.mark.parametrize("limit", [0, -1, MAX_RAW_LIMIT + 1])
+    async def test_invalid_limit(self, service, limit):
+        with pytest.raises(InvalidError, match="limit must be between"):
+            await service.fetch_points_before(
+                KEY, before=datetime.now(UTC), limit=limit
+            )
+
+    async def test_naive_bound_uses_building_timezone(self):
+        service = TimeSeriesService(default_timezone="America/Martinique")
+        await service.start()
+        points = await TestFetchPointsTruncation().setup_points(service, 5)
+        result = await service.fetch_points_before(KEY, before=datetime(2026, 1, 1))  # noqa: DTZ001
+        assert result.points == list(reversed(points))
+
+        await service.stop()

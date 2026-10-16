@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useParams, useSearchParams } from "react-router";
 import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
@@ -7,11 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Field, FieldLabel, FieldError } from "@/components/ui/field";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { NotFoundFallback } from "@/components/fallbacks/NotFound";
-import { usePermissions } from "@/contexts/AuthContext";
 import { useDeviceView } from "@/hooks/useDeviceViews";
 import { useViewForm } from "./useViewForm";
 import { GroupError } from "@/components/group-command/GroupError";
 import { GroupForm } from "./GroupForm";
+import { DeleteViewButton } from "./DeleteViewButton";
 import { groupTagValue } from "@/components/group-command/groupMembership";
 
 export default function ViewFormPage() {
@@ -19,20 +20,33 @@ export default function ViewFormPage() {
   const [params] = useSearchParams();
   const view = useDeviceView(viewId ?? "");
   const { t } = useTranslation("devices");
-  const can = usePermissions();
-  if (!can("devices:write")) return <NotFoundFallback />;
   if (viewId && view.isLoading)
     return <p role="status">{t("presentation.loading")}</p>;
+  if (view.error) throw view.error;
   if (viewId && !view.data) return <NotFoundFallback />;
+  const actions = view.data && <DeleteViewButton view={view.data} />;
   if (
     view.data
       ? groupTagValue(view.data) !== null
       : params.get("advanced") !== "1"
   )
-    return <GroupForm key={viewId ?? "new"} view={view.data} />;
-  return <ViewForm key={viewId ?? "new"} view={view.data} />;
+    return (
+      <GroupForm
+        key={viewId ?? "new"}
+        view={view.data}
+        initialIds={params.getAll("device_id")}
+        actions={actions}
+      />
+    );
+  return <ViewForm key={viewId ?? "new"} view={view.data} actions={actions} />;
 }
-function ViewForm({ view }: { view?: DeviceView }) {
+function ViewForm({
+  view,
+  actions,
+}: {
+  view?: DeviceView;
+  actions?: ReactNode;
+}) {
   const { t } = useTranslation("devices");
   const { form, submit, save, facets, drivers } = useViewForm(view);
   return (
@@ -40,6 +54,7 @@ function ViewForm({ view }: { view?: DeviceView }) {
       <ResourceHeader
         title={t(view ? "views.edit" : "views.create")}
         caption={t("views.description")}
+        actions={actions}
       />
       <form
         onSubmit={submit}
@@ -104,9 +119,7 @@ function ViewForm({ view }: { view?: DeviceView }) {
         <GroupError error={save.error || facets.error || drivers.error} />
         <div className="flex justify-end gap-3">
           <Button type="button" asChild variant="outline">
-            <Link to={view ? `/devices/views/${view.id}` : "/devices/views"}>
-              {t("groups.cancel")}
-            </Link>
+            <Link to="/groups">{t("groups.cancel")}</Link>
           </Button>
           <Button type="submit" disabled={save.isPending}>
             {t("views.save")}

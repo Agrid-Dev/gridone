@@ -9,7 +9,19 @@
     "rangeLastMonths_other": "Last {{count}} months",
     "rangeAll": "All time",
     "rangeCustom": "Custom range",
-    "rangeApply": "Apply"
+    "rangeApply": "Apply",
+    "segment24h": "24 h",
+    "segment7d": "7 d",
+    "segment30d": "30 d",
+    "segmentCustom": "Custom",
+    "start": "Start",
+    "end": "End",
+    "errors": {
+      "required": "Enter a start or end date.",
+      "invalid": "Enter a valid local date and time.",
+      "future": "Dates must not be in the future.",
+      "reversed": "End must be after start."
+    }
   },
   "appearance": {
     "theme": "Theme",
@@ -116,7 +128,7 @@
     "editable": "Editable",
     "driver": "Driver",
     "device": "Device",
-    "fault": "Fault",
+    "fault": "Alert",
     "notification": "notification",
     "transport": "Network",
     "type": "Type",
@@ -173,14 +185,22 @@
       "days_one": "{{count}} day",
       "days_other": "{{count}} days"
     },
+    "compactDuration": {
+      "lessThanAMinute": "< 1 min",
+      "minutes": "{{value}} min",
+      "hours": "{{value}} h",
+      "hoursMinutes": "{{hours}} h {{minutes}}",
+      "days": "{{value}} d",
+      "daysHours": "{{days}} d {{hours}} h"
+    },
     "severity": {
-      "alert": "alert",
+      "alert": "critical",
       "warning": "warning",
       "info": "info"
     },
     "severityCount": {
-      "alert_one": "{{count}} alert",
-      "alert_other": "{{count}} alerts",
+      "alert_one": "{{count}} critical alert",
+      "alert_other": "{{count}} critical alerts",
       "warning_one": "{{count}} warning",
       "warning_other": "{{count}} warnings",
       "info_one": "{{count}} info",
@@ -266,9 +286,10 @@
     "networks": "Networks",
     "apps": "Apps",
     "automations": "Automations",
-    "faults": "Faults",
+    "faults": "Alerts",
     "users": "Users",
     "building": "Building",
+    "groups": "Groups",
     "notifications": "Notifications",
     "documents": "Documents"
   },
@@ -292,8 +313,8 @@
       "floors_one": "{{count}} floor",
       "floors_other": "{{count}} floors"
     },
-    "faultsBadge_one": "{{count}} active fault",
-    "faultsBadge_other": "{{count}} active faults",
+    "faultsBadge_one": "{{count}} active alert",
+    "faultsBadge_other": "{{count}} active alerts",
     "devicesBadge_one": "{{count}} device",
     "devicesBadge_other": "{{count}} devices",
     "appRequestsBadge_one": "{{count}} pending registration request",
@@ -303,8 +324,8 @@
     "notifications": "Notifications",
     "search": {
       "label": "Global search",
-      "placeholder": "Search a device, a zone, a fault…",
-      "description": "Search and open a device, a zone or a fault.",
+      "placeholder": "Search a device, a zone, an alert…",
+      "description": "Search and open a device, a zone or an alert.",
       "moreDevices_one": "{{count}} more matching device. Refine your search to see it.",
       "moreDevices_other": "{{count}} more matching devices. Refine your search to see them.",
       "showingDevices": "Showing {{shown}} of {{total}} devices",
@@ -313,7 +334,7 @@
       "groups": {
         "devices": "Devices",
         "zones": "Zones",
-        "faults": "Faults"
+        "faults": "Alerts"
       },
       "action": "Search"
     },
@@ -349,7 +370,7 @@
       "devices": "Back to devices",
       "operating-rules": "Back to device operating rules",
       "assets": "Back to zones",
-      "faults": "Back to faults",
+      "faults": "Back to alerts",
       "commands": "Back to commands",
       "transports": "Back to networks",
       "drivers": "Back to drivers",

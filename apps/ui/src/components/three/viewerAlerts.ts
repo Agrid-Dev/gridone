@@ -9,7 +9,7 @@
  * contradict the faults page.
  */
 import type { Device, FaultView } from "@gridone/sdk";
-import type { FaultLabeller } from "@/hooks/useFaultLabel";
+import { type FaultLabeller, faultFields } from "@/lib/faultLabel";
 import { faultLabel } from "@/lib/faultLabel";
 import type { Severity } from "@/lib/severity";
 import { indexRoomsByAsset, type LevelSummary } from "./levelSummaries";
@@ -68,12 +68,7 @@ function isShown(severity: Severity): boolean {
 }
 
 /** The attribute's prettified name, for a caller with no labeller. */
-const plainLabel: FaultLabeller = (fault) =>
-  faultLabel({
-    name: "attribute_name" in fault ? fault.attribute_name : fault.name,
-    data_type: fault.data_type,
-    current_value: fault.current_value,
-  });
+const plainLabel: FaultLabeller = (fault) => faultLabel(faultFields(fault));
 
 export function buildViewerAlerts({
   faults,

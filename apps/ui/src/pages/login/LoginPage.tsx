@@ -87,13 +87,7 @@ export default function LoginPage() {
   });
 
   return (
-    <div className="login-bg flex min-h-screen items-center justify-center">
-      {/* Ambient glow */}
-      <div className="pointer-events-none fixed inset-0">
-        <div className="absolute left-1/4 top-1/3 h-96 w-96 rounded-full bg-primary/[0.03] blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/3 h-64 w-64 rounded-full bg-primary/[0.02] blur-3xl" />
-      </div>
-
+    <div className="flex min-h-screen items-center justify-center bg-background">
       <div className="relative w-full max-w-sm animate-fade-up">
         {/* Card */}
         <div className="rounded-2xl border border-border bg-card p-8 shadow-lg backdrop-blur-sm">

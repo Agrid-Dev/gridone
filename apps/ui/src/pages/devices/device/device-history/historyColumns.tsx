@@ -8,7 +8,7 @@ import { type AttributeFields, isFaultAttribute } from "@/lib/faults";
 import type { CellValue, MergedRow } from "@/lib/mergeTimeSeries";
 import { cn } from "@/lib/utils";
 import { CommandIndicator } from "./CommandIndicator";
-import { dayKind } from "./dayKind";
+import { dayKind } from "@/lib/dayKind";
 
 type BuildHistoryColumnsOptions = {
   t: TFunction<readonly ["devices", "common"]>;

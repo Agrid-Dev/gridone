@@ -20,6 +20,14 @@ function firstBuilding(assets: Asset[]): Asset | undefined {
     .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))[0];
 }
 
+/** The creation form defaults to a building under the site's root: ask for a
+ *  zone, inside the building this card is about when there is one. */
+function newZoneHref(building: Asset | undefined): string {
+  const params = new URLSearchParams({ type: "zone" });
+  if (building) params.set("parentId", building.id);
+  return `/assets/new?${params}`;
+}
+
 /** The building's 3D digital twin once its model is converted, and the
  *  per-floor zone breakdown of the asset tree until then. */
 export const ZonesByLevelCard: FC<{
@@ -62,7 +70,7 @@ export const ZonesByLevelCard: FC<{
             {t("zonesByLevel.empty")}{" "}
             {can("assets:write") && (
               <Link
-                to="/assets/new"
+                to={newZoneHref(building)}
                 className="font-medium text-primary hover:underline"
               >
                 {t("zonesByLevel.addZone")}

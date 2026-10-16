@@ -48,12 +48,12 @@
     },
     "saving": "Enregistrement...",
     "health": {
-      "healthy": "Sans défaut",
-      "faulty": "En défaut"
+      "healthy": "Sans alerte",
+      "faulty": "En alerte"
     },
     "filters": {
       "type": "Type",
-      "health": "Défauts",
+      "health": "Alertes",
       "search": "Filtrer…",
       "empty": "Aucun résultat",
       "clear": "Effacer la sélection",
@@ -77,8 +77,8 @@
       "running_other": "{{count}} en marche",
       "stopped_one": "{{count}} à l'arrêt",
       "stopped_other": "{{count}} à l'arrêt",
-      "faulty_one": "{{count}} en défaut",
-      "faulty_other": "{{count}} en défaut"
+      "faulty_one": "{{count}} en alerte",
+      "faulty_other": "{{count}} en alerte"
     },
     "card": {
       "lead": {
@@ -130,16 +130,16 @@
       "config": "Configuration"
     },
     "activeFaults": {
-      "title": "Défauts actifs",
-      "empty": "Aucun défaut actif",
-      "badge_one": "{{count}} défaut",
-      "badge_other": "{{count}} défauts",
+      "title": "Alertes actives",
+      "empty": "Aucune alerte active",
+      "badge_one": "{{count}} alerte",
+      "badge_other": "{{count}} alertes",
       "expand": "Voir le détail",
       "collapse": "Masquer le détail"
     },
     "panes": {
       "standard": "Attributs",
-      "faults": "Défauts",
+      "faults": "Alertes",
       "internal": "Interne"
     },
     "attributeDetails": {
@@ -267,10 +267,6 @@
   "history": {
     "chart": "Graphique",
     "table": "Tableau",
-    "range24h": "24 h",
-    "range7d": "7 j",
-    "range30d": "30 j",
-    "rangeCustom": "Personnalisé",
     "truncatedWarning": "Données tronquées pour {{attributes}}, réduisez la période",
     "noAttributesSelected": "Sélectionnez des attributs à tracer",
     "noMetricData": "Aucune donnée sur la période",
@@ -651,6 +647,10 @@
     "caption": "Pilotez plusieurs appareils en une seule commande.",
     "create": "Créer un groupe",
     "edit": "Modifier le groupe",
+    "editInConfiguration": "Modifier dans Configuration",
+    "manage": "Gérer les groupes",
+    "manageHint": "Créer ou modifier un groupe se fait dans Configuration.",
+    "configurationCaption": "Les groupes servent aux commandes groupées, aux automatisations et aux modèles.",
     "delete": "Supprimer le groupe",
     "name": "Nom",
     "description": "Description",
@@ -662,7 +662,7 @@
     "save": "Enregistrer le groupe",
     "membershipWarning": "Modifier les membres affectera les prochaines exécutions de ces automatisations et modèles de commandes :",
     "noSynchronization": "Ajouter un membre ne lui applique pas une consigne précédente. Chaque commande de groupe est une action ponctuelle.",
-    "empty": "Ce groupe ne contient aucun appareil. Ajoutez des appareils pour le driverr.",
+    "empty": "Ce groupe ne contient aucun appareil. Ajoutez des appareils pour le piloter.",
     "chooseTarget": "Choisir la valeur cible",
     "absoluteTarget": "Choisissez la valeur absolue à appliquer à {{attribute}}. Vous vérifierez les destinataires avant l’envoi.",
     "invalidValue": "Saisissez une valeur cible valide.",
@@ -704,7 +704,7 @@
     "previewDescription_one": "{{attribute}} → {{value}} · {{count}} destinataire",
     "apply_other": "Appliquer à {{count}} appareils",
     "apply_one": "Appliquer à {{count}} appareil",
-    "formCaption": "Définissez votre groupe et choisissez les appareils à driverr ensemble.",
+    "formCaption": "Définissez votre groupe et choisissez les appareils à piloter ensemble.",
     "information": "Informations du groupe",
     "informationHint": "Un nom et une description pour le retrouver facilement.",
     "namePlaceholder": "Ex. Thermostats du 1er étage",
@@ -724,7 +724,7 @@
     "selectedEquipment_other": "{{count}} appareils sélectionnés",
     "nameRequired": "Donnez un nom au groupe.",
     "chooseDevices": "Appareils du groupe",
-    "membersHelp": "Cochez les appareils à driverr ensemble. Un appareil peut appartenir à plusieurs groupes.",
+    "membersHelp": "Cochez les appareils à piloter ensemble. Un appareil peut appartenir à plusieurs groupes.",
     "filterDriver": "Filtrer la liste par driver",
     "searchPlaceholder": "Nom d’un appareil…",
     "selectedList": "Appareils sélectionnés",

@@ -10,7 +10,8 @@ import Automations from "./pages/automations";
 import Dashboards from "./pages/dashboards";
 import Documents from "./pages/documents";
 import Devices from "./pages/devices";
-import FaultsPage from "./pages/faults/FaultsPage";
+import Groups from "./pages/groups";
+import Faults from "./pages/faults";
 import Home from "./pages/home";
 import NotificationsPage from "./pages/notifications";
 import Drivers from "./pages/drivers";
@@ -54,7 +55,7 @@ function ProtectedLayout() {
 
   return (
     <PageLayoutProvider>
-      <div className="min-h-screen bg-background bg-grid">
+      <div className="min-h-screen bg-background">
         <a
           href="#main-content"
           className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-2 focus:z-[60] focus:rounded focus:bg-background focus:p-3 focus:text-primary"
@@ -79,11 +80,12 @@ function ProtectedLayout() {
                 <Route path="/documents/*" element={<Documents />} />
                 <Route path="/assets/*" element={<Assets />} />
                 <Route path="/devices/*" element={<Devices />} />
+                <Route path="/groups/*" element={<Groups />} />
                 <Route path="/drivers/*" element={<Drivers />} />
                 <Route path="/transports/*" element={<Transports />} />
                 <Route path="/apps/*" element={<Apps />} />
                 <Route path="/automations/*" element={<Automations />} />
-                <Route path="/faults" element={<FaultsPage />} />
+                <Route path="/faults/*" element={<Faults />} />
                 <Route path="/notifications" element={<NotificationsPage />} />
                 <Route path="/users" element={<UsersPage />} />
                 <Route path="/profile/edit" element={<BuildingProfileEdit />} />

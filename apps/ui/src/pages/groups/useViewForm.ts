@@ -6,7 +6,11 @@ import { useQuery } from "@tanstack/react-query";
 import type { DeviceView } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { useSaveDeviceView } from "@/hooks/useDeviceViews";
-import { tagToken, parseTagCriteria, formatTagCriteria } from "./viewFilters";
+import {
+  tagToken,
+  parseTagCriteria,
+  formatTagCriteria,
+} from "@/pages/devices/views/viewFilters";
 
 const schema = z.object({
   name: z.string().trim().min(1).max(255),
@@ -67,7 +71,7 @@ export function useViewForm(view?: DeviceView) {
           : [],
       })
       .catch(() => null);
-    if (result) navigate(`/devices/views/${result.id}`);
+    if (result) navigate("/groups");
   });
   return { form, submit, save, facets, drivers };
 }

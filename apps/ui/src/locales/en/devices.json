@@ -48,12 +48,12 @@
     },
     "saving": "Saving...",
     "health": {
-      "healthy": "No fault",
-      "faulty": "Faulty"
+      "healthy": "No alert",
+      "faulty": "In alert"
     },
     "filters": {
       "type": "Type",
-      "health": "Faults",
+      "health": "Alerts",
       "search": "Filter…",
       "empty": "No results",
       "clear": "Clear selection",
@@ -77,8 +77,8 @@
       "running_other": "{{count}} running",
       "stopped_one": "{{count}} stopped",
       "stopped_other": "{{count}} stopped",
-      "faulty_one": "{{count}} faulty",
-      "faulty_other": "{{count}} faulty"
+      "faulty_one": "{{count}} in alert",
+      "faulty_other": "{{count}} in alert"
     },
     "card": {
       "lead": {
@@ -130,16 +130,16 @@
       "config": "Configuration"
     },
     "activeFaults": {
-      "title": "Active faults",
-      "empty": "No active faults",
-      "badge_one": "{{count}} fault",
-      "badge_other": "{{count}} faults",
+      "title": "Active alerts",
+      "empty": "No active alerts",
+      "badge_one": "{{count}} alert",
+      "badge_other": "{{count}} alerts",
       "expand": "Show details",
       "collapse": "Hide details"
     },
     "panes": {
       "standard": "Attributes",
-      "faults": "Faults",
+      "faults": "Alerts",
       "internal": "Internal"
     },
     "attributeDetails": {
@@ -267,10 +267,6 @@
   "history": {
     "chart": "Chart",
     "table": "Table",
-    "range24h": "24 h",
-    "range7d": "7 d",
-    "range30d": "30 d",
-    "rangeCustom": "Custom",
     "truncatedWarning": "Data truncated for {{attributes}}, narrow the period",
     "noAttributesSelected": "Select attributes to chart",
     "noMetricData": "No data for this period",
@@ -651,6 +647,10 @@
     "caption": "Control several devices with a single command.",
     "create": "Create group",
     "edit": "Edit group",
+    "editInConfiguration": "Edit in Configuration",
+    "manage": "Manage groups",
+    "manageHint": "Groups are created and edited in Configuration.",
+    "configurationCaption": "Groups drive group commands, automations and templates.",
     "delete": "Delete group",
     "name": "Name",
     "description": "Description",

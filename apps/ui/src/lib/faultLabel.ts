@@ -1,3 +1,5 @@
+import type { DriverRef } from "@/contexts/DriverLabelsContext";
+import type { FaultEpisode, FaultView } from "@gridone/sdk";
 import type { FaultAttribute } from "@/lib/faults";
 import { toLabel } from "./textFormat";
 
@@ -25,3 +27,19 @@ export function faultLabel(
       return nameLabel;
   }
 }
+
+export type LabelledFault = FaultAttribute | FaultView | FaultEpisode;
+
+/** Normalize device attributes and server-labelled history/live rows. */
+export function faultFields(fault: LabelledFault) {
+  return {
+    name: "attribute_name" in fault ? fault.attribute_name : fault.name,
+    data_type: fault.data_type,
+    current_value: "value" in fault ? fault.value : fault.current_value,
+  };
+}
+
+export type FaultLabeller = (
+  fault: LabelledFault,
+  device?: DriverRef,
+) => string;

@@ -1,3 +1,7 @@
+import {
+  SELECTION_PARAM,
+  serializeSelection,
+} from "./device-history/selection";
 import { operatingRulesPath } from "./operating-rules/useOperatingRules";
 
 /** Sections that show the device at work. */
@@ -17,6 +21,25 @@ export const devicePath = (deviceId: string) =>
 
 export const deviceConfigPath = (deviceId: string) =>
   `${devicePath(deviceId)}/config`;
+
+/** The device's history chart showing `attrs` from `start` to `end`, or up to
+ *  now while `end` is null: where a past moment of the device is looked at,
+ *  such as an alert. */
+export function deviceHistoryPath(
+  deviceId: string,
+  {
+    attrs,
+    start,
+    end,
+  }: { attrs: readonly string[]; start: Date; end: Date | null },
+): string {
+  const params = new URLSearchParams({
+    [SELECTION_PARAM]: serializeSelection(attrs),
+    start: start.toISOString(),
+  });
+  if (end) params.set("end", end.toISOString());
+  return `${devicePath(deviceId)}/history/chart?${params}`;
+}
 
 /** The section of the device page that `pathname` belongs to. Nested routes
  *  keep their section: `config/edit` is General, an operating rule's editor is

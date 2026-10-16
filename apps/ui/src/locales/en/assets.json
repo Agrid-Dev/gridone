@@ -26,7 +26,7 @@
     "add": "Add",
     "identity": {
       "title": "Identity",
-      "description": "The name appears throughout the app, in faults and commands.",
+      "description": "The name appears throughout the app, in alerts and commands.",
       "identifier": "Identifier"
     },
     "location": {

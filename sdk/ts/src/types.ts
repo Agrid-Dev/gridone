@@ -108,6 +108,8 @@ export type AssetAssignmentStatus = Schemas["AssetAssignmentStatus"];
 export type DeviceConfigField = Schemas["DeviceConfigField"];
 export type ConnectionStatus = Schemas["ConnectionStatus"];
 export type FaultView = Schemas["FaultView"];
+export type FaultEpisode = Schemas["FaultEpisodeResponse"];
+export type FaultEpisodes = Schemas["FaultEpisodesResponse"];
 export type Severity = Schemas["Severity"];
 
 // Synoptics

@@ -1,5 +1,4 @@
 import { useCallback, useMemo } from "react";
-import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { FaultView, Severity } from "@gridone/sdk";
 import { useAssetTree } from "@/hooks/useAssetTree";
@@ -8,6 +7,7 @@ import { downloadCsv } from "@/lib/csv";
 import { useFaultLabel } from "@/hooks/useFaultLabel";
 import { SEVERITIES } from "@/lib/severity";
 import { formatDurationSince } from "@/lib/utils";
+import { useSeverityParam } from "./useSeverityParam";
 
 /** A fault joined with the zone its device sits in — `zone` is null when the
  *  device is attached to no asset. */
@@ -24,12 +24,6 @@ function compareRows(a: FaultRow, b: FaultRow): number {
   if (bySeverity !== 0) return bySeverity;
   // Equal severity: the longest-running fault is the more neglected one.
   return Date.parse(a.last_changed) - Date.parse(b.last_changed);
-}
-
-/** Stable key for a fault — the API exposes no fault id, and a device can only
- *  hold one fault per attribute. */
-export function faultKey(fault: FaultView): string {
-  return `${fault.device_id}:${fault.attribute_name}`;
 }
 
 /**
@@ -51,19 +45,7 @@ export function useFaultsPage(deviceIds?: string[]) {
   const { t: tCommon } = useTranslation();
   const { faults, loading, error } = useFaultsList();
   const { assetByDeviceId } = useAssetTree();
-  const [params, setParams] = useSearchParams();
-  const rawSeverity = params.get("severity");
-  const severity = SEVERITIES.find((value) => value === rawSeverity);
-  const setSeverity = (value?: Severity) =>
-    setParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        if (value && value !== severity) next.set("severity", value);
-        else next.delete("severity");
-        return next;
-      },
-      { replace: true },
-    );
+  const { severity, setSeverity } = useSeverityParam();
 
   const allRows = useMemo<FaultRow[]>(
     () =>

@@ -28,6 +28,15 @@ class FetchPointsResult:
     next_start: datetime | None
 
 
+@dataclass(frozen=True)
+class FetchPointsBeforeResult:
+    """A descending page; pass ``next_before`` as the exclusive next bound."""
+
+    points: list[DataPoint]
+    truncated: bool
+    next_before: datetime | None
+
+
 @dataclass
 class TimeSeries:
     data_type: DataType

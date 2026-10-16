@@ -26,7 +26,7 @@
     "add": "Ajouter",
     "identity": {
       "title": "Identité",
-      "description": "Le nom apparaît dans l’application, les défauts et les commandes.",
+      "description": "Le nom apparaît dans l’application, les alertes et les commandes.",
       "identifier": "Identifiant"
     },
     "location": {

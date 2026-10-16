@@ -51,7 +51,7 @@
       "collapsePanel": "Collapse the levels panel",
       "toggleZones": "Zones of {{level}}",
       "levelZones": "Zones: {{count}}",
-      "levelAlerts": "Alerts: {{count}}",
+      "levelAlerts": "Critical: {{count}}",
       "noZones": "No zone on this level.",
       "resetView": "Reset view",
       "explode": "Separate the floors",
@@ -91,7 +91,7 @@
         "unknown": "No data"
       },
       "alertsLegend": {
-        "alert": "Alert",
+        "alert": "Critical",
         "warning": "Warning",
         "none": "Normal"
       },
@@ -116,12 +116,13 @@
         "label_one": "{{count}} zone in alert",
         "label_other": "{{count}} zones in alert",
         "title": "Zones in alert",
+        "critical": "Critical",
         "warnings": "Warnings",
-        "faults_one": "{{count}} fault",
-        "faults_other": "{{count}} faults",
-        "offModel_one": "{{count}} faulty device outside the model",
-        "offModel_other": "{{count}} faulty devices outside the model",
-        "viewAll": "Open the faults page"
+        "faults_one": "{{count}} alert",
+        "faults_other": "{{count}} alerts",
+        "offModel_one": "{{count}} device in alert outside the model",
+        "offModel_other": "{{count}} devices in alert outside the model",
+        "viewAll": "Open the alerts page"
       },
       "legendShow": "Show the legend",
       "legendHide": "Hide the legend"

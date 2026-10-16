@@ -7,13 +7,13 @@ import { cn } from "@/lib/utils";
  *  needs acting on, and colouring the "for information" rows as loudly as the
  *  actionable ones flattens that hierarchy. `SeverityChip` greys `info` for
  *  the same reason. */
-const TEXT_CLASS: Record<Severity, string> = {
+export const SEVERITY_TEXT_CLASS: Record<Severity, string> = {
   alert: "text-status-error",
   warning: "text-status-warning",
   info: "text-muted-foreground",
 };
 
-/** Dot fill per severity, mirroring {@link TEXT_CLASS}. */
+/** Dot fill per severity, mirroring {@link SEVERITY_TEXT_CLASS}. */
 const DOT_CLASS: Record<Severity, string> = {
   alert: "bg-status-error",
   warning: "bg-status-warning",
@@ -36,7 +36,7 @@ export function SeverityLabel({ severity, className }: SeverityLabelProps) {
       data-severity={severity}
       className={cn(
         "inline-flex items-center gap-2 text-sm font-medium capitalize",
-        TEXT_CLASS[severity],
+        SEVERITY_TEXT_CLASS[severity],
         className,
       )}
     >

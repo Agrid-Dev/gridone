@@ -1,5 +1,5 @@
-from datetime import UTC, datetime
-from unittest.mock import MagicMock
+from datetime import UTC, datetime, timedelta
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import FastAPI
@@ -11,13 +11,15 @@ from api.auth import (
     get_current_token_payload,
     get_current_user_id,
 )
-from api.dependencies import get_device_manager
+from api.dependencies import get_device_manager, get_ts_service
 from api.exception_handlers import register_exception_handlers
 from api.routes.faults_router import router
 from devices_manager import DevicesServiceInterface
 from devices_manager.dto import FaultView
 from models.errors import NotFoundError
 from models.types import DataType, Severity
+from timeseries import TimeSeriesService
+from timeseries.domain import FetchPointsBeforeResult, FetchPointsResult
 from users.permissions import Permission
 
 _FAULT_A = FaultView(
@@ -116,3 +118,70 @@ class TestListFaults:
         dm.list_active_faults.side_effect = NotFoundError("Device not found")
         response = client.get("/", params={"device_id": "unknown"})
         assert response.status_code == 404
+
+
+# Router tests mock both services. Reconstruction regressions live beside the
+# composition function in test_fault_episodes.py.
+NOW = datetime(2026, 10, 15, tzinfo=UTC)
+
+
+@pytest.fixture
+def ts_service():
+    service = MagicMock(spec=TimeSeriesService)
+    service.default_timezone = "UTC"
+    service.fetch_points_before.return_value = FetchPointsBeforeResult(
+        [], truncated=False, next_before=None
+    )
+    service.fetch_points.return_value = FetchPointsResult(
+        [], truncated=False, next_start=None
+    )
+    return service
+
+
+@pytest.fixture
+def episodes_client(app, dm, ts_service):
+    dm.list_devices.return_value = []
+    app.dependency_overrides[get_ts_service] = lambda: ts_service
+    with patch("api.routes.faults_router.datetime") as clock:
+        clock.now.return_value = NOW
+        yield TestClient(app)
+
+
+class TestListFaultEpisodes:
+    def test_default_period_and_observation_time(self, episodes_client):
+        body = episodes_client.get("/episodes").json()
+        assert datetime.fromisoformat(body["as_of"]) == NOW
+        assert datetime.fromisoformat(body["end"]) == NOW
+        assert datetime.fromisoformat(body["start"]) == NOW - timedelta(days=7)
+        assert body["episodes"] == []
+        assert body["truncated"] is False
+
+    def test_relative_period(self, episodes_client):
+        body = episodes_client.get("/episodes", params={"last": "1d"}).json()
+        assert datetime.fromisoformat(body["start"]) == NOW - timedelta(days=1)
+
+    def test_naive_bounds_use_building_timezone(self, episodes_client, ts_service):
+        ts_service.default_timezone = "America/Martinique"
+        body = episodes_client.get(
+            "/episodes", params={"start": "2026-10-14T08:15", "end": "2026-10-14T08:20"}
+        ).json()
+        assert body["start"] == "2026-10-14T12:15:00Z"
+        assert body["end"] == "2026-10-14T12:20:00Z"
+
+    @pytest.mark.parametrize(
+        "params",
+        [
+            {"last": "soon"},
+            {"start": "2026-10-15T00:00Z", "end": "2026-10-14T00:00Z"},
+            {"start": "2026-10-16T00:00Z"},
+        ],
+    )
+    def test_invalid_period(self, episodes_client, params):
+        assert episodes_client.get("/episodes", params=params).status_code == 422
+
+    def test_future_end_is_clipped_to_observation(self, episodes_client):
+        body = episodes_client.get(
+            "/episodes",
+            params={"start": "2026-10-14T00:00Z", "end": "2026-10-16T00:00Z"},
+        ).json()
+        assert body["end"] == body["as_of"]

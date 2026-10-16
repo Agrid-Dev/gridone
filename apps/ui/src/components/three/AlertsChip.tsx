@@ -98,7 +98,7 @@ export const AlertsChip: FC<{
       <PopoverContent align="end" className="max-h-72 w-72 overflow-y-auto p-0">
         {shown.alerts.length > 0 && (
           <AlertSection
-            label={t("zonesByLevel.viewer.alerts.title")}
+            label={t("zonesByLevel.viewer.alerts.critical")}
             groups={shown.alerts}
             onPick={pick}
           />

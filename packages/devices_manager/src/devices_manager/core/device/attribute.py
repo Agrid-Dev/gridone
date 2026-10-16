@@ -135,9 +135,16 @@ class FaultAttribute(Attribute):
     @computed_field
     @property
     def is_faulty(self) -> bool:
-        if self.current_value is None:
+        return self.is_faulty_value(self.current_value)
+
+    def is_faulty_value(self, value: AttributeValueType | None) -> bool:
+        """Whether ``value`` is a fault: known, and outside the healthy values.
+
+        The one rule for this attribute, applied to the live value and to the
+        values its history recorded alike."""
+        if value is None:
             return False
-        return self.current_value not in self.healthy_values
+        return value not in self.healthy_values
 
     @model_validator(mode="after")
     def _require_timestamps_when_valued(self) -> "FaultAttribute":
