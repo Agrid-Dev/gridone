@@ -48,6 +48,12 @@ class TimeSeriesStorage(Protocol):
         limit: int | None = None,
     ) -> list[DataPoint]: ...
 
+    async def fetch_points_before(
+        self, key: SeriesKey, *, before: datetime, limit: int
+    ) -> list[DataPoint]:
+        """Return at most limit + 1 points, descending, strictly before the bound."""
+        ...
+
     async def fetch_point_before(
         self,
         key: SeriesKey,

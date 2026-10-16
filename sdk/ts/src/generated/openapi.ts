@@ -1427,9 +1427,8 @@ export interface paths {
      * Get Driver Labels
      * @description The labels of the driver's attributes, once per driver.
      *
-     *     Gated like device reads and projected through the caller's scope: the
-     *     document names only attributes the caller may read on the driver's
-     *     devices (ADR 0008 §3).
+     *     Gated like device reads but not projected through the caller's scope:
+     *     labels are not sensitive, so any role reading devices reads them whole.
      */
     get: operations["get_driver_labels_drivers__driver_id__labels_get"];
     put?: never;
@@ -5393,6 +5392,11 @@ export interface components {
        * Format: date-time
        */
       end: string;
+      /**
+       * As Of
+       * Format: date-time
+       */
+      as_of: string;
       /** Truncated */
       truncated: boolean;
     };

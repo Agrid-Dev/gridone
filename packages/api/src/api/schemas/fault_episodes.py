@@ -28,6 +28,7 @@ class FaultEpisodesResponse(BaseModel):
     #: The period read, ``last`` resolved: what durations within it add up to.
     start: datetime
     end: datetime
-    #: True when a series held more points than one read returns: the most
-    #: recent part of the period may then be missing.
+    #: Observation time shared by all series and ongoing durations.
+    as_of: datetime
+    #: The read budget was exhausted; only verified episodes are included.
     truncated: bool

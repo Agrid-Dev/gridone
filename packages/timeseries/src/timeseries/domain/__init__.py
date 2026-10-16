@@ -17,6 +17,7 @@ from timeseries.domain.aggregation import (
 )
 from timeseries.domain.models import (
     DataPoint,
+    FetchPointsBeforeResult,
     FetchPointsResult,
     SeriesKey,
     TimeSeries,
@@ -51,6 +52,7 @@ __all__ = [
     "AttributeValueType",
     "DataPoint",
     "DataType",
+    "FetchPointsBeforeResult",
     "FetchPointsResult",
     "GroupedSpaceAggregationResult",
     "Interval",

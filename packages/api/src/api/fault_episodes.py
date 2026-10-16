@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 
     from api.access import ScopedDeviceReads
     from devices_manager.dto.device_dto import Device
+    from models.attribute_metadata import LocalizedText
     from models.types import AttributeValueType, Severity
     from timeseries import TimeSeriesService
     from timeseries.domain import DataPoint
@@ -38,6 +39,9 @@ if TYPE_CHECKING:
 MERGE_GAP = timedelta(minutes=1)
 #: Series read at the same time, as for the service's own fan-outs.
 FANOUT_LIMIT = 4
+PAGE_SIZE = 10_000
+POINT_BUDGET = 100_000
+DEFAULT_EPISODES_PERIOD = timedelta(days=7)
 #: Only the fault attributes are worth carrying out of the devices service.
 FAULT_SELECTION = AttributeSelection(kinds=frozenset({AttributeKind.FAULT}))
 
@@ -57,6 +61,7 @@ class FaultSeries:
 
     device_id: str
     device_name: str
+    driver_id: str
     device_type: str | None
     attribute: FaultAttribute
 
@@ -73,6 +78,7 @@ def fault_series(
         FaultSeries(
             device_id=device.id,
             device_name=device.name,
+            driver_id=device.driver_id,
             device_type=device.type,
             attribute=attribute,
         )
@@ -86,21 +92,20 @@ def fault_series(
 def reconstruct_episodes(
     points: Sequence[DataPoint],
     *,
-    previous: DataPoint | None,
     is_faulty: Callable[[AttributeValueType | None], bool],
     merge_gap: timedelta = MERGE_GAP,
 ) -> list[Episode]:
     """The episodes along ``points`` (ascending), oldest first.
 
-    ``previous`` is the last point before them: an episode already open when
-    they start keeps its true onset. Successive faulty points, such as a
-    changing fault code or one value written again after unknown readings,
+    The caller must supply enough preceding context to establish the onset;
+    successive faulty points, such as a changing fault code or one value
+    written again after unknown readings,
     extend a single episode. An episode still open at the last point is
     ongoing. Episodes less than ``merge_gap`` apart merge.
     """
     episodes: list[Episode] = []
     opening: DataPoint | None = None
-    for current in [*([previous] if previous else []), *points]:
+    for current in points:
         if is_faulty(current.value):
             if opening is None:
                 opening = current
@@ -136,54 +141,126 @@ def overlaps(episode: Episode, *, start: datetime, end: datetime) -> bool:
     )
 
 
+async def _read_preceding(
+    ts: TimeSeriesService, series: FaultSeries, *, start: datetime
+) -> tuple[list[DataPoint], int, bool]:
+    """Read backward to a minute-long healthy interval or retained history's start."""
+    is_faulty = series.attribute.is_faulty_value
+    remaining = POINT_BUDGET
+    before = start
+    right_fault = start
+    preceding: list[DataPoint] = []
+    anchored = False
+    while remaining and not anchored:
+        page = await ts.fetch_points_before(
+            series.key, before=before, limit=min(PAGE_SIZE, remaining)
+        )
+        remaining -= len(page.points)
+        for point in page.points:
+            preceding.append(point)
+            if is_faulty(point.value):
+                right_fault = point.timestamp
+            elif right_fault - point.timestamp >= MERGE_GAP:
+                anchored = True
+                break
+        if not page.truncated:
+            anchored = True
+        if page.next_before is not None:
+            before = page.next_before
+    return list(reversed(preceding)), remaining, anchored
+
+
+async def _read_series(
+    ts: TimeSeriesService,
+    series: FaultSeries,
+    *,
+    start: datetime,
+    end: datetime,
+    as_of: datetime,
+) -> tuple[list[Episode], bool]:
+    """Find a trustworthy onset, then read through closure and bounce context.
+
+    Backward reading stops at a full minute of healthy history, or the first
+    retained point. A healthy sample alone is insufficient: it could be a
+    bounce inside an older episode. Forward cursors certify the absence of
+    other points before them. Only exhaustion through ``as_of`` certifies an
+    ongoing episode; an unread tail never does.
+    """
+    points, remaining, anchored = await _read_preceding(ts, series, start=start)
+    if not anchored:
+        return [], True
+    is_faulty = series.attribute.is_faulty_value
+    cursor = start
+    verified: list[Episode] = []
+    while remaining:
+        page = await ts.fetch_points(
+            series.key, start=cursor, end=as_of, limit=min(PAGE_SIZE, remaining)
+        )
+        remaining -= len(page.points)
+        points.extend(page.points)
+        relevant = [
+            episode
+            for episode in reconstruct_episodes(points, is_faulty=is_faulty)
+            if overlaps(episode, start=start, end=end)
+        ]
+        if not page.truncated:
+            return relevant, False
+        assert page.next_start is not None  # noqa: S101
+        cursor = page.next_start
+        verified = [
+            episode
+            for episode in relevant
+            if episode.ended_at is not None and episode.ended_at + MERGE_GAP <= cursor
+        ]
+        if cursor > end and len(verified) == len(relevant):
+            return verified, False
+    return verified, True
+
+
 async def read_fault_episodes(
     reads: ScopedDeviceReads,
     ts: TimeSeriesService,
     *,
     start: datetime,
     end: datetime,
+    as_of: datetime,
     severity: Severity | None = None,
 ) -> FaultEpisodesResponse:
-    """The episodes of the readable fault attributes that share time with
-    [start, end], most recent first.
-
-    Each series is read from its last point before ``start`` up to now, not
-    only up to ``end``: an episode still running at ``end`` keeps its real
-    close, or stays ongoing.
-    """
+    """Reconstruct readable history at one observation time, with bounded IO."""
     devices = reads.list_devices(attribute_selection=FAULT_SELECTION)
+    series_list = fault_series(devices, severity)
+    labels = {
+        driver_id: reads.get_driver_labels(driver_id)
+        for driver_id in {series.driver_id for series in series_list}
+    }
     semaphore = asyncio.Semaphore(FANOUT_LIMIT)
 
     async def read(series: FaultSeries) -> tuple[list[FaultEpisodeResponse], bool]:
         async with semaphore:
-            previous = await ts.fetch_point_before(series.key, before=start)
-            fetched = await ts.fetch_points(series.key, start=start)
-        episodes = reconstruct_episodes(
-            fetched.points,
-            previous=previous,
-            is_faulty=series.attribute.is_faulty_value,
+            episodes, truncated = await _read_series(
+                ts, series, start=start, end=end, as_of=as_of
+            )
+        attribute_labels = labels[series.driver_id].attributes.get(
+            series.attribute.name
         )
-        kept = [
-            _to_response(series, episode)
-            for episode in episodes
-            if overlaps(episode, start=start, end=end)
-        ]
-        return kept, fetched.truncated
+        label = attribute_labels.label if attribute_labels else None
+        return [_to_response(series, episode, label) for episode in episodes], truncated
 
-    results = await asyncio.gather(
-        *(read(series) for series in fault_series(devices, severity))
-    )
+    results = await asyncio.gather(*(read(series) for series in series_list))
     episodes = [episode for kept, _ in results for episode in kept]
     episodes.sort(key=lambda episode: episode.started_at, reverse=True)
     return FaultEpisodesResponse(
         episodes=episodes,
         start=start,
         end=end,
+        as_of=as_of,
         truncated=any(truncated for _, truncated in results),
     )
 
 
-def _to_response(series: FaultSeries, episode: Episode) -> FaultEpisodeResponse:
+def _to_response(
+    series: FaultSeries, episode: Episode, label: LocalizedText | None
+) -> FaultEpisodeResponse:
     attribute = series.attribute
     return FaultEpisodeResponse(
         device_id=series.device_id,
@@ -192,7 +269,7 @@ def _to_response(series: FaultSeries, episode: Episode) -> FaultEpisodeResponse:
         attribute_name=attribute.name,
         data_type=attribute.data_type,
         severity=attribute.severity,
-        label=attribute.label,
+        label=label,
         value=episode.value,
         started_at=episode.started_at,
         ended_at=episode.ended_at,

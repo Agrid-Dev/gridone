@@ -23,7 +23,7 @@ from fastapi.testclient import TestClient
 
 from api.access.dependencies import get_device_reads, get_target_resolver
 from api.app import create_app
-from api.auth import get_current_permissions, get_current_user_id
+from api.auth import get_current_permissions, get_current_role, get_current_user_id
 from api.dependencies import (
     get_apps_service,
     get_assets_service,
@@ -83,6 +83,7 @@ from commands import (
 from devices_manager import (
     DevicesServiceInterface,
     DiscoveryManagerInterface,
+    FaultAttribute,
     IngressResult,
 )
 from devices_manager.core.device import Attribute
@@ -106,7 +107,8 @@ from notifications import (
 )
 from operating_rules import OperatingRulesService
 from synoptics import Synoptic, SynopticsServiceInterface
-from timeseries.domain import FetchPointsResult
+from timeseries import TimeSeriesService
+from timeseries.domain import DataPoint, FetchPointsBeforeResult, FetchPointsResult
 from users import DeviceScope, DeviceSelector, Role, RoleCreate, RoleUpdate, User
 from users.auth import AuthService
 from users.permissions import Permission
@@ -2567,3 +2569,66 @@ def test_every_device_reading_route_goes_through_the_scoped_reads() -> None:
             continue
         offenders |= {(m, route.path) for m in route.methods}
     assert offenders == _UNSCOPED_ALLOWED
+
+
+@pytest.mark.parametrize("attributes", [None, ["mode"], ["temperature"]])
+def test_fault_episodes_apply_device_and_attribute_scopes(attributes):
+    app = _build_scoped_devices_app()
+    dm = app.state.device_manager
+    fault = FaultAttribute(
+        name="mode",
+        data_type=DataType.BOOL,
+        read_write_modes={"read"},
+        healthy_values=[False],
+    )
+    dm.list_devices.side_effect = lambda **_: [
+        device.model_copy(update={"attributes": {"mode": fault}})
+        for device in (_THERMOSTAT, _ROOM)
+    ]
+    scope = DeviceScope(
+        devices=DeviceSelector(types=["thermostat"]), attributes=attributes
+    )
+    role = Role(
+        id="scoped",
+        name="Scoped",
+        permissions=[Permission.DEVICES_READ, Permission.TIMESERIES_READ],
+        scopes={Permission.DEVICES_READ: [scope]},
+    )
+    app.dependency_overrides[get_current_role] = lambda: role
+    ts = MagicMock(spec=TimeSeriesService)
+    ts.default_timezone = "UTC"
+    ts.fetch_points_before.return_value = FetchPointsBeforeResult(
+        [], truncated=False, next_before=None
+    )
+    ts.fetch_points.return_value = FetchPointsResult(
+        [DataPoint(datetime(2026, 10, 1, tzinfo=UTC), value=True)],
+        truncated=False,
+        next_start=None,
+    )
+    app.dependency_overrides[get_ts_service] = lambda: ts
+    with TestClient(app) as client:
+        headers = _auth_header(_login(client, "admin"))
+        response = client.get(
+            "/devices/faults/episodes?start=2026-09-30T00:00Z&end=2026-10-02T00:00Z",
+            headers=headers,
+        )
+    assert response.status_code == 200
+    expected = [] if attributes == ["temperature"] else [("thermo", "mode")]
+    assert [
+        (row["device_id"], row["attribute_name"]) for row in response.json()["episodes"]
+    ] == expected
+    assert ts.fetch_points.await_count == len(expected)
+    if expected:
+        assert ts.fetch_points.call_args.args[0].owner_id == "thermo"
+
+
+def test_fault_episodes_need_devices_read_besides_timeseries_read():
+    app = _build_scoped_devices_app()
+    app.dependency_overrides[get_current_permissions] = lambda: frozenset(
+        {Permission.TIMESERIES_READ}
+    )
+    with TestClient(app) as client:
+        headers = _auth_header(_login(client, "admin"))
+        assert (
+            client.get("/devices/faults/episodes", headers=headers).status_code == 403
+        )

@@ -21,6 +21,7 @@ from timeseries.domain import (
     AggregationResult,
     DataPoint,
     DataType,
+    FetchPointsBeforeResult,
     FetchPointsResult,
     GroupedSpaceAggregationResult,
     Interval,
@@ -617,13 +618,29 @@ class TimeSeriesService(Service):
             limit=effective_limit,
         )
 
-    async def fetch_point_before(
-        self, key: SeriesKey, *, before: datetime
-    ) -> DataPoint | None:
-        """The series' last point strictly before ``before``: the state it was
-        in when a window opens. None when nothing precedes, or no such series."""
+    async def fetch_points_before(
+        self, key: SeriesKey, *, before: datetime, limit: int = DEFAULT_RAW_LIMIT
+    ) -> FetchPointsBeforeResult:
+        """Read a bounded descending page strictly before the given instant.
+
+        The cursor is the oldest included timestamp, so subsequent exclusive
+        reads neither skip nor repeat a point. Naive bounds use the building's
+        timezone, consistently with forward reads.
+        """
+        if not 1 <= limit <= MAX_RAW_LIMIT:
+            msg = f"limit must be between 1 and {MAX_RAW_LIMIT}"
+            raise InvalidError(msg)
         utc_before = cast("datetime", normalize_to_utc(before, self._default_timezone))
-        return await self._backend.fetch_point_before(key, before=utc_before)
+        raw = await self._backend.fetch_points_before(
+            key, before=utc_before, limit=limit
+        )
+        truncated = len(raw) > limit
+        points = raw[:limit]
+        return FetchPointsBeforeResult(
+            points=points,
+            truncated=truncated,
+            next_before=points[-1].timestamp if truncated else None,
+        )
 
     async def _fetch_points_utc(
         self,

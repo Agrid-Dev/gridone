@@ -464,3 +464,33 @@ class TestAggregate:
         )
         with pytest.raises(RuntimeError, match="timezone must be resolved"):
             await storage.aggregate(KEY, query)
+
+
+class TestFetchPointsBefore:
+    async def test_bounded_descending_exclusive_read(self, storage):
+        await storage.create_series(_make_series())
+        points = [
+            DataPoint(datetime(2026, 1, day, tzinfo=UTC), float(day), day)
+            for day in range(1, 6)
+        ]
+        # command_id references real commands in postgres, so use no association.
+        points = [DataPoint(p.timestamp, p.value) for p in points]
+        await storage.upsert_points(KEY, points)
+        found = await storage.fetch_points_before(
+            KEY, before=points[-1].timestamp, limit=2
+        )
+        assert found == [points[3], points[2], points[1]]
+        following = await storage.fetch_points_before(
+            KEY, before=found[1].timestamp, limit=2
+        )
+        assert following == [points[1], points[0]]
+        assert (
+            await storage.fetch_points_before(KEY, before=points[0].timestamp, limit=2)
+            == []
+        )
+
+    async def test_unknown_series_is_empty(self, storage):
+        assert (
+            await storage.fetch_points_before(KEY, before=datetime.now(UTC), limit=2)
+            == []
+        )
