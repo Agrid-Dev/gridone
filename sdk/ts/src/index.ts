@@ -42,6 +42,7 @@ export { DevicesResource } from "./resources/devices";
 export type {
   CommandListParams,
   DeviceListParams,
+  FaultEpisodeListParams,
   FaultListParams,
 } from "./resources/devices";
 export { DriversResource } from "./resources/drivers";

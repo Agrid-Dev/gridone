@@ -9,7 +9,11 @@
     "rangeLastMonths_other": "{{count}} derniers mois",
     "rangeAll": "Tout l'historique",
     "rangeCustom": "Plage personnalisée",
-    "rangeApply": "Appliquer"
+    "rangeApply": "Appliquer",
+    "segment24h": "24 h",
+    "segment7d": "7 j",
+    "segment30d": "30 j",
+    "segmentCustom": "Personnalisé"
   },
   "appearance": {
     "theme": "Thème",
@@ -172,6 +176,14 @@
       "hours_other": "{{count}} heures",
       "days_one": "{{count}} jour",
       "days_other": "{{count}} jours"
+    },
+    "compactDuration": {
+      "lessThanAMinute": "< 1 min",
+      "minutes": "{{value}} min",
+      "hours": "{{value}} h",
+      "hoursMinutes": "{{hours}} h {{minutes}}",
+      "days": "{{value}} j",
+      "daysHours": "{{days}} j {{hours}} h"
     },
     "severity": {
       "alert": "critique",

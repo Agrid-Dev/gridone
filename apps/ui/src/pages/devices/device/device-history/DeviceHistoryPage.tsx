@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorFallback } from "@/components/fallbacks/Error";
+import { TimeRangeSegments } from "@/components/TimeRangeSegments";
 import { useDeviceFromRoute } from "@/hooks/useDevice";
 import { useStandardTypes } from "@/hooks/useStandardTypes";
 import { deviceAttributes, standardAttributeNames } from "@/lib/devices";
@@ -22,7 +23,6 @@ import {
 } from "./DeviceHistoryContext";
 import { AttributeSelector } from "./AttributeSelector";
 import { ExportMenu } from "./ExportMenu";
-import { HistoryRangeControl } from "./HistoryRangeControl";
 import { TruncationWarning } from "./TruncationWarning";
 import { ViewToggle } from "./ViewToggle";
 
@@ -64,7 +64,8 @@ export default function DeviceHistoryPage() {
 
 function HistoryContent() {
   const { t } = useTranslation(["devices", "common"]);
-  const { series, isLoading, error } = useDeviceHistoryContext();
+  const { series, isLoading, error, timeRange, applyRange, applyPreset } =
+    useDeviceHistoryContext();
 
   if (error) {
     return (
@@ -101,7 +102,11 @@ function HistoryContent() {
         <ViewToggle />
         <div className="flex flex-wrap items-center gap-3">
           <AttributeSelector />
-          <HistoryRangeControl />
+          <TimeRangeSegments
+            timeRange={timeRange}
+            applyRange={applyRange}
+            applyPreset={applyPreset}
+          />
           <ExportMenu />
         </div>
       </div>

@@ -2,12 +2,15 @@ import { useTranslation } from "react-i18next";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ResourceHeader } from "@/components/ResourceHeader";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 import { ErrorFallback } from "@/components/fallbacks/Error";
+import { usePermissions } from "@/contexts/AuthContext";
+import { FaultsHeader, FAULT_HISTORY_PATH } from "./components/FaultsHeader";
 import { FaultsTable } from "./components/FaultsTable";
 import { SeveritySummaryCard } from "./components/SeveritySummaryCard";
-import { useFaultsPage } from "./useFaultsPage";
+import { useFaultsPage, type FaultRow } from "./useFaultsPage";
+import { useRecurrenceNotes } from "./useRecurrenceNotes";
 import { SEVERITIES } from "@/lib/severity";
 
 /** Summary cards read worst-first, like the table underneath. */
@@ -25,10 +28,10 @@ export default function FaultsPage() {
     setSeverity,
     total,
   } = useFaultsPage();
+  const notes = useRecurrenceNotes();
 
   const header = (
-    <ResourceHeader
-      title={t("faults.title")}
+    <FaultsHeader
       caption={t("faults.caption")}
       actions={
         rows.length > 0 && (
@@ -98,7 +101,11 @@ export default function FaultsPage() {
       </div>
 
       {rows.length ? (
-        <FaultsTable rows={rows} />
+        <FaultsTable
+          rows={rows}
+          notes={notes}
+          footer={<OngoingFooter rows={rows} />}
+        />
       ) : (
         <ResourceEmpty
           resourceName={t("common:common.fault")}
@@ -110,5 +117,29 @@ export default function FaultsPage() {
         />
       )}
     </section>
+  );
+}
+
+/** "3 alertes en cours sur 2 appareils · Voir l'historique". */
+function OngoingFooter({ rows }: { rows: FaultRow[] }) {
+  const { t } = useTranslation("faults");
+  const can = usePermissions();
+  const devices = new Set(rows.map((row) => row.device_id)).size;
+  return (
+    <>
+      {t("faults.liveFooter.alerts", { count: rows.length })}{" "}
+      {t("faults.liveFooter.devices", { count: devices })}
+      {can("timeseries:read") && (
+        <>
+          {" · "}
+          <Link
+            to={FAULT_HISTORY_PATH}
+            className="font-medium text-foreground underline-offset-4 hover:underline"
+          >
+            {t("faults.liveFooter.seeHistory")}
+          </Link>
+        </>
+      )}
+    </>
   );
 }

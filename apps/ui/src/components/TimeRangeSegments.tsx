@@ -6,17 +6,21 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { type TimeRangePreset, rangeLabel } from "@/lib/timeRange";
+import {
+  type TimeRange,
+  type TimeRangePreset,
+  rangeLabel,
+} from "@/lib/timeRange";
 import { cn } from "@/lib/utils";
-import { useDeviceHistoryContext } from "./DeviceHistoryContext";
 
 const SEGMENTS: { preset: TimeRangePreset; labelKey: string }[] = [
-  { preset: "1d", labelKey: "history.range24h" },
-  { preset: "7d", labelKey: "history.range7d" },
-  { preset: "1mo", labelKey: "history.range30d" },
+  { preset: "1d", labelKey: "timeRange.segment24h" },
+  { preset: "7d", labelKey: "timeRange.segment7d" },
+  { preset: "1mo", labelKey: "timeRange.segment30d" },
 ];
 
-const itemClass = (active: boolean) =>
+/** A segment of a segmented control, raised while selected. */
+export const segmentItemClass = (active: boolean) =>
   cn(
     "rounded-sm px-3 py-1.5 text-sm font-medium transition-colors",
     active
@@ -24,15 +28,24 @@ const itemClass = (active: boolean) =>
       : "text-muted-foreground hover:text-foreground",
   );
 
+type TimeRangeSegmentsProps = {
+  timeRange: TimeRange;
+  applyRange: (range: TimeRange) => void;
+  applyPreset: (preset: TimeRangePreset) => void;
+};
+
 /**
- * Segmented period control: 24 h / 7 j / 30 j plus a custom popover. A range
- * that maps to no segment (an off-ladder preset from a shared link, or a
- * custom window) lights the custom segment, labelled with the actual range.
+ * Segmented period control: 24 h / 7 j / 30 j plus a custom popover, for a
+ * view reading its period from `useTimeRangeUrlState`. A range that maps to no
+ * segment (an off-ladder preset from a shared link, or a custom window) lights
+ * the custom segment, labelled with the actual range.
  */
-export function HistoryRangeControl() {
-  const { t } = useTranslation("devices");
-  const { t: tCommon } = useTranslation("common");
-  const { timeRange, applyRange, applyPreset } = useDeviceHistoryContext();
+export function TimeRangeSegments({
+  timeRange,
+  applyRange,
+  applyPreset,
+}: TimeRangeSegmentsProps) {
+  const { t } = useTranslation("common");
   const [open, setOpen] = useState(false);
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
@@ -41,8 +54,8 @@ export function HistoryRangeControl() {
   const inSegments = SEGMENTS.some((s) => s.preset === activePreset);
   const customLabel =
     activePreset && !inSegments
-      ? rangeLabel(timeRange, tCommon)
-      : t("history.rangeCustom");
+      ? rangeLabel(timeRange, t)
+      : t("timeRange.segmentCustom");
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen && timeRange.kind === "custom") {
@@ -67,9 +80,9 @@ export function HistoryRangeControl() {
           type="button"
           aria-pressed={activePreset === preset}
           onClick={() => applyPreset(preset)}
-          className={itemClass(activePreset === preset)}
+          className={segmentItemClass(activePreset === preset)}
         >
-          {t(labelKey as "history.range24h")}
+          {t(labelKey as "timeRange.segment24h")}
         </button>
       ))}
 
@@ -78,14 +91,14 @@ export function HistoryRangeControl() {
           <button
             type="button"
             aria-pressed={!inSegments}
-            className={itemClass(!inSegments)}
+            className={segmentItemClass(!inSegments)}
           >
             {customLabel}
           </button>
         </PopoverTrigger>
         <PopoverContent align="end" className="w-64 space-y-2 p-3">
           <p className="text-xs font-medium text-muted-foreground">
-            {tCommon("timeRange.rangeCustom")}
+            {t("timeRange.rangeCustom")}
           </p>
           <input
             type="datetime-local"
@@ -109,7 +122,7 @@ export function HistoryRangeControl() {
             className="w-full"
             onClick={handleCustomApply}
           >
-            {tCommon("timeRange.rangeApply")}
+            {t("timeRange.rangeApply")}
           </Button>
         </PopoverContent>
       </Popover>

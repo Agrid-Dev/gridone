@@ -9,7 +9,16 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useDeviceSearchParam } from "@/hooks/useDeviceSearchParam";
 
-export function DeviceSearchField() {
+type DeviceSearchFieldProps = {
+  /** What the field searches, when it is more than device names. */
+  label?: string;
+  placeholder?: string;
+};
+
+export function DeviceSearchField({
+  label,
+  placeholder,
+}: DeviceSearchFieldProps = {}) {
   const { t } = useTranslation("devices");
   const { value, change, commit, clear } = useDeviceSearchParam();
   return (
@@ -21,8 +30,8 @@ export function DeviceSearchField() {
       <Input
         type="search"
         className="h-9 pl-9 pr-10"
-        aria-label={t("devices.search.label")}
-        placeholder={t("devices.search.placeholder")}
+        aria-label={label ?? t("devices.search.label")}
+        placeholder={placeholder ?? t("devices.search.placeholder")}
         value={value}
         onChange={(event) => change(event.target.value)}
         onBlur={commit}

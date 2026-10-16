@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { foldText, toLabel } from "./textFormat";
+import { capitalize, foldText, toLabel } from "./textFormat";
 
 describe("text to Label format", () => {
   it("Empty string untouched", () => {
@@ -35,5 +35,13 @@ describe("foldText", () => {
   it("drops accents and case", () => {
     expect(foldText("RÉCHAUFFEUR de boucle")).toBe("rechauffeur de boucle");
     expect(foldText("Arrêt")).toBe("arret");
+  });
+});
+
+describe("capitalize", () => {
+  it("upper-cases the first letter only", () => {
+    expect(capitalize("lundi 12 octobre", "fr")).toBe("Lundi 12 octobre");
+    expect(capitalize("état", "fr")).toBe("État");
+    expect(capitalize("")).toBe("");
   });
 });

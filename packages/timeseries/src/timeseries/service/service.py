@@ -617,6 +617,14 @@ class TimeSeriesService(Service):
             limit=effective_limit,
         )
 
+    async def fetch_point_before(
+        self, key: SeriesKey, *, before: datetime
+    ) -> DataPoint | None:
+        """The series' last point strictly before ``before``: the state it was
+        in when a window opens. None when nothing precedes, or no such series."""
+        utc_before = cast("datetime", normalize_to_utc(before, self._default_timezone))
+        return await self._backend.fetch_point_before(key, before=utc_before)
+
     async def _fetch_points_utc(
         self,
         key: SeriesKey,

@@ -9,7 +9,11 @@
     "rangeLastMonths_other": "Last {{count}} months",
     "rangeAll": "All time",
     "rangeCustom": "Custom range",
-    "rangeApply": "Apply"
+    "rangeApply": "Apply",
+    "segment24h": "24 h",
+    "segment7d": "7 d",
+    "segment30d": "30 d",
+    "segmentCustom": "Custom"
   },
   "appearance": {
     "theme": "Theme",
@@ -172,6 +176,14 @@
       "hours_other": "{{count}} hours",
       "days_one": "{{count}} day",
       "days_other": "{{count}} days"
+    },
+    "compactDuration": {
+      "lessThanAMinute": "< 1 min",
+      "minutes": "{{value}} min",
+      "hours": "{{value}} h",
+      "hoursMinutes": "{{hours}} h {{minutes}}",
+      "days": "{{value}} d",
+      "daysHours": "{{days}} d {{hours}} h"
     },
     "severity": {
       "alert": "critical",

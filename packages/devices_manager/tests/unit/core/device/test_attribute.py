@@ -444,3 +444,23 @@ def test_value_labels_serialize_when_set_and_round_trip():
         {"value": True, "label": {"default": "Running", "translations": {}}},
     ]
     assert Attribute.model_validate(dumped).value_labels == labels
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [(None, False), (0, False), (3, True)],
+)
+def test_fault_attribute_judges_a_past_value_with_its_own_rule(
+    value: Any,
+    expected: bool,
+):
+    """History is read with the rule the live value uses: unknown is never
+    faulty, a healthy value is not, any other value is."""
+    attr = FaultAttribute(
+        name="fault_code",
+        data_type=DataType.INT,
+        read_write_modes={"read"},
+        current_value=None,
+        healthy_values=[0],
+    )
+    assert attr.is_faulty_value(value) is expected

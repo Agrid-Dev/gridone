@@ -566,3 +566,43 @@ class TestFetchPointsTruncation:
         assert result.truncated is True
         assert result.points[0].value == 99.0
         assert result.next_start == pts[2].timestamp
+
+
+class TestFetchPointBefore:
+    """The state a series was in when a window opens: its last point strictly
+    before that instant."""
+
+    async def test_returns_the_last_point_strictly_before(
+        self, service: TimeSeriesService
+    ):
+        await service.create_series(
+            data_type=DataType.FLOAT,
+            owner_id=KEY.owner_id,
+            metric=KEY.metric,
+        )
+        t1, t2, t3 = (datetime(2026, 1, day, tzinfo=UTC) for day in (1, 2, 3))
+        await service.upsert_points(
+            KEY,
+            [
+                DataPoint(timestamp=t1, value=1.0),
+                DataPoint(timestamp=t2, value=2.0),
+                DataPoint(timestamp=t3, value=3.0),
+            ],
+        )
+        previous = await service.fetch_point_before(KEY, before=t3)
+        assert previous == DataPoint(timestamp=t2, value=2.0)
+
+    async def test_none_when_nothing_precedes(self, service: TimeSeriesService):
+        await service.create_series(
+            data_type=DataType.FLOAT,
+            owner_id=KEY.owner_id,
+            metric=KEY.metric,
+        )
+        t1 = datetime(2026, 1, 1, tzinfo=UTC)
+        await service.upsert_points(KEY, [DataPoint(timestamp=t1, value=1.0)])
+        assert await service.fetch_point_before(KEY, before=t1) is None
+
+    async def test_none_for_an_unknown_series(self, service: TimeSeriesService):
+        unknown = SeriesKey(owner_id="nobody", metric="alarm")
+        before = datetime(2026, 1, 1, tzinfo=UTC)
+        assert await service.fetch_point_before(unknown, before=before) is None

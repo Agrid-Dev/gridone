@@ -266,10 +266,6 @@
   "history": {
     "chart": "Graphique",
     "table": "Tableau",
-    "range24h": "24 h",
-    "range7d": "7 j",
-    "range30d": "30 j",
-    "rangeCustom": "Personnalisé",
     "truncatedWarning": "Données tronquées pour {{attributes}}, réduisez la période",
     "noAttributesSelected": "Sélectionnez des attributs à tracer",
     "noMetricData": "Aucune donnée sur la période",

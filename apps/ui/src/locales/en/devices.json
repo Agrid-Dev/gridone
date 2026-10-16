@@ -266,10 +266,6 @@
   "history": {
     "chart": "Chart",
     "table": "Table",
-    "range24h": "24 h",
-    "range7d": "7 d",
-    "range30d": "30 d",
-    "rangeCustom": "Custom",
     "truncatedWarning": "Data truncated for {{attributes}}, narrow the period",
     "noAttributesSelected": "Select attributes to chart",
     "noMetricData": "No data for this period",

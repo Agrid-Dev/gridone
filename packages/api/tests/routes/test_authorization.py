@@ -23,7 +23,7 @@ from fastapi.testclient import TestClient
 
 from api.access.dependencies import get_device_reads, get_target_resolver
 from api.app import create_app
-from api.auth import get_current_user_id
+from api.auth import get_current_permissions, get_current_user_id
 from api.dependencies import (
     get_apps_service,
     get_assets_service,
@@ -974,6 +974,13 @@ DEVICES_ACCESS_CONTROL_SCENARIOS = [
     pytest.param("GET", "/devices/faults/", "operator", 200, id="faults-operator"),
     pytest.param("GET", "/devices/faults/", "viewer", 200, id="faults-viewer"),
     pytest.param("GET", "/devices/faults/", None, 401, id="faults-no-auth"),
+    # Alert history: device and timeseries reads, which every built-in role has
+    pytest.param(
+        "GET", "/devices/faults/episodes", "viewer", 200, id="fault-episodes-viewer"
+    ),
+    pytest.param(
+        "GET", "/devices/faults/episodes", None, 401, id="fault-episodes-no-auth"
+    ),
     # Attribute logs — admin only
     pytest.param(
         "GET", "/devices/any-id/temperature/logs", "admin", 200, id="logs-admin"
@@ -1051,6 +1058,22 @@ def test_devices_access_control(
             headers = _auth_header(token)
         resp = client.request(method, endpoint, json={"values": {}}, headers=headers)
         assert resp.status_code == expected_status
+
+
+def test_fault_episodes_need_timeseries_read_besides_devices_read(
+    devices_app: FastAPI,
+) -> None:
+    """The alert history is read from the devices' series: reading the
+    devices alone lists today's alerts, not their history."""
+    devices_app.dependency_overrides[get_current_permissions] = lambda: frozenset(
+        {Permission.DEVICES_READ}
+    )
+    with TestClient(devices_app) as client:
+        headers = _auth_header(_login(client, "viewer"))
+        assert client.get("/devices/faults/", headers=headers).status_code == 200
+        resp = client.get("/devices/faults/episodes", headers=headers)
+    assert resp.status_code == 403
+    assert resp.json()["detail"] == "Permission denied: requires timeseries:read"
 
 
 # --- Commands and asset-command RBAC ---

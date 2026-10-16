@@ -131,6 +131,24 @@ const CASES: Case[] = [
     ["GET", "/devices/faults/", { searchParams: { severity: "alert" } }],
   ],
   [
+    "listFaultEpisodes",
+    (d) =>
+      d.listFaultEpisodes({
+        start: "2026-10-09T00:00:00Z",
+        end: "2026-10-16T00:00:00Z",
+      }),
+    [
+      "GET",
+      "/devices/faults/episodes",
+      {
+        searchParams: {
+          start: "2026-10-09T00:00:00Z",
+          end: "2026-10-16T00:00:00Z",
+        },
+      },
+    ],
+  ],
+  [
     "getStandardTypes",
     (d) => d.getStandardTypes(),
     ["GET", "/devices/standard-types"],

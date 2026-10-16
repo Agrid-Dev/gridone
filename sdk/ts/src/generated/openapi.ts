@@ -886,6 +886,29 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/devices/faults/episodes": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Fault Episodes
+     * @description Alert episodes, finished or ongoing, that share time with the period.
+     *
+     *     Rebuilt from the history of the fault attributes; the last 7 days unless a
+     *     period is given.
+     */
+    get: operations["list_fault_episodes_devices_faults_episodes_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/devices/{device_id}/presentation": {
     parameters: {
       query?: never;
@@ -5277,6 +5300,49 @@ export interface components {
       severity?: components["schemas"]["Severity"];
       /** Healthy Values */
       healthy_values?: (number | string | boolean)[];
+    };
+    /**
+     * FaultEpisodeResponse
+     * @description A period during which a fault attribute stayed outside its healthy values.
+     */
+    FaultEpisodeResponse: {
+      /** Device Id */
+      device_id: string;
+      /** Device Name */
+      device_name: string;
+      /** Device Type */
+      device_type?: string | null;
+      /** Attribute Name */
+      attribute_name: string;
+      data_type: components["schemas"]["DataType"];
+      severity: components["schemas"]["Severity"];
+      label?: components["schemas"]["LocalizedText"] | null;
+      /** Value */
+      value: number | string | boolean;
+      /**
+       * Started At
+       * Format: date-time
+       */
+      started_at: string;
+      /** Ended At */
+      ended_at?: string | null;
+    };
+    /** FaultEpisodesResponse */
+    FaultEpisodesResponse: {
+      /** Episodes */
+      episodes: components["schemas"]["FaultEpisodeResponse"][];
+      /**
+       * Start
+       * Format: date-time
+       */
+      start: string;
+      /**
+       * End
+       * Format: date-time
+       */
+      end: string;
+      /** Truncated */
+      truncated: boolean;
     };
     /** FaultView */
     FaultView: {
@@ -11208,6 +11274,40 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["FaultView"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_fault_episodes_devices_faults_episodes_get: {
+    parameters: {
+      query?: {
+        start?: string | null;
+        end?: string | null;
+        last?: string | null;
+        severity?: components["schemas"]["Severity"] | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FaultEpisodesResponse"];
         };
       };
       /** @description Validation Error */

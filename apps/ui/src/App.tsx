@@ -11,7 +11,7 @@ import Dashboards from "./pages/dashboards";
 import Documents from "./pages/documents";
 import Devices from "./pages/devices";
 import Groups from "./pages/groups";
-import FaultsPage from "./pages/faults/FaultsPage";
+import Faults from "./pages/faults";
 import Home from "./pages/home";
 import NotificationsPage from "./pages/notifications";
 import Drivers from "./pages/drivers";
@@ -85,7 +85,7 @@ function ProtectedLayout() {
                 <Route path="/transports/*" element={<Transports />} />
                 <Route path="/apps/*" element={<Apps />} />
                 <Route path="/automations/*" element={<Automations />} />
-                <Route path="/faults" element={<FaultsPage />} />
+                <Route path="/faults/*" element={<Faults />} />
                 <Route path="/notifications" element={<NotificationsPage />} />
                 <Route path="/users" element={<UsersPage />} />
                 <Route path="/profile/edit" element={<BuildingProfileEdit />} />

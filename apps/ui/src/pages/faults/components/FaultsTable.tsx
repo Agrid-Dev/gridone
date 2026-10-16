@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import { EmptyValue } from "@/components/EmptyValue";
@@ -17,15 +18,24 @@ import { faultKey, type FaultRow } from "../useFaultsPage";
 
 /** A slim rail makes every severity visible before the operator reaches the
  * severity column. Alerts also keep their stronger row wash. */
-const SEVERITY_RAIL_CLASS: Record<Severity, string> = {
+export const SEVERITY_RAIL_CLASS: Record<Severity, string> = {
   alert: "border-l-4 border-l-status-error",
   warning: "border-l-4 border-l-status-warning",
   info: "border-l-4 border-l-muted-foreground",
 };
 
+type FaultsTableProps = {
+  rows: FaultRow[];
+  /** A line under an alert's name, keyed by {@link faultKey}, such as how
+   *  often the alert came back. */
+  notes?: ReadonlyMap<string, string>;
+  /** Closes the table inside its frame, such as a count and a link. */
+  footer?: ReactNode;
+};
+
 /** The fault rows as the faults page lists them, for every surface that
  *  shows a list of faults: the fleet page and a synoptic's own devices. */
-export function FaultsTable({ rows }: { rows: FaultRow[] }) {
+export function FaultsTable({ rows, notes, footer }: FaultsTableProps) {
   const { t } = useTranslation("faults");
   return (
     <div className="overflow-hidden rounded-lg border">
@@ -48,15 +58,24 @@ export function FaultsTable({ rows }: { rows: FaultRow[] }) {
         </TableHeader>
         <TableBody>
           {rows.map((row) => (
-            <FaultTableRow key={faultKey(row)} row={row} />
+            <FaultTableRow
+              key={faultKey(row)}
+              row={row}
+              note={notes?.get(faultKey(row))}
+            />
           ))}
         </TableBody>
       </Table>
+      {footer && (
+        <div className="border-t px-4 py-3 text-sm text-muted-foreground">
+          {footer}
+        </div>
+      )}
     </div>
   );
 }
 
-function FaultTableRow({ row }: { row: FaultRow }) {
+function FaultTableRow({ row, note }: { row: FaultRow; note?: string }) {
   const { t } = useTranslation();
   const label = useFaultLabel()(row);
   const activeSince = formatDurationSince(Date.parse(row.last_changed), t);
@@ -92,7 +111,12 @@ function FaultTableRow({ row }: { row: FaultRow }) {
           (row.zone ?? <EmptyValue />)
         )}
       </TableCell>
-      <TableCell className="py-2.5">{label}</TableCell>
+      <TableCell className="py-2.5">
+        {label}
+        {note && (
+          <span className="block text-xs text-muted-foreground">{note}</span>
+        )}
+      </TableCell>
       <TableCell className="whitespace-nowrap py-2.5">
         <SeverityLabel severity={row.severity} />
       </TableCell>

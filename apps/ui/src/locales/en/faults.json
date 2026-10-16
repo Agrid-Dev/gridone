@@ -1,7 +1,7 @@
 {
   "faults": {
-    "title": "Active alerts",
-    "caption": "Active issues across your fleet — investigate and resolve.",
+    "title": "Alerts",
+    "caption": "Ongoing alerts across all devices, most severe first",
     "emptyTitle": "No active alerts across your fleet.",
     "emptyDescription": "All devices are reporting healthy attributes.",
     "unableToLoad": "Unable to load alerts",
@@ -25,6 +25,89 @@
     },
     "filteredEmpty": "No alerts match this filter",
     "clearFilter": "Clear filter",
-    "activeFilter": "Active filter"
+    "activeFilter": "Active filter",
+    "tabs": {
+      "label": "Alerts",
+      "live": "Ongoing",
+      "history": "History"
+    },
+    "span": {
+      "1d": "over 24 hours",
+      "7d": "over 7 days",
+      "1mo": "over 30 days",
+      "custom": "over this period"
+    },
+    "recurrence_one": "{{count}} time {{span}}",
+    "recurrence_other": "{{count}} times {{span}}",
+    "liveFooter": {
+      "alerts_one": "{{count}} ongoing alert",
+      "alerts_other": "{{count}} ongoing alerts",
+      "devices_one": "on {{count}} device",
+      "devices_other": "on {{count}} devices",
+      "seeHistory": "See history"
+    },
+    "history": {
+      "caption": "Every alert of the period, ended or ongoing",
+      "views": {
+        "label": "Show",
+        "byDay": "Timeline",
+        "byDevice": "By device"
+      },
+      "severities": {
+        "label": "Severity",
+        "all": "All"
+      },
+      "search": {
+        "label": "Search alerts",
+        "placeholder": "Device, zone or alert"
+      },
+      "figures": {
+        "count": "Alerts {{span}}",
+        "ongoing_one": "{{count}} still ongoing",
+        "ongoing_other": "{{count}} still ongoing",
+        "allEnded": "all ended",
+        "duration": "Time in alert",
+        "durationNote": "summed over all devices",
+        "mostFrequent": "Most frequent",
+        "mostFrequentNote_one": "{{device}} · {{count}} time",
+        "mostFrequentNote_other": "{{device}} · {{count}} times"
+      },
+      "columns": {
+        "range": "Start → end",
+        "duration": "Duration",
+        "lastTime": "Last time",
+        "total": "Total",
+        "count": "Times"
+      },
+      "dayCount_one": "{{count}} alert",
+      "dayCount_other": "{{count}} alerts",
+      "today": "today",
+      "yesterday": "yesterday",
+      "ongoing": "ongoing",
+      "nextDay": "{{time}} (next day)",
+      "since": "for {{duration}}",
+      "stillOn": "ongoing right now",
+      "deviceHistory": "History",
+      "deviceHistoryTitle": "The device's history at that moment",
+      "byDayFooter_one": "{{count}} alert {{span}} · rebuilt from the devices' history",
+      "byDayFooter_other": "{{count}} alerts {{span}} · rebuilt from the devices' history",
+      "byDeviceFooter_one": "{{count}} alert {{span}}",
+      "byDeviceFooter_other": "{{count}} different alerts {{span}}, longest first",
+      "truncated": "Some devices changed too often over the period: their latest changes may be missing. Shorten the period.",
+      "emptyTitle": "No alerts over this period",
+      "emptyDescription": "No device was in alert over this period.",
+      "filteredEmpty": "No alerts match these filters",
+      "clearFilters": "Clear filters",
+      "unableToLoad": "Unable to load the alert history",
+      "exportFilenameStem": "alert-history",
+      "csv": {
+        "start": "Start",
+        "end": "End",
+        "durationMinutes": "Duration (min)",
+        "lastTime": "Last time",
+        "totalMinutes": "Total (min)",
+        "count": "Times"
+      }
+    }
   }
 }

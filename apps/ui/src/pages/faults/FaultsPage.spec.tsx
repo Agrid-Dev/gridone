@@ -2,13 +2,21 @@ import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, cleanup, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
-import type { Asset, FaultView } from "@gridone/sdk";
+import type { Asset, FaultEpisode, FaultView } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
-    "faults.title": "Active faults",
+    "faults.title": "Alerts",
     "faults.caption": "Fleet triage",
+    "faults.tabs.label": "Alerts",
+    "faults.tabs.live": "Ongoing",
+    "faults.tabs.history": "History",
+    "faults.span.7d": "over 7 days",
+    "faults.recurrence": "{{count}} times {{span}}",
+    "faults.liveFooter.alerts": "{{count}} ongoing alerts",
+    "faults.liveFooter.devices": "on {{count}} devices",
+    "faults.liveFooter.seeHistory": "See history",
     "faults.emptyTitle": "No active faults across your fleet.",
     "faults.emptyDescription": "All devices are healthy.",
     "faults.unableToLoad": "Unable to load faults",
@@ -44,6 +52,17 @@ vi.mock("@/hooks/useAssetTree", () => ({
   useAssetTree: () => mockUseAssetTree(),
 }));
 
+const mockUseFaultEpisodes = vi.fn();
+vi.mock("@/hooks/useFaultEpisodes", () => ({
+  useFaultEpisodes: (...args: unknown[]) => mockUseFaultEpisodes(...args),
+}));
+
+const permissions = { granted: new Set(["devices:read", "timeseries:read"]) };
+vi.mock("@/contexts/AuthContext", () => ({
+  usePermissions: () => (permission: string) =>
+    permissions.granted.has(permission),
+}));
+
 const mockDownloadCsv = vi.fn();
 vi.mock("@/lib/csv", () => ({
   downloadCsv: (...args: unknown[]) => mockDownloadCsv(...args),
@@ -62,6 +81,20 @@ function makeFault(overrides: Partial<FaultView> = {}): FaultView {
     last_updated: "2026-04-24T00:00:00Z",
     last_changed: "2026-04-24T00:00:00Z",
     ...overrides,
+  };
+}
+
+/** A past episode of an alert: only its device and attribute count here. */
+function makeEpisode(deviceId: string, attributeName: string): FaultEpisode {
+  return {
+    device_id: deviceId,
+    device_name: deviceId,
+    attribute_name: attributeName,
+    data_type: "bool",
+    severity: "alert",
+    value: true,
+    started_at: "2026-04-20T00:00:00Z",
+    ended_at: "2026-04-20T01:00:00Z",
   };
 }
 
@@ -128,6 +161,14 @@ beforeEach(() => {
     assetByDeviceId: { d1: makeAsset("a1", "Ground floor") },
     isLoading: false,
   });
+  mockUseFaultEpisodes.mockReturnValue({
+    episodes: [],
+    period: null,
+    truncated: false,
+    loading: false,
+    error: null,
+  });
+  permissions.granted = new Set(["devices:read", "timeseries:read"]);
 });
 
 afterEach(() => {
@@ -135,6 +176,7 @@ afterEach(() => {
   mockUseFaultsList.mockReset();
   mockUseAssetTree.mockReset();
   mockDownloadCsv.mockReset();
+  mockUseFaultEpisodes.mockReset();
 });
 
 describe("FaultsPage", () => {
@@ -301,6 +343,66 @@ describe("FaultsPage", () => {
     const { container } = renderPage();
     expect(container.querySelector(".animate-pulse")).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+
+  it("opens on the ongoing tab, which counts the alerts", () => {
+    renderPage();
+    const ongoing = screen.getByRole("tab", { name: /Ongoing/ });
+    expect(ongoing).toHaveAttribute("aria-selected", "true");
+    expect(ongoing).toHaveTextContent("3");
+    expect(screen.getByRole("tab", { name: "History" })).toHaveAttribute(
+      "href",
+      "/faults/history",
+    );
+  });
+
+  it("marks an alert that came back over the last 7 days", () => {
+    mockUseFaultEpisodes.mockReturnValue({
+      episodes: [
+        makeEpisode("d1", "compressor_fault"),
+        makeEpisode("d1", "compressor_fault"),
+        makeEpisode("d1", "compressor_fault"),
+        makeEpisode("d2", "low_pressure"),
+      ],
+      period: null,
+      truncated: false,
+      loading: false,
+      error: null,
+    });
+    renderPage();
+    expect(mockUseFaultEpisodes).toHaveBeenCalledWith(
+      { last: "7d" },
+      { enabled: true },
+    );
+    const [alpha, bravo] = bodyRows();
+    expect(within(alpha).getByText("3 times over 7 days")).toBeInTheDocument();
+    // Seen once: it did not come back.
+    expect(within(bravo).queryByText(/times over/)).not.toBeInTheDocument();
+  });
+
+  it("counts the alerts and their devices under the table, with a way to the history", () => {
+    renderPage();
+    expect(
+      screen.getByText(/3 ongoing alerts on 3 devices/),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "See history" })).toHaveAttribute(
+      "href",
+      "/faults/history",
+    );
+  });
+
+  it("keeps the ongoing list alone for a role that cannot read the history", () => {
+    permissions.granted = new Set(["devices:read"]);
+    renderPage();
+    expect(mockUseFaultEpisodes).toHaveBeenCalledWith(
+      { last: "7d" },
+      { enabled: false },
+    );
+    expect(screen.queryByRole("tab")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "See history" }),
+    ).not.toBeInTheDocument();
+    expect(bodyRows()).toHaveLength(3);
   });
 
   it("shows the error fallback when the hook returns an error", () => {
