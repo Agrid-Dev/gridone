@@ -260,6 +260,14 @@ class TestScopes:
                 {"id": "x", "name": "n", "permissions": permissions, "scopes": scopes}
             )
 
+    def test_accepts_a_scope_on_a_read_the_role_only_implies(self):
+        role = _create(["devices:write"], {"devices:read": [THERMOSTATS]}).to_role()
+
+        assert role.permissions == [Permission.DEVICES_WRITE]
+        assert role.scopes == {
+            Permission.DEVICES_READ: [DeviceScope.model_validate(THERMOSTATS)]
+        }
+
     def test_apply_to_refuses_dropping_a_permission_its_scope_still_needs(self):
         role = _create(["devices:read"], {"devices:read": [THERMOSTATS]}).to_role()
 
@@ -367,6 +375,36 @@ class TestKnownScopes:
         assert kept == [Permission.TIMESERIES_READ]
         assert scopes == {}
         assert "permission dropped" in caplog.text
+
+    def test_keeps_a_scope_on_a_read_the_role_only_implies(self):
+        # Ignoring it would widen the implied read to every device.
+        permissions, scopes = known_scopes(
+            {"devices:read": [THERMOSTATS]},
+            permissions=[Permission.DEVICES_WRITE],
+            role_id="x",
+        )
+
+        assert permissions == [Permission.DEVICES_WRITE]
+        assert scopes == {
+            Permission.DEVICES_READ: [DeviceScope.model_validate(THERMOSTATS)]
+        }
+
+    def test_fails_closed_by_dropping_the_writes_implying_an_unusable_read(
+        self, caplog
+    ):
+        with caplog.at_level("ERROR"):
+            kept, scopes = known_scopes(
+                {"devices:read": []},
+                permissions=[
+                    Permission.DEVICES_COMMAND,
+                    Permission.DEVICES_WRITE,
+                    Permission.TIMESERIES_READ,
+                ],
+                role_id="x",
+            )
+
+        assert kept == [Permission.TIMESERIES_READ]
+        assert scopes == {}
 
 
 @pytest.mark.parametrize("model", [RoleCreate, RoleUpdate])

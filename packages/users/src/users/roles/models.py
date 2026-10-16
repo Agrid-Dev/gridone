@@ -17,7 +17,7 @@ from pydantic import (
     model_validator,
 )
 
-from users.permissions import Permission
+from users.permissions import IMPLIES, Permission, effective
 
 logger = logging.getLogger(__name__)
 
@@ -120,7 +120,7 @@ def check_scopes(permissions: Collection[Permission], scopes: Scopes) -> None:
         if not entries:
             msg = f"Scope list for {permission} is empty; drop the key instead"
             raise ValueError(msg)
-        if permission not in permissions:
+        if permission not in effective(permissions):
             msg = f"Scope on a permission the role does not hold: {permission}"
             raise ValueError(msg)
 
@@ -137,9 +137,11 @@ def known_scopes(
     unlike it, dropping a scope would *widen* the permission it narrows. So
     this fails closed: an entry the shape no longer reads is dropped (a
     union of entries can only narrow), and when nothing readable is left, or
-    the permission is no longer scopable, the permission goes with it. A key
-    the role does not hold narrows nothing and is simply ignored.
+    the permission is no longer scopable, the permission goes with it, and
+    so does every permission implying it. A key the role does not hold, even
+    by implication, narrows nothing and is simply ignored.
     """
+    held = effective(permissions)
     kept_permissions = list(permissions)
     scopes: Scopes = {}
     for key, entries in values.items():
@@ -150,7 +152,7 @@ def known_scopes(
                 "Role %r scopes unknown permission %r; ignored", role_id, key
             )
             continue
-        if permission not in permissions:
+        if permission not in held:
             logger.warning(
                 "Role %r scopes %r, which it does not hold; ignored", role_id, key
             )
@@ -175,7 +177,11 @@ def known_scopes(
                 key,
                 exc,
             )
-            kept_permissions.remove(permission)
+            kept_permissions = [
+                p
+                for p in kept_permissions
+                if p != permission and permission not in IMPLIES.get(p, ())
+            ]
             continue
         scopes[permission] = readable
     return kept_permissions, scopes

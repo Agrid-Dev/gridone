@@ -71,7 +71,8 @@ async def list_users(
 async def _ensure_grantable(
     role_id: str, granted: frozenset[Permission], um: UsersService
 ) -> None:
-    """A caller may only assign a role whose permissions it holds itself.
+    """A caller may only assign a role whose permissions it holds itself,
+    the ones its role implies included (``granted`` already counts them).
 
     Without this, ``users:write`` alone is admin-equivalent: promote an
     account (yours or another) to ``admin`` and log in as it. An unknown
