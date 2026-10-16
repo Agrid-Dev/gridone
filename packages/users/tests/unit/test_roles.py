@@ -295,7 +295,9 @@ class TestKnownScopes:
         )
 
         assert permissions == held
-        assert scopes == {Permission.DEVICES_COMMAND: [DeviceScope(**THERMOSTATS)]}
+        assert scopes == {
+            Permission.DEVICES_COMMAND: [DeviceScope.model_validate(THERMOSTATS)]
+        }
 
     def test_keeps_a_scope_the_role_can_still_carry(self):
         permissions, scopes = known_scopes(

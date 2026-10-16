@@ -1,6 +1,6 @@
 import asyncio
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from pydantic import ValidationError
@@ -502,15 +502,15 @@ async def test_confirmation_dispatches_through_the_callers_view(context):
         reads,
     )
     resolver = commands.dispatch_batch.call_args.kwargs["target_resolver"]
-    reads.list_devices = MagicMock(wraps=reads.list_devices)
 
-    await resolver.resolve(
-        AttributeTarget(devices=DevicesFilter(ids=["a"]), attribute="setpoint"),
-        writable=True,
-    )
+    with patch.object(reads, "list_devices", wraps=reads.list_devices) as spy:
+        await resolver.resolve(
+            AttributeTarget(devices=DevicesFilter(ids=["a"]), attribute="setpoint"),
+            writable=True,
+        )
 
     # The recipients come from the caller's view, not from every device.
-    reads.list_devices.assert_called_once_with(ids=["a"])
+    spy.assert_called_once_with(ids=["a"])
 
 
 async def test_confirmation_is_refused_when_a_member_is_no_longer_commandable(context):
