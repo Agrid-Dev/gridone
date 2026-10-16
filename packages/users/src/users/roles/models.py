@@ -35,11 +35,10 @@ RoleIdField = Annotated[
 # one richer than itself.
 RESERVED_PERMISSIONS: frozenset[Permission] = frozenset({Permission.ROLES_WRITE})
 
-# Permissions a scope can narrow. ``devices:command`` is scopable by design
-# (ADR 0004) but no write path enforces it yet: refusing it keeps a role author
-# from believing a write restriction is in force.
-SCOPABLE_PERMISSIONS: frozenset[Permission] = frozenset({Permission.DEVICES_READ})
-NOT_YET_SCOPABLE: frozenset[Permission] = frozenset({Permission.DEVICES_COMMAND})
+# Permissions a scope can narrow.
+SCOPABLE_PERMISSIONS: frozenset[Permission] = frozenset(
+    {Permission.DEVICES_READ, Permission.DEVICES_COMMAND}
+)
 
 
 def _sort_permissions(permissions: list[Permission]) -> list[Permission]:
@@ -111,9 +110,6 @@ Scopes = dict[Permission, list[DeviceScope]]
 def check_scopes(permissions: Collection[Permission], scopes: Scopes) -> None:
     """Refuse a scope that would exceed, or empty out, its permission."""
     for permission, entries in scopes.items():
-        if permission in NOT_YET_SCOPABLE:
-            msg = f"{permission} is not scopable yet"
-            raise ValueError(msg)
         if permission not in SCOPABLE_PERMISSIONS:
             msg = f"{permission} is not scopable"
             raise ValueError(msg)
@@ -259,7 +255,6 @@ class RoleUpdate(BaseModel):
 
 
 __all__ = [
-    "NOT_YET_SCOPABLE",
     "RESERVED_PERMISSIONS",
     "ROLE_ID_MAX_LENGTH",
     "ROLE_ID_PATTERN",

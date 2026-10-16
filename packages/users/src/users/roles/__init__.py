@@ -7,7 +7,6 @@ is the one place where a role and a user meet.
 
 from users.roles.builtin import BUILTIN_ROLES, find_builtin_role
 from users.roles.models import (
-    NOT_YET_SCOPABLE,
     RESERVED_PERMISSIONS,
     ROLE_ID_MAX_LENGTH,
     ROLE_ID_PATTERN,
@@ -26,7 +25,6 @@ from users.roles.models import (
 
 __all__ = [
     "BUILTIN_ROLES",
-    "NOT_YET_SCOPABLE",
     "RESERVED_PERMISSIONS",
     "ROLE_ID_MAX_LENGTH",
     "ROLE_ID_PATTERN",

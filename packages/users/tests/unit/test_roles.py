@@ -217,18 +217,21 @@ class TestScopes:
         with pytest.raises(ValidationError):
             _create(["devices:read"], scopes)
 
+    def test_accepts_a_devices_command_scope_on_a_held_permission(self):
+        scope = {**THERMOSTATS, "attributes": ["temperature_setpoint"]}
+
+        role = _create(["devices:command"], {"devices:command": [scope]}).to_role()
+
+        assert role.scopes == {
+            Permission.DEVICES_COMMAND: [DeviceScope.model_validate(scope)]
+        }
+
     def test_a_role_without_scopes_serves_an_empty_map(self):
         assert _create(["devices:read"], {}).to_role().scopes == {}
 
     @pytest.mark.parametrize(
         ("permissions", "scopes", "reason"),
         [
-            pytest.param(
-                ["devices:read", "devices:command"],
-                {"devices:command": [THERMOSTATS]},
-                "not scopable yet",
-                id="devices-command-not-yet",
-            ),
             pytest.param(
                 ["assets:read"],
                 {"assets:read": [{}]},
@@ -284,6 +287,16 @@ HELD = [Permission.DEVICES_READ, Permission.TIMESERIES_READ]
 
 
 class TestKnownScopes:
+    def test_keeps_a_stored_devices_command_scope(self):
+        held = [Permission.DEVICES_COMMAND]
+
+        permissions, scopes = known_scopes(
+            {"devices:command": [THERMOSTATS]}, permissions=held, role_id="x"
+        )
+
+        assert permissions == held
+        assert scopes == {Permission.DEVICES_COMMAND: [DeviceScope(**THERMOSTATS)]}
+
     def test_keeps_a_scope_the_role_can_still_carry(self):
         permissions, scopes = known_scopes(
             {"devices:read": [{**THERMOSTATS, "attributes": ["temperature"]}]},
@@ -352,8 +365,8 @@ class TestKnownScopes:
                 id="empty-list",
             ),
             pytest.param(
-                {"devices:command": [THERMOSTATS]},
-                [Permission.DEVICES_COMMAND, Permission.TIMESERIES_READ],
+                {"devices:write": [THERMOSTATS]},
+                [Permission.DEVICES_WRITE, Permission.TIMESERIES_READ],
                 id="held-but-not-scopable",
             ),
         ],
