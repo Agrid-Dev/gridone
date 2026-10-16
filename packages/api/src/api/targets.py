@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from devices_manager.dto import DevicesQuery
 from models.conditions import scalar_key
 from models.errors import InvalidError
 from models.targets import (
@@ -28,7 +29,7 @@ if TYPE_CHECKING:
 
     from api.access import ScopedDeviceReads
     from devices_manager import DevicesServiceInterface
-    from devices_manager.dto import DriverLabels
+    from devices_manager.dto import DeviceListing, DriverLabels
     from devices_manager.dto.device_dto import Device
     from models.attribute_metadata import LocalizedText
     from models.targets import TargetResolver
@@ -39,13 +40,13 @@ type DriverLabelsOf = Callable[[str], DriverLabels]
 
 def resolve_devices(
     dm: DevicesServiceInterface | ScopedDeviceReads, devices: DevicesFilter
-) -> list[Device]:
+) -> DeviceListing:
     """Resolve the persisted criteria directly against devices-manager."""
-    return dm.list_devices(**devices.model_dump(exclude_none=True))
+    return dm.list_devices(DevicesQuery.from_filter(devices))
 
 
 def compute_attribute_coverage(
-    devices: list[Device], driver_labels: DriverLabelsOf
+    devices: Iterable[Device], driver_labels: DriverLabelsOf
 ) -> list[AttributeCoverage]:
     """Count exposure and retain presentation only when the devices agree.
 
@@ -158,7 +159,7 @@ translates it; a real tag value equal to this sentinel would collide."""
 
 
 def group_devices_by_tag(
-    devices: list[Device], tag_key: str
+    devices: Iterable[Device], tag_key: str
 ) -> dict[str, list[Device]]:
     """Bucket *devices* by their value for *tag_key*.
 
@@ -173,7 +174,7 @@ def group_devices_by_tag(
 
 
 def group_device_ids_by_tag(
-    devices: list[Device], tag_key: str
+    devices: Iterable[Device], tag_key: str
 ) -> dict[str, list[str]]:
     """Like :func:`group_devices_by_tag`, keeping just each device's id."""
     return {

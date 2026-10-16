@@ -38,7 +38,7 @@ from assets import (
 )
 from commands import AttributeWrite, CommandsServiceInterface
 from devices_manager import DevicesServiceInterface
-from devices_manager.dto import AttributeSelection
+from devices_manager.dto import AttributeSelection, DevicesQuery
 from models.targets import AttributeTarget, DevicesFilter, TargetResolver
 from timeseries import TimeSeriesService
 from users.permissions import Permission
@@ -230,7 +230,7 @@ async def delete_asset(
     assets_svc: Annotated[AssetsService, Depends(get_assets_service)],
     dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
 ) -> None:
-    linked_devices = dm.list_devices(tags={"asset_id": [asset_id]})
+    linked_devices = dm.list_devices(DevicesQuery(tags={"asset_id": [asset_id]}))
     for device in linked_devices:
         await dm.delete_device_tag(device.id, "asset_id")
     await assets_svc.delete_asset(asset_id)
@@ -259,7 +259,8 @@ async def list_asset_devices(
     reads: Annotated[ScopedDeviceReads, Depends(get_device_reads)],
 ) -> list[str]:
     await assets_svc.get_by_id(asset_id)
-    return [d.id for d in reads.list_devices(tags={"asset_id": [asset_id]})]
+    linked = reads.list_devices(DevicesQuery(tags={"asset_id": [asset_id]}))
+    return [d.id for d in linked]
 
 
 @router.post(
@@ -420,7 +421,7 @@ async def import_building_model_tree(
     """
     descendants = await assets_svc.get_descendants(asset_id)
     linked_devices = (
-        dm.list_devices(tags={"asset_id": [a.id for a in descendants]})
+        dm.list_devices(DevicesQuery(tags={"asset_id": [a.id for a in descendants]}))
         if descendants
         else []
     )

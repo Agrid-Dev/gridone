@@ -15,6 +15,7 @@ from devices_manager.core.device.connection_status import AttributeLogs
 from devices_manager.core.device.connection_status_attribute import (
     CONNECTION_STATUS_ATTR,
 )
+from devices_manager.core.device_filters import DeviceFilters
 from devices_manager.core.device_registry import DeviceRegistry
 from models.errors import ConflictError, InvalidError, NotFoundError, WriteRejectedError
 from models.ids import gen_id
@@ -168,7 +169,7 @@ class TestDeviceRegistryList:
             resolve_transport=_make_transport_resolver(mock_transport_client),
             on_attribute_update=on_attribute_update,
         )
-        result = registry.list_all(types=["thermostat"])
+        result = registry.list_all(DeviceFilters(types=["thermostat"]))
         assert len(result) == 1
         assert result[0].id == "d1"
 
@@ -195,7 +196,7 @@ class TestDeviceRegistryList:
             resolve_transport=_make_transport_resolver(mock_transport_client),
             on_attribute_update=on_attribute_update,
         )
-        result = registry.list_all(driver_id=driver.metadata.id)
+        result = registry.list_all(DeviceFilters(driver_id=driver.metadata.id))
         assert [d.id for d in result] == ["d2"]
 
 

@@ -17,7 +17,7 @@ from devices_manager import DevicesServiceInterface
 from devices_manager.core.device import Attribute
 from devices_manager.core.driver import AttributeDriver
 from devices_manager.core.write_preview import DeviceWritePreview
-from devices_manager.dto import Device, DriverSpec
+from devices_manager.dto import Device, DevicesQuery, DriverSpec
 from devices_manager.types import TransportProtocols
 from models.attribute_metadata import LocalizedText
 from models.errors import InvalidError, NotFoundError
@@ -64,21 +64,18 @@ def context():
         ],
     )
 
-    def matches(device, **kwargs: Any) -> bool:
+    def matches(device, query: DevicesQuery) -> bool:
         return (
-            (kwargs.get("ids") is None or device.id in kwargs["ids"])
-            and (
-                kwargs.get("driver_id") is None
-                or device.driver_id == kwargs["driver_id"]
-            )
+            (query.ids is None or device.id in query.ids)
+            and (query.driver_id is None or device.driver_id == query.driver_id)
             and all(
                 set(device.tags.get(key, [])).intersection(values)
-                for key, values in (kwargs.get("tags") or {}).items()
+                for key, values in (query.tags or {}).items()
             )
         )
 
-    dm.list_devices.side_effect = lambda **kwargs: [
-        device for device in devices if matches(device, **kwargs)
+    dm.list_devices.side_effect = lambda query, **_: [
+        device for device in devices if matches(device, query)
     ]
     dm.get_device.side_effect = lambda id_: next(d for d in devices if d.id == id_)
     dm.preview_device_write.side_effect = lambda id_, _attribute, _value: (

@@ -1255,8 +1255,8 @@ class TestSpaceAggregate:
     def _install_dm(self, app: FastAPI, devices: list[object]) -> None:
         dm = MagicMock()
 
-        def _list_devices(**kwargs: object) -> list[object]:
-            ids = kwargs.get("ids")
+        def _list_devices(query=None, **_kwargs: object) -> list[object]:
+            ids = None if query is None else query.ids
             if ids is not None:
                 return [d for d in devices if d.id in set(ids)]  # type: ignore[attr-defined]
             return list(devices)
@@ -1464,8 +1464,8 @@ class TestLiveAggregate:
     def _install_dm(self, app: FastAPI, devices: list[object]) -> None:
         dm = MagicMock()
 
-        def _list_devices(**kwargs: object) -> list[object]:
-            ids = kwargs.get("ids")
+        def _list_devices(query=None, **_kwargs: object) -> list[object]:
+            ids = None if query is None else query.ids
             if ids is not None:
                 return [d for d in devices if d.id in set(ids)]  # type: ignore[attr-defined]
             return list(devices)

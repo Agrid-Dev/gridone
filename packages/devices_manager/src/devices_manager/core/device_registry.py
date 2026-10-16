@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Collection
+from collections.abc import Callable
 from dataclasses import fields
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
@@ -19,7 +19,7 @@ from .device_filters import DeviceFilters
 if TYPE_CHECKING:
     from devices_manager.core.device.connection_status import AttributeLogs
     from devices_manager.core.driver.attribute_driver import AttributeDriver
-    from devices_manager.types import AttributeValueType, DataType
+    from devices_manager.types import AttributeValueType
     from models.command_confirmation import WriteConsent
     from models.write_policy import WritePolicy
 
@@ -81,32 +81,10 @@ class DeviceRegistry:
     def get(self, device_id: str) -> CoreDevice:
         return self._get_or_raise(device_id)
 
-    def list_all(  # noqa: PLR0913
-        self,
-        *,
-        ids: Collection[str] | None = None,
-        types: list[str] | None = None,
-        attribute: str | None = None,
-        writable_attribute: str | None = None,
-        writable_attribute_type: DataType | None = None,
-        tags: dict[str, list[str]] | None = None,
-        is_faulty: bool | None = None,
-        search: str | None = None,
-        driver_id: str | None = None,
-        transport_id: str | None = None,
-    ) -> list[CoreDevice]:
-        filters = DeviceFilters(
-            ids=ids,
-            types=types,
-            attribute=attribute,
-            writable_attribute=writable_attribute,
-            writable_attribute_type=writable_attribute_type,
-            tags=tags,
-            is_faulty=is_faulty,
-            search=search,
-            driver_id=driver_id,
-            transport_id=transport_id,
-        )
+    def list_all(self, filters: DeviceFilters | None = None) -> list[CoreDevice]:
+        """The devices matching *filters*, in registry order; all when None."""
+        if filters is None:
+            return list(self._devices.values())
         return [d for d in self._devices.values() if filters.matches(d)]
 
     @staticmethod

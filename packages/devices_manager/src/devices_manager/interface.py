@@ -31,6 +31,8 @@ if TYPE_CHECKING:
         AttributeSelection,
         Device,
         DeviceCreate,
+        DeviceListing,
+        DevicesQuery,
         DeviceUpdate,
         DriverPatch,
         DriverSpec,
@@ -157,21 +159,12 @@ class DevicesServiceInterface(Protocol):
 
     # -- devices --
 
-    def list_devices(  # noqa: PLR0913
+    def list_devices(
         self,
+        query: DevicesQuery | None = None,
         *,
-        ids: Collection[str] | None = None,
-        types: list[str] | None = None,
-        attribute: str | None = None,
-        writable_attribute: str | None = None,
-        writable_attribute_type: DataType | None = None,
-        tags: dict[str, list[str]] | None = None,
-        is_faulty: bool | None = None,
-        search: str | None = None,
-        driver_id: str | None = None,
-        transport_id: str | None = None,
         attribute_selection: AttributeSelection | None = None,
-    ) -> list[Device]: ...
+    ) -> DeviceListing: ...
 
     def get_device(self, device_id: str) -> Device: ...
 

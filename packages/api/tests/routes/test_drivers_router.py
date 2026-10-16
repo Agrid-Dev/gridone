@@ -11,7 +11,13 @@ from api.exception_handlers import register_exception_handlers
 from api.routes.drivers_router import router
 from devices_manager import DevicesServiceInterface
 from devices_manager.core.driver.attribute_driver import AttributeDriver
-from devices_manager.dto import AttributeLabels, Device, DriverLabels, DriverSpec
+from devices_manager.dto import (
+    AttributeLabels,
+    Device,
+    DevicesQuery,
+    DriverLabels,
+    DriverSpec,
+)
 from devices_manager.types import DataType, TransportProtocols
 from models.attribute_metadata import LocalizedText
 from models.errors import ConflictError, NotFoundError
@@ -388,7 +394,7 @@ class TestRenameAttribute:
         dm.rename_driver_attribute.assert_called_once_with(
             "test_driver", "temperature", "temp"
         )
-        dm.list_devices.assert_called_once_with(driver_id="test_driver")
+        dm.list_devices.assert_called_once_with(DevicesQuery(driver_id="test_driver"))
         ts.rename_metric_for_owners.assert_called_once_with(
             ["d1", "d2"], "temperature", "temp"
         )

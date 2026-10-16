@@ -35,7 +35,7 @@ async def test_discover_devices(
     for d in devices_service.list_devices():
         print(d.id, d.config)
     assert len(devices_service.list_devices()) == 1
-    device = devices_service.list_devices()[0]
+    device = next(iter(devices_service.list_devices()))
     assert device.config is not None
     assert device.config["device_id"] == TMK_DEVICE_ID
     # discovery.name_attribute: read once from the simulator at discovery

@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from models.tags import matches_tags
 
 from .fuzzy_search import fuzzy_match
+from .standard_schemas.registry import OTHER_TYPE, type_bucket
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Mapping
@@ -45,7 +46,13 @@ class DeviceFilters:
         return self.ids is None or device.id in self.ids
 
     def _matches_types(self, device: CoreDevice) -> bool:
-        return self.types is None or device.type in self.types
+        """A standard type matches itself; ``other`` matches every device
+        outside the standard catalog, the untyped ones included."""
+        if self.types is None:
+            return True
+        return device.type in self.types or (
+            OTHER_TYPE in self.types and type_bucket(device.type) == OTHER_TYPE
+        )
 
     def _matches_attribute(self, device: CoreDevice) -> bool:
         return self.attribute is None or self.attribute in device.attributes

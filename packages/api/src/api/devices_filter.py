@@ -1,26 +1,23 @@
-"""Translation of API-layer device filters into ``DM.list_devices`` kwargs.
+"""Translation of API-layer device filters into the service's query.
 
 The API accepts ``asset_id`` as a first-class filter on targets and on the
 ``GET /devices`` list endpoint. Internally, assets are stored as a tag on
 devices (the UI sets them via ``setDeviceTag(id, "asset_id", assetId)``), so
-``asset_id`` is translated into a ``tags["asset_id"]`` entry here, at the
-composition boundary. Keeping the translation out of devices_manager
-preserves the service-boundary rule that devices_manager has no knowledge of
-assets.
+``asset_id`` is folded into the ``tags`` criterion here, at the composition
+boundary. Keeping the translation out of devices_manager preserves the
+service-boundary rule that devices_manager has no knowledge of assets.
 """
 
 from __future__ import annotations
 
-from typing import Any
-
 from models.errors import InvalidError
-from models.tags import normalize_tags
+from models.tags import Tags, normalize_tags
 
 ASSET_TAG = "asset_id"
 """Device tag carrying zone membership — the one place the name is spelled."""
 
 
-def parse_tags_params(raw: list[str] | None) -> dict[str, list[str]] | None:
+def parse_tags_params(raw: list[str] | None) -> Tags | None:
     """Parse ``?tags=key:value`` query params into a tags filter dict.
 
     Filter semantics: AND across keys, OR within values of the same key.
@@ -42,19 +39,16 @@ def parse_tags_params(raw: list[str] | None) -> dict[str, list[str]] | None:
         raise InvalidError(msg) from exc
 
 
-def to_list_devices_kwargs(filter_dict: dict[str, Any]) -> dict[str, Any]:
-    """Return a copy of *filter_dict* with ``asset_id`` merged into ``tags``.
+def with_asset_tag(tags: Tags | None, asset_id: str | None) -> Tags | None:
+    """*tags* with *asset_id* added under ``asset_id``; *tags* as is without one.
 
-    Any other key is forwarded unchanged. Existing tags under ``asset_id``
-    are preserved (the new value is appended rather than replacing).
+    An ``asset_id`` already listed is not repeated, and the input is left
+    untouched: the result is a new mapping.
     """
-    kwargs = dict(filter_dict)
-    asset_id = kwargs.pop(ASSET_TAG, None)
-    if asset_id is not None:
-        tags = dict(kwargs.get("tags") or {})
-        existing = list(tags.get(ASSET_TAG) or [])
-        if asset_id not in existing:
-            existing.append(asset_id)
-        tags[ASSET_TAG] = existing
-        kwargs["tags"] = tags
-    return kwargs
+    if asset_id is None:
+        return tags
+    merged = {key: list(values) for key, values in (tags or {}).items()}
+    linked = merged.setdefault(ASSET_TAG, [])
+    if asset_id not in linked:
+        linked.append(asset_id)
+    return merged

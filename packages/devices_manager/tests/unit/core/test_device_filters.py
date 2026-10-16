@@ -104,6 +104,28 @@ class TestDeviceFiltersMatches:
             make_device("d1", "Device", device_type=None)
         )
 
+    @pytest.mark.parametrize(
+        ("filter_types", "device_type", "expected"),
+        [
+            pytest.param(frozenset(["other"]), None, True, id="other-untyped"),
+            pytest.param(frozenset(["other"]), "chiller", True, id="other-custom"),
+            pytest.param(frozenset(["other"]), "thermostat", False, id="other-std"),
+            pytest.param(
+                frozenset(["other", "thermostat"]), "thermostat", True, id="mixed-std"
+            ),
+            pytest.param(frozenset(["other", "thermostat"]), "awhp", False, id="mixed"),
+        ],
+    )
+    def test_types_other_is_every_type_outside_the_standard_catalog(
+        self, make_device, filter_types, device_type, expected
+    ):
+        assert (
+            DeviceFilters(types=filter_types).matches(
+                make_device("d1", "Device", device_type=device_type)
+            )
+            is expected
+        )
+
     # -- attribute --
 
     def test_attribute_match(self, make_device):
