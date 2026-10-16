@@ -4,10 +4,11 @@ import { useTranslation } from "react-i18next";
 import {
   ArrowLeft,
   Blocks,
-  Boxes,
   Building2,
   Files,
+  Layers,
   LayoutDashboard,
+  LayoutGrid,
   Network,
   Puzzle,
   Users,
@@ -38,6 +39,7 @@ type ConfigurationPage =
   | "drivers"
   | "networks"
   | "building"
+  | "assets"
   | "groups"
   | "users"
   | "documents";
@@ -110,13 +112,22 @@ const CONFIGURATION: readonly ConfigurationEntry[] = [
     icon: Building2,
     visible: (access) => access.can("assets:write"),
   },
+  // The building's tree. Every zone page is configuration, including those
+  // supervision links to, until the devices list gets its by-zone view.
+  {
+    group: "organization",
+    to: "/assets",
+    label: "app.assets",
+    icon: LayoutGrid,
+    visible: (access) => access.can("assets:read"),
+  },
   // Creating and editing groups; consulting and commanding one stays in
   // supervision, under /devices/views.
   {
     group: "organization",
     to: "/groups",
     label: "app.groups",
-    icon: Boxes,
+    icon: Layers,
     visible: (access) => access.can("devices:write"),
   },
   {

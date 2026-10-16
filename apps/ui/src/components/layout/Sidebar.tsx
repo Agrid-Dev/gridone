@@ -3,11 +3,11 @@ import { useTranslation } from "react-i18next";
 import {
   ChevronRight,
   Cpu,
-  LayoutGrid,
+  House,
   Settings,
   TriangleAlert,
 } from "lucide-react";
-import { useAuth, usePermissions } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { useFaultsList } from "@/hooks/useFaultsList";
 import { usePendingAppRequests } from "@/hooks/usePendingAppRequests";
@@ -129,11 +129,11 @@ export function Sidebar({
   );
 }
 
-/** The operator's views: the dashboards first, as the structure arranges
- *  them, then the building's devices, zones and faults. */
+/** The operator's views, in the order of the daily round: home, the
+ *  building's devices and faults, then the dashboards as the structure
+ *  arranges them. Zones are configuration. */
 function SupervisionEntries() {
   const { t } = useTranslation("common");
-  const can = usePermissions();
   const dashboardsEnabled = useFeatureEnabled("dashboards");
   const { faults } = useFaultsList();
   const { devices } = useDevicesList();
@@ -142,7 +142,10 @@ function SupervisionEntries() {
 
   return (
     <>
-      {dashboardsEnabled && <SidebarDashboards />}
+      <NavLink to="/" className={navLinkClass}>
+        <House className="h-4 w-4" />
+        {t("common.home")}
+      </NavLink>
 
       <NavLink to="/devices" className={navLinkClass}>
         <Cpu className="h-4 w-4" />
@@ -156,13 +159,6 @@ function SupervisionEntries() {
         )}
       </NavLink>
 
-      {can("assets:read") && (
-        <NavLink to="/assets" className={navLinkClass}>
-          <LayoutGrid className="h-4 w-4" />
-          {t("app.assets")}
-        </NavLink>
-      )}
-
       <NavLink to="/faults" className={navLinkClass}>
         <TriangleAlert className="h-4 w-4" />
         {t("app.faults")}
@@ -173,6 +169,8 @@ function SupervisionEntries() {
           />
         )}
       </NavLink>
+
+      {dashboardsEnabled && <SidebarDashboards />}
     </>
   );
 }

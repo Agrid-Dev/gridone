@@ -49,9 +49,10 @@ const dashboardPath = (id: string) => `/dashboards/${encodeURIComponent(id)}`;
 /** The Supervision entries: each dashboard is a view of the building, listed
  *  the way a BMS lists its views — as the structure arranges them. A group is
  *  one entry opening its first tab, a section a collapsible heading. Active
- *  on its own route only, not while authoring a widget. The block comes with
- *  its heading and a rule closing it, and is left out when nothing in the
- *  structure has a dashboard to open. */
+ *  on its own route only, not while authoring a widget. The block closes the
+ *  supervision entries: a rule sets it apart, then its heading. It is left
+ *  out, rule included, when nothing in the structure has a dashboard to
+ *  open. */
 export function SidebarDashboards() {
   const { t } = useTranslation("common");
   const { structure } = useDashboardStructureEntries();
@@ -80,7 +81,10 @@ export function SidebarDashboards() {
 
   return (
     <>
-      <SectionLabel>{t("app.dashboards")}</SectionLabel>
+      <div aria-hidden className="py-2">
+        <div className="mx-3 h-px bg-border" />
+      </div>
+      <SectionLabel className="pt-1">{t("app.dashboards")}</SectionLabel>
       {structure.items.map((item) => {
         if (item.kind === "dashboard")
           return <DashboardEntry key={item.id} dashboard={item} />;
@@ -96,9 +100,6 @@ export function SidebarDashboards() {
           />
         );
       })}
-      <div aria-hidden className="py-2">
-        <div className="mx-3 h-px bg-border" />
-      </div>
     </>
   );
 }

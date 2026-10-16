@@ -21,6 +21,7 @@ vi.mock("react-i18next", () =>
     "app.users": "Users",
     "app.building": "Building",
     "app.groups": "Groups",
+    "common.home": "Home",
     "nav.main": "Main navigation",
     "nav.configuration": "Configuration",
     "nav.backToSupervision": "Back to supervision",
@@ -112,6 +113,7 @@ const CONFIGURATION_LINKS = [
   "Drivers",
   "Networks",
   "Building",
+  "Zones",
   "Groups",
   "Users",
 ];
@@ -168,6 +170,7 @@ describe("Sidebar", () => {
       ["drivers:read", "Drivers", "/drivers"],
       ["transports:read", "Networks", "/transports"],
       ["assets:write", "Building", "/profile/edit"],
+      ["assets:read", "Zones", "/assets"],
       ["devices:write", "Groups", "/groups"],
       ["users:read", "Users", "/users"],
     ])(
@@ -206,7 +209,7 @@ describe("Sidebar", () => {
     });
 
     it.each([false, true])(
-      "heads the dashboards with the only group label and closes them with a rule, before Devices (mobile: %s)",
+      "lists Home, Devices and Faults, then a rule and the dashboards under their heading (mobile: %s)",
       (mobile) => {
         dashboards = [
           { id: "d1", name: "ECS Ouest" },
@@ -218,26 +221,40 @@ describe("Sidebar", () => {
         expect(Array.from(labels, (label) => label.textContent)).toEqual([
           "Dashboards",
         ]);
-        const first = screen.getAllByRole("link").slice(0, 3);
+        const first = screen.getAllByRole("link").slice(0, 5);
         expect(first.map((link) => link.textContent)).toEqual([
+          "Home",
+          "Devices",
+          "Faults",
           "ECS Ouest",
           "CTA",
-          "Devices",
         ]);
         const rule = nav.querySelector("[aria-hidden] > .bg-border");
         expect(rule).not.toBeNull();
         expect(
           screen
-            .getByRole("link", { name: "CTA" })
+            .getByRole("link", { name: "Faults" })
             .compareDocumentPosition(rule!) & Node.DOCUMENT_POSITION_FOLLOWING,
         ).toBeTruthy();
         expect(
-          rule!.compareDocumentPosition(
-            screen.getByRole("link", { name: "Devices" }),
-          ) & Node.DOCUMENT_POSITION_FOLLOWING,
+          rule!.compareDocumentPosition(labels[0]) &
+            Node.DOCUMENT_POSITION_FOLLOWING,
         ).toBeTruthy();
       },
     );
+
+    it("lights Home on the home page only", () => {
+      renderSidebar(false, "/");
+      const home = screen.getByRole("link", { name: "Home" });
+      expect(home).toHaveAttribute("href", "/");
+      expect(home).toHaveAttribute("aria-current", "page");
+      cleanup();
+
+      renderSidebar(false, "/devices");
+      expect(screen.getByRole("link", { name: "Home" })).not.toHaveAttribute(
+        "aria-current",
+      );
+    });
 
     it.each([false, true])(
       "lights a dashboard on its own route only (mobile: %s)",
@@ -353,7 +370,11 @@ describe("Sidebar", () => {
       );
     });
 
-    it("starts at Devices, without the dashboards heading, when no dashboard is listed or the flag is off", () => {
+    it("starts at Home, with neither the dashboards heading nor their rule, when no dashboard is listed or the flag is off", () => {
+      const rule = () =>
+        screen
+          .getByRole("navigation", { name: "Main navigation" })
+          .querySelector("[aria-hidden] > .bg-border");
       dashboards = [{ id: "d1", name: "ECS Ouest" }];
       flags.dashboards = false;
       renderSidebar();
@@ -361,35 +382,27 @@ describe("Sidebar", () => {
         screen.queryByRole("link", { name: "ECS Ouest" }),
       ).not.toBeInTheDocument();
       expect(screen.queryByText("Dashboards")).not.toBeInTheDocument();
+      expect(rule()).toBeNull();
       cleanup();
 
       flags.dashboards = true;
       dashboards = [];
       items = [{ kind: "group", id: "g1", label: "Vide", dashboards: [] }];
       renderSidebar();
-      expect(screen.getAllByRole("link")[0]).toHaveTextContent("Devices");
+      expect(screen.getAllByRole("link")[0]).toHaveTextContent("Home");
       expect(screen.queryByText("Dashboards")).not.toBeInTheDocument();
+      expect(rule()).toBeNull();
     });
 
     it.each([false, true])(
-      "hides Zones without assets:read (mobile: %s)",
+      "leaves Zones to Configuration, even for an asset reader (mobile: %s)",
       (mobile) => {
-        permissions.can = (permission) => permission !== "assets:read";
         renderSidebar(mobile);
         expect(
           screen.queryByRole("link", { name: "Zones" }),
         ).not.toBeInTheDocument();
       },
     );
-
-    it("keeps Zones visible to an asset reader", () => {
-      permissions.can = (permission) => permission === "assets:read";
-      renderSidebar();
-      expect(screen.getByRole("link", { name: "Zones" })).toHaveAttribute(
-        "href",
-        "/assets",
-      );
-    });
 
     it("badges the Faults link with the active fault count", () => {
       faults = [{}, {}, {}] as FaultView[];
@@ -432,6 +445,11 @@ describe("Sidebar", () => {
       "/drivers/d1",
       "/transports/new",
       "/profile/edit",
+      // Every zone page, including the ones supervision links to, until the
+      // devices list gets its by-zone view.
+      "/assets",
+      "/assets/a1",
+      "/assets/a1/commands/new",
       "/groups",
       "/groups/new",
       "/groups/v1/edit",
@@ -472,7 +490,7 @@ describe("Sidebar", () => {
 
     it("goes in through the Configuration entry and back to the supervision page it left", async () => {
       render(
-        <MemoryRouter initialEntries={["/assets?floor=2"]}>
+        <MemoryRouter initialEntries={["/faults?severity=alert"]}>
           <Sidebar />
         </MemoryRouter>,
       );
@@ -480,14 +498,14 @@ describe("Sidebar", () => {
         screen.getByRole("link", { name: /Configuration/ }),
       );
       const back = screen.getByRole("link", { name: "Back to supervision" });
-      expect(back).toHaveAttribute("href", "/assets?floor=2");
+      expect(back).toHaveAttribute("href", "/faults?severity=alert");
       expect(screen.getByRole("link", { name: "Dashboards" })).toHaveAttribute(
         "aria-current",
         "page",
       );
 
       await userEvent.click(back);
-      expect(screen.getByRole("link", { name: "Zones" })).toHaveAttribute(
+      expect(screen.getByRole("link", { name: "Faults" })).toHaveAttribute(
         "aria-current",
         "page",
       );
@@ -541,11 +559,14 @@ describe("Sidebar", () => {
           screen.getByRole("link", { name: /Apps/ }),
         );
         const building = screen.getByRole("link", { name: "Building" });
+        const zones = screen.getByRole("link", { name: "Zones" });
         const groups = screen.getByRole("link", { name: "Groups" });
         expect(screen.getByText("Organization").nextElementSibling).toBe(
           building,
         );
-        expect(building.nextElementSibling).toBe(groups);
+        expect(building.nextElementSibling).toBe(zones);
+        expect(zones).toHaveAttribute("href", "/assets");
+        expect(zones.nextElementSibling).toBe(groups);
         expect(groups).toHaveAttribute("href", "/groups");
         expect(groups.nextElementSibling).toBe(
           screen.getByRole("link", { name: "Users" }),
@@ -584,6 +605,14 @@ describe("Sidebar", () => {
         ).not.toBeInTheDocument();
       },
     );
+
+    it("hides Zones without assets:read", () => {
+      permissions.can = (permission) => permission !== "assets:read";
+      renderSidebar(false, CONFIGURATION_PATH);
+      expect(
+        screen.queryByRole("link", { name: "Zones" }),
+      ).not.toBeInTheDocument();
+    });
 
     it("hides Groups without devices:write, the permission to edit a group", () => {
       permissions.can = (permission) => permission !== "devices:write";
@@ -694,11 +723,12 @@ describe("Sidebar", () => {
     expect(
       building.compareDocumentPosition(nav) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    // No brand link competes with the building for the home route.
+    // No brand link competes for the home route: in the rail, only the Home
+    // entry leads there (the building block is stubbed here).
     const homeLinks = screen
       .getAllByRole("link")
       .filter((link) => link.getAttribute("href") === "/");
-    expect(homeLinks).toHaveLength(0);
+    expect(homeLinks.map((link) => link.textContent)).toEqual(["Home"]);
   });
 
   it("keeps the footer without a version when the API reports none", () => {
