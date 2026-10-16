@@ -42,7 +42,7 @@ const FALLBACK_PALETTE: TemperaturePalette = {
 
 const FAN_SPEED = 5.2; // rad/s at full speed
 const FAN_SETTLE = 1.2; // s, critically damped speed change
-const NAME_FONT_PX = 9.5; // the drawn size of a label, in viewBox units
+const NAME_FONT_PX = 11; // the drawn size of a label, in viewBox units
 
 type LabelNodes = {
   el: SVGElement;

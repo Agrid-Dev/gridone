@@ -120,7 +120,7 @@ export function AwhpControl({
         </Fact>
         {a.setpointTemperature != null && (
           <Fact label={t("controls.awhp.setpoint")}>
-            <span className="font-mono tabular-nums">
+            <span className="tabular-nums">
               {format(a.setpointTemperature, SETPOINT_DIGITS, setpointUnit)}
             </span>
           </Fact>

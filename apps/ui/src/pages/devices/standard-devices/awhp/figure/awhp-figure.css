@@ -162,8 +162,8 @@
 }
 .awhp-figure .iso-face-text {
   fill: var(--anatomy-mid);
-  font-family: var(--anatomy-mono);
-  letter-spacing: 0.04em;
+  font-family: inherit;
+  font-weight: 600;
 }
 .awhp-figure .iso-face-text[data-tone="lo"] {
   fill: var(--anatomy-lo);
@@ -266,24 +266,24 @@
 }
 
 /* ---- callouts: labels pointing at the parts, value tags, water arrows */
+/* The app's face, at the sizes the synoptic plates use: a name 11 px
+   semibold, a reading 12 px semibold with tabular figures. */
 .awhp-figure .aw-callouts {
-  font-family: var(--anatomy-mono);
+  font-family: inherit;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 .awhp-figure .aw-text {
-  font-size: calc(9.5px * var(--awhp-text-scale));
-  letter-spacing: 0.02em;
-  fill: var(--anatomy-muted);
+  font-size: calc(11px * var(--awhp-text-scale));
+  fill: var(--anatomy-text);
   paint-order: stroke;
   stroke: var(--anatomy-card);
   stroke-width: 3px;
   stroke-linejoin: round;
   transition: fill 300ms var(--anatomy-ease);
 }
-.awhp-figure .aw-label[data-kind="value"] .aw-text {
-  font-size: calc(8.6px * var(--awhp-text-scale));
-}
 .awhp-figure .aw-l-value {
+  font-size: calc(12px * var(--awhp-text-scale));
   fill: var(--anatomy-text);
 }
 .awhp-figure .aw-leader {
