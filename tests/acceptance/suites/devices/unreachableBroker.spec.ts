@@ -50,7 +50,9 @@ describe("Devices on an unreachable broker", () => {
    *  from the create call — so a step that fails cannot cascade a misleading
    *  failure into the next one. */
   const mine = async (): Promise<Device[]> => {
-    const devices = await client.devices.list({ driver_id: FIXTURE.driverId });
+    const devices = await client.devices.listAll({
+      driver_id: FIXTURE.driverId,
+    });
     return devices.filter(
       (device) =>
         device.transport_id === transportId &&
@@ -73,7 +75,7 @@ describe("Devices on an unreachable broker", () => {
     // Every step swallows its own failure so one stuck resource cannot mask
     // the test failure that left it behind (mirrors deleteFixtureSet).
     const devices = await client.devices
-      .list({ driver_id: FIXTURE.driverId })
+      .listAll({ driver_id: FIXTURE.driverId })
       .catch(() => []);
     for (const device of devices) {
       // By prefix, not by the two names the happy path produces: a regression

@@ -51,10 +51,28 @@ export function goldenPathSuite(protocol: SharedFixtureKey): void {
 
   it(`lists the seeded ${protocol} devices`, async () => {
     expect(deviceIds.length).toBeGreaterThan(0);
-    const devices = await client.devices.list();
+    const devices = await client.devices.listAll();
 
     const ids = devices.map((device) => device.id);
     expect(ids).toEqual(expect.arrayContaining(deviceIds));
+  });
+
+  it(`serves the seeded ${protocol} devices by pages with facets over the match`, async () => {
+    const page = await client.devices.list({
+      ids: deviceIds,
+      size: 1,
+      sort_by: "type",
+    });
+
+    expect(page.items).toHaveLength(1);
+    expect(page.total).toBe(deviceIds.length);
+    expect(page.total_pages).toBe(deviceIds.length);
+    expect(page.links.next != null).toBe(deviceIds.length > 1);
+    const counted = Object.values(page.facets.type).reduce((a, b) => a + b, 0);
+    expect(counted).toBe(deviceIds.length);
+    expect(page.facets.health.healthy + page.facets.health.faulty).toBe(
+      deviceIds.length,
+    );
   });
 
   function goldenPathDeviceSuite({

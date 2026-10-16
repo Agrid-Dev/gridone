@@ -165,7 +165,7 @@ describe("devices:read scopes", () => {
 
   describe("a role scoped to thermostats", () => {
     it("lists the thermostat and not the room device", async () => {
-      const ids = (await thermostatReader.devices.list()).map((d) => d.id);
+      const ids = (await thermostatReader.devices.listAll()).map((d) => d.id);
 
       expect(ids).toContain(thermostatId);
       expect(ids).not.toContain(roomId);
@@ -298,6 +298,6 @@ describe("devices:read scopes", () => {
     const device = await admin.devices.get(thermostatId);
 
     expect(Object.keys(device.attributes ?? {})).toContain("mode");
-    expect((await admin.devices.list()).map((d) => d.id)).toContain(roomId);
+    expect((await admin.devices.listAll()).map((d) => d.id)).toContain(roomId);
   });
 });

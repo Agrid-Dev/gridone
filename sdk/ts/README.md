@@ -15,7 +15,7 @@ const client = new GridoneClient({ baseUrl: "http://localhost:8000" });
 
 await client.login("admin", "s3cret");
 
-const devices = await client.devices.list({ search: "fan" });
+const { items: devices } = await client.devices.list({ search: "fan" });
 await client.devices.sendCommand(devices[0].id, {
   attribute: "setpoint",
   value: 21.5,
@@ -82,6 +82,20 @@ npm run test        # vitest
 npm run lint        # eslint
 npm run format -- --check
 npm run type-check  # tsc --noEmit
+```
+
+### Device pages
+
+`client.devices.list(filters)` serves one page of the match (`page`, `size`
+up to 500, `sort_by` `name` or `type`) and `facets`: how many matched devices
+fall under each type, health and connection status, over the whole match and
+not only the page. `client.devices.listAll(filters)` walks every page when a
+caller needs the full set.
+
+```ts
+const page = await client.devices.list({ type: ["thermostat"], size: 50 });
+page.facets.health.faulty; // over every matched thermostat
+const everyThermostat = await client.devices.listAll({ type: ["thermostat"] });
 ```
 
 ### Tag groups and saved views
