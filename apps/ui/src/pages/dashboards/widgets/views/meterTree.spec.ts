@@ -522,20 +522,20 @@ describe("labels", () => {
     expect(built.children[0].attribute).toBe("hvac_energy");
   });
 
-  it("carries the label the attribute's driver declares", () => {
+  it("carries the device whose driver names the attribute", () => {
     const tree: MeterTreeNode = {
       meter: meter("a", "hvac_energy"),
       children: [],
     };
-    const label = { default: "HVAC", translations: { fr: "CVC" } };
+    const device = { driver_id: "meters", driver_revision: "r1" };
     const built = buildMeterTreeHierarchy(
       tree,
       readings({}),
       new Set(),
-      new Map([[meterKey(tree.meter) as string, { label }]]),
+      new Map([[meterKey(tree.meter) as string, { device }]]),
     );
 
-    expect(built.attributeLabel).toEqual(label);
+    expect(built.device).toEqual(device);
   });
 });
 

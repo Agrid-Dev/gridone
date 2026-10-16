@@ -42,6 +42,12 @@ function setup() {
   return { getLabels, wrapper };
 }
 
+/** The same driver after an edit: the setpoint was renamed. */
+const REVISED_LABELS: DriverLabels = {
+  revision: "r2",
+  attributes: { temperature_setpoint: { label: { default: "Target" } } },
+};
+
 const THERMOSTAT = { driver_id: "thermostat", driver_revision: "r1" };
 
 afterEach(() => vi.restoreAllMocks());
@@ -102,7 +108,7 @@ describe("driver labels", () => {
     expect(getLabels).not.toHaveBeenCalled();
   });
 
-  it("refetches when a device moves to a new driver revision", async () => {
+  it("keeps the driver's last wording while a new revision loads, then refetches", async () => {
     const { getLabels, wrapper } = setup();
     const { result, rerender } = renderHook(
       ({ revision }: { revision: string }) =>
@@ -113,15 +119,52 @@ describe("driver labels", () => {
       { wrapper, initialProps: { revision: "r1" } },
     );
     await waitFor(() => expect(result.current).toBe("Consigne"));
-    getLabels.mockResolvedValueOnce({
-      ...THERMOSTAT_LABELS,
-      revision: "r2",
-      attributes: {
-        temperature_setpoint: { label: { default: "Target" } },
-      },
-    });
+    let land!: (document: DriverLabels) => void;
+    getLabels.mockReturnValueOnce(
+      new Promise<DriverLabels>((resolve) => {
+        land = resolve;
+      }),
+    );
     act(() => rerender({ revision: "r2" }));
+    // The r2 document is in flight: the r1 wording stays, not the catalogue.
+    await waitFor(() => expect(getLabels).toHaveBeenCalledTimes(2));
+    expect(result.current).toBe("Consigne");
+    await act(async () => {
+      land(REVISED_LABELS);
+    });
     await waitFor(() => expect(result.current).toBe("Target"));
+  });
+
+  it("serves two revisions of one driver side by side and settles", async () => {
+    const { getLabels, wrapper } = setup();
+    // The server answers one document per request, in request order: the
+    // r2 lookup below comes first.
+    getLabels
+      .mockResolvedValueOnce(REVISED_LABELS)
+      .mockResolvedValueOnce(THERMOSTAT_LABELS);
+    let renders = 0;
+    const { result } = renderHook(
+      () => {
+        renders += 1;
+        const labelFor = useAttributeLabel();
+        return {
+          // A device read through the list, already on the edited driver...
+          fresh: labelFor("temperature_setpoint", {
+            driver_id: "thermostat",
+            driver_revision: "r2",
+          }),
+          // ...and one read alone before the edit, still carrying r1.
+          stale: labelFor("temperature_setpoint", THERMOSTAT),
+        };
+      },
+      { wrapper },
+    );
+    await waitFor(() =>
+      expect(result.current).toEqual({ stale: "Consigne", fresh: "Target" }),
+    );
+    // One fetch per revision, and a bounded number of renders: the registry
+    // does not chase one revision with the other.
     expect(getLabels).toHaveBeenCalledTimes(2);
+    expect(renders).toBeLessThan(10);
   });
 });

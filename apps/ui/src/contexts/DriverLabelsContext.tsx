@@ -8,11 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import {
-  keepPreviousData,
-  useQueries,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useQueries, useQueryClient } from "@tanstack/react-query";
 import type { DriverLabels } from "@gridone/sdk";
 import { useGridoneClient } from "./GridoneClientContext";
 
@@ -28,6 +24,12 @@ import { useGridoneClient } from "./GridoneClientContext";
  * render is answered from what is loaded (the standard fallback meanwhile)
  * and the driver is requested after the render; the labels then appear on
  * the next one. No component has to know the drivers ahead of time.
+ *
+ * Documents are kept per `(driver, revision)`: after a driver edit, devices
+ * read through different queries carry different revisions for a while, and
+ * both must be served without the registry chasing one or the other. While
+ * a new revision loads, the last document loaded for the driver answers, so
+ * the wording never falls back to the catalogue under the user.
  */
 
 /** The part of a device that names its labels document. */
@@ -45,6 +47,11 @@ export function driverLabelsQueryKey(ref: DriverRef) {
   return ["driver-labels", ref.driver_id, ref.driver_revision ?? null] as const;
 }
 
+/** One entry per `(driver, revision)` pair. */
+function pairKey(ref: DriverRef) {
+  return `${ref.driver_id}\u0000${ref.driver_revision ?? ""}`;
+}
+
 /** Without a provider nothing is fetched: labels fall back to the catalog. */
 const NO_LABELS: DriverLabelsRegistry = {
   labelsOf: () => undefined,
@@ -56,17 +63,12 @@ const DriverLabelsContext = createContext<DriverLabelsRegistry>(NO_LABELS);
 export function DriverLabelsProvider({ children }: { children: ReactNode }) {
   const client = useGridoneClient();
   const queryClient = useQueryClient();
-  const [requested, setRequested] = useState<
-    ReadonlyMap<string, string | null>
-  >(() => new Map());
-  const refs = useMemo<DriverRef[]>(
-    () =>
-      Array.from(requested, ([driver_id, driver_revision]) => ({
-        driver_id,
-        driver_revision,
-      })),
-    [requested],
+  // Insertion order is request order: the last entry of a driver is the
+  // revision most recently seen on a device.
+  const [requested, setRequested] = useState<ReadonlyMap<string, DriverRef>>(
+    () => new Map(),
   );
+  const refs = useMemo(() => Array.from(requested.values()), [requested]);
   const results = useQueries({
     queries: refs.map((ref) => ({
       queryKey: driverLabelsQueryKey(ref),
@@ -74,33 +76,39 @@ export function DriverLabelsProvider({ children }: { children: ReactNode }) {
       staleTime: Infinity,
       gcTime: Infinity,
       retry: false,
-      // A driver edit moves the revision: keep the old wording until the new
-      // document lands rather than flashing the fallback names.
-      placeholderData: keepPreviousData,
     })),
   });
-  const loaded = useMemo(
-    () =>
-      new Map(refs.map((ref, index) => [ref.driver_id, results[index]?.data])),
-    [refs, results],
-  );
-  const request = useCallback((ref: DriverRef) => {
-    const revision = ref.driver_revision ?? null;
-    setRequested((previous) => {
-      if (
-        previous.has(ref.driver_id) &&
-        previous.get(ref.driver_id) === revision
-      )
-        return previous;
-      return new Map(previous).set(ref.driver_id, revision);
+  const loaded = useMemo(() => {
+    const exact = new Map<string, DriverLabels>();
+    const latestOfDriver = new Map<string, DriverLabels>();
+    refs.forEach((ref, index) => {
+      const document = results[index]?.data;
+      if (!document) return;
+      exact.set(pairKey(ref), document);
+      latestOfDriver.set(ref.driver_id, document);
     });
+    return { exact, latestOfDriver };
+  }, [refs, results]);
+  const request = useCallback((ref: DriverRef) => {
+    const key = pairKey(ref);
+    setRequested((previous) =>
+      previous.has(key) ? previous : new Map(previous).set(key, ref),
+    );
   }, []);
   const labelsOf = useCallback(
     (ref: DriverRef) =>
-      loaded.get(ref.driver_id) ??
+      loaded.exact.get(pairKey(ref)) ??
+      // The revision is still loading: the driver's last loaded document
+      // keeps naming its attributes meanwhile.
+      loaded.latestOfDriver.get(ref.driver_id) ??
       // A document another page already fetched (or a prefetch) is used on
       // the very first render, before the request below subscribes to it.
-      queryClient.getQueryData<DriverLabels>(driverLabelsQueryKey(ref)),
+      queryClient.getQueryData<DriverLabels>(driverLabelsQueryKey(ref)) ??
+      queryClient
+        .getQueriesData<DriverLabels>({
+          queryKey: ["driver-labels", ref.driver_id],
+        })
+        .find(([, document]) => document !== undefined)?.[1],
     [loaded, queryClient],
   );
   const registry = useMemo(() => ({ labelsOf, request }), [labelsOf, request]);
@@ -120,17 +128,19 @@ export function useDriverLabelsLookup(): (
   ref: DriverRef,
 ) => DriverLabels | undefined {
   const registry = useContext(DriverLabelsContext);
-  const seen = useRef(new Map<string, string | null>());
+  const seen = useRef(new Map<string, DriverRef>());
   useEffect(() => {
     if (seen.current.size === 0) return;
-    const pending = Array.from(seen.current);
+    const pending = Array.from(seen.current.values());
     seen.current.clear();
-    for (const [driver_id, driver_revision] of pending)
-      registry.request({ driver_id, driver_revision });
+    for (const ref of pending) registry.request(ref);
   });
   return useCallback(
     (ref: DriverRef) => {
-      seen.current.set(ref.driver_id, ref.driver_revision ?? null);
+      seen.current.set(pairKey(ref), {
+        driver_id: ref.driver_id,
+        driver_revision: ref.driver_revision ?? null,
+      });
       return registry.labelsOf(ref);
     },
     [registry],

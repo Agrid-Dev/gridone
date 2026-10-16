@@ -10,7 +10,7 @@ import { toLabel } from "@/lib/textFormat";
 /**
  * Where an attribute's declared label comes from: the device it belongs to
  * (its driver's labels document is looked up), or a row the server already
- * labelled for a set of devices (an attribute coverage, a fault, a meter).
+ * labelled for a set of devices (an attribute coverage, a fault, a preview).
  */
 export type AttributeLabelSource =
   | DriverRef
