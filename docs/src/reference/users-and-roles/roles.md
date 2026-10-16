@@ -22,7 +22,7 @@ A permission is written `<resource>:<level>`.
 | `read` | Listing and reading the resource |
 | `write` | Creating, updating and deleting it |
 
-Resources are the kinds of things Gridone manages. Reading never implies writing, and writing never implies reading: a role that configures devices without seeing them is unusual but expressible.
+Resources are the kinds of things Gridone manages. Reading never implies writing, but writing implies reading: a role holding `devices:write` also reads devices, whether or not it lists `devices:read`. The one write that implies nothing is `notifications:write`, since reading your own notifications needs no permission.
 
 | Resource | Covers | Levels |
 |---|---|---|
@@ -49,7 +49,7 @@ Devices are the one resource where "write" is two different things: configuring 
 | `devices:command` | Operating devices: sending a [command](../glossary.md#command) to writable attributes, alone, in batch or through a template |
 | `devices:logs:read` | Reading the communication log of an attribute, for troubleshooting |
 
-`devices:command` does not include `devices:read`. A role that operates equipment normally holds both.
+`devices:command` implies `devices:read`, like any write: a role that operates equipment sees the devices it operates.
 
 ### Always allowed
 
@@ -112,7 +112,7 @@ An administrator can define additional roles when the built-in ones do not fit. 
 | `permissions` | Any subset of the [permissions](#permissions) above |
 | `scopes` | Optional. Narrows `devices:read` to specific devices and attributes, see [Scopes](#scopes) |
 
-Custom roles are managed through the [API](../../api-reference.md) and require the `roles:write` permission. That permission is reserved for the built-in `admin` role: a custom role cannot hold it. Assigning a role to a user, in turn, requires holding every permission of that role. Together the two rules mean no role can hand out more than it has, whether by editing roles or by editing users.
+Custom roles are managed through the [API](../../api-reference.md) and require the `roles:write` permission. That permission is reserved for the built-in `admin` role: a custom role cannot hold it. Assigning a role to a user, in turn, requires holding every permission of that role, counting the ones the caller's role implies. Together the two rules mean no role can hand out more than it has, whether by editing roles or by editing users.
 
 Rules:
 
@@ -166,7 +166,7 @@ How a scope is read:
 
 - **Inside a scope, parts intersect.** A device must match every part that is set: here it must be a thermostat, and only the two listed attributes are visible on it. `{}` is a scope with no restriction.
 - **Across scopes, matches union.** Listing two scopes under the same permission reaches what either of them reaches. There are no deny entries and no ordering.
-- **A scope never exceeds its permission.** The key must be one of the role's permissions. A permission without a scope keeps its full reach.
+- **A scope never exceeds its permission.** The key must be one of the role's permissions, or one they imply. A permission without a scope keeps its full reach, and a scope on `devices:read` also narrows the read that `devices:write` or `devices:command` implies.
 - **Type or driver.** `types` matches devices whose driver declares a standard type; a device with an untyped driver is reachable through `driver_ids` only.
 
 What a scoped role is served follows one rule: what it cannot read does not exist for it. A hidden attribute is absent from the device, its history and the live feed. A device with no readable attribute is absent from lists, answers "not found" when addressed directly, and is left out of attribute coverage, faults and communication logs. Two pieces of metadata stay visible because Gridone computes them over the whole device: whether a device is faulty, and the fact that a device exists when a command targets it.
