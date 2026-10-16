@@ -52,6 +52,8 @@ from .dto import (
     AttributeSelection,
     Device,
     DeviceCreate,
+    DeviceListing,
+    DevicesQuery,
     DeviceUpdate,
     DriverPatch,
     DriverSpec,
@@ -63,6 +65,7 @@ from .dto import (
     TransportCreate,
     TransportUpdate,
     device_create_from_public,
+    device_query_to_filters,
     device_to_public,
     driver_from_public,
     driver_to_public,
@@ -82,7 +85,7 @@ from .ingress import MessageIngress
 from .storage.factory import build_storage
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Collection
+    from collections.abc import AsyncIterator
 
     from models.command_confirmation import WriteConsent
     from models.expressions import DeviceAttributeRef
@@ -101,7 +104,7 @@ if TYPE_CHECKING:
     from .dto.presentation_dto import PresentationResponse
     from .interface import AttributeListener, DeviceDiscoveredListener, DeviceListener
     from .storage import DevicesManagerStorage
-    from .types import AttributeValueType, DataType
+    from .types import AttributeValueType
 
 logger = logging.getLogger(__name__)
 
@@ -383,37 +386,22 @@ class DevicesService(Service):
     def device_ids(self) -> set[str]:
         return self._device_registry.ids
 
-    def list_devices(  # noqa: PLR0913
+    def list_devices(
         self,
+        query: DevicesQuery | None = None,
         *,
-        ids: Collection[str] | None = None,
-        types: list[str] | None = None,
-        attribute: str | None = None,
-        writable_attribute: str | None = None,
-        writable_attribute_type: DataType | None = None,
-        tags: dict[str, list[str]] | None = None,
-        is_faulty: bool | None = None,
-        search: str | None = None,
-        driver_id: str | None = None,
-        transport_id: str | None = None,
         attribute_selection: AttributeSelection | None = None,
-    ) -> list[Device]:
-        devices = self._device_registry.list_all(
-            ids=ids,
-            types=types,
-            attribute=attribute,
-            writable_attribute=writable_attribute,
-            writable_attribute_type=writable_attribute_type,
-            tags=tags,
-            is_faulty=is_faulty,
-            search=search,
-            driver_id=driver_id,
-            transport_id=transport_id,
+    ) -> DeviceListing[CoreDevice]:
+        """The devices matching *query*, every one of them when there is none.
+
+        Nothing is converted here: the listing builds the public devices when
+        it is paged or iterated (see ``DeviceListing``).
+        """
+        matches = self._device_registry.list_all(device_query_to_filters(query))
+        return DeviceListing(
+            matches,
+            convert=partial(device_to_public, attribute_selection=attribute_selection),
         )
-        return [
-            device_to_public(device, attribute_selection=attribute_selection)
-            for device in devices
-        ]
 
     def get_device(self, device_id: str) -> Device:
         return device_to_public(self._device_registry.get(device_id))

@@ -88,7 +88,7 @@ from devices_manager import (
 from devices_manager.core.device import Attribute
 from devices_manager.core.device.connection_status import AttributeLogs
 from devices_manager.core.presentation.resources import StoredResource
-from devices_manager.dto import DriverLabels, FaultView
+from devices_manager.dto import DevicesQuery, DriverLabels, FaultView
 from devices_manager.dto.device_dto import AttributeSelection, Device
 from devices_manager.dto.presentation_dto import UnavailablePresentationResponse
 from devices_manager.types import DataType
@@ -2262,7 +2262,7 @@ def _build_scoped_devices_app() -> FastAPI:
     app.state.cookie_secure = False
     devices = {d.id: d for d in (_THERMOSTAT, _ROOM)}
     dm = MagicMock(spec=DevicesServiceInterface)
-    dm.list_devices.side_effect = lambda **_: list(devices.values())
+    dm.list_devices.side_effect = lambda *_, **__: list(devices.values())
 
     def _get_device(device_id: str) -> Device:
         if device_id not in devices:
@@ -2449,11 +2449,11 @@ def _build_zone_tree_app() -> FastAPI:
     ]
 
     def _list_devices(
+        query: DevicesQuery | None = None,
         *,
-        attribute: str | None = None,
         attribute_selection: AttributeSelection | None = None,
-        **_query: object,
     ) -> list[Device]:
+        attribute = None if query is None else query.attribute
         matched = [d for d in devices if attribute is None or attribute in d.attributes]
         if attribute_selection is None:
             return matched

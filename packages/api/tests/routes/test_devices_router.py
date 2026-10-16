@@ -35,7 +35,7 @@ from devices_manager.core.device.connection_status_attribute import (
     CONNECTION_STATUS_ATTR,
 )
 from devices_manager.core.write_preview import DeviceWritePreview
-from devices_manager.dto import AttributeLabels, DriverLabels
+from devices_manager.dto import AttributeLabels, DevicesQuery, DriverLabels
 from devices_manager.dto.device_dto import Device
 from devices_manager.types import ConnectionStatus, DataType
 from models.attribute_metadata import LocalizedText
@@ -117,29 +117,26 @@ def _make_dm(
     mock = MagicMock(spec=DevicesServiceInterface)
 
     def _list_devices(
-        *,
-        ids=None,
-        types=None,
-        writable_attribute=None,
-        is_faulty=None,
-        **_kwargs: object,
+        query: DevicesQuery | None = None, **_kwargs: object
     ) -> list[Device]:
+        query = query or DevicesQuery()
         results = list(all_devices.values())
-        if ids is not None:
-            id_set = set(ids)
+        if query.ids is not None:
+            id_set = set(query.ids)
             results = [d for d in results if d.id in id_set]
-        if types is not None:
-            types_set = set(types)
+        if query.types is not None:
+            types_set = set(query.types)
             results = [d for d in results if d.type in types_set]
-        if writable_attribute is not None:
+        if query.writable_attribute is not None:
+            writable = query.writable_attribute
             results = [
                 d
                 for d in results
-                if writable_attribute in d.attributes
-                and "write" in d.attributes[writable_attribute].read_write_modes
+                if writable in d.attributes
+                and "write" in d.attributes[writable].read_write_modes
             ]
-        if is_faulty is not None:
-            results = [d for d in results if d.is_faulty == is_faulty]
+        if query.is_faulty is not None:
+            results = [d for d in results if d.is_faulty == query.is_faulty]
         return results
 
     mock.list_devices.side_effect = _list_devices
@@ -279,27 +276,13 @@ class TestListDevices:
     def test_filter_by_type_passed_to_service(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"type": "thermostat"})
         dm.list_devices.assert_called_once_with(
-            attribute=None,
-            driver_id=None,
-            transport_id=None,
-            ids=None,
-            types=["thermostat"],
-            tags=None,
-            is_faulty=None,
-            search=None,
+            DevicesQuery(types=["thermostat"]), attribute_selection=None
         )
 
     def test_filter_by_tags_single_value(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"tags": "asset_id:asset-1"})
         dm.list_devices.assert_called_once_with(
-            attribute=None,
-            driver_id=None,
-            transport_id=None,
-            ids=None,
-            types=None,
-            tags={"asset_id": ["asset-1"]},
-            is_faulty=None,
-            search=None,
+            DevicesQuery(tags={"asset_id": ["asset-1"]}), attribute_selection=None
         )
 
     def test_filter_by_tags_multiple_values_and_keys(
@@ -314,53 +297,26 @@ class TestListDevices:
             ],
         )
         dm.list_devices.assert_called_once_with(
-            attribute=None,
-            driver_id=None,
-            transport_id=None,
-            ids=None,
-            types=None,
-            tags={"asset_id": ["a1", "a2"], "zone": ["north"]},
-            is_faulty=None,
-            search=None,
+            DevicesQuery(tags={"asset_id": ["a1", "a2"], "zone": ["north"]}),
+            attribute_selection=None,
         )
 
     def test_empty_tags_param_ignored(self, client: TestClient, dm: MagicMock):
         client.get("/")
         dm.list_devices.assert_called_once_with(
-            attribute=None,
-            driver_id=None,
-            transport_id=None,
-            ids=None,
-            types=None,
-            tags=None,
-            is_faulty=None,
-            search=None,
+            DevicesQuery(), attribute_selection=None
         )
 
     def test_is_faulty_filter_forwarded(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"is_faulty": "true"})
         dm.list_devices.assert_called_once_with(
-            attribute=None,
-            driver_id=None,
-            transport_id=None,
-            ids=None,
-            types=None,
-            tags=None,
-            is_faulty=True,
-            search=None,
+            DevicesQuery(is_faulty=True), attribute_selection=None
         )
 
     def test_is_faulty_false_filter_forwarded(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"is_faulty": "false"})
         dm.list_devices.assert_called_once_with(
-            attribute=None,
-            driver_id=None,
-            transport_id=None,
-            ids=None,
-            types=None,
-            tags=None,
-            is_faulty=False,
-            search=None,
+            DevicesQuery(is_faulty=False), attribute_selection=None
         )
 
     @pytest.mark.parametrize("asset_id", ["", "invalid zone", "zone:one", "x" * 64])
@@ -374,14 +330,7 @@ class TestListDevices:
     def test_asset_id_translated_to_tag(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"asset_id": "a1"})
         dm.list_devices.assert_called_once_with(
-            attribute=None,
-            driver_id=None,
-            transport_id=None,
-            ids=None,
-            types=None,
-            tags={"asset_id": ["a1"]},
-            is_faulty=None,
-            search=None,
+            DevicesQuery(tags={"asset_id": ["a1"]}), attribute_selection=None
         )
 
     def test_asset_id_merges_into_existing_asset_tag(
@@ -395,66 +344,31 @@ class TestListDevices:
             ],
         )
         dm.list_devices.assert_called_once_with(
-            attribute=None,
-            driver_id=None,
-            transport_id=None,
-            ids=None,
-            types=None,
-            tags={"asset_id": ["a1", "a2"]},
-            is_faulty=None,
-            search=None,
+            DevicesQuery(tags={"asset_id": ["a1", "a2"]}), attribute_selection=None
         )
 
     def test_search_forwarded_to_service(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"search": "chambre 12"})
         dm.list_devices.assert_called_once_with(
-            attribute=None,
-            driver_id=None,
-            transport_id=None,
-            ids=None,
-            types=None,
-            tags=None,
-            is_faulty=None,
-            search="chambre 12",
+            DevicesQuery(search="chambre 12"), attribute_selection=None
         )
 
     def test_driver_id_forwarded_to_service(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"driver_id": "drv-1"})
         dm.list_devices.assert_called_once_with(
-            attribute=None,
-            ids=None,
-            types=None,
-            tags=None,
-            is_faulty=None,
-            search=None,
-            driver_id="drv-1",
-            transport_id=None,
+            DevicesQuery(driver_id="drv-1"), attribute_selection=None
         )
 
     def test_transport_id_forwarded_to_service(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"transport_id": "tr-1"})
         dm.list_devices.assert_called_once_with(
-            attribute=None,
-            ids=None,
-            types=None,
-            tags=None,
-            is_faulty=None,
-            search=None,
-            driver_id=None,
-            transport_id="tr-1",
+            DevicesQuery(transport_id="tr-1"), attribute_selection=None
         )
 
     def test_attribute_forwarded_to_service(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"attribute": "temperature"})
         dm.list_devices.assert_called_once_with(
-            attribute="temperature",
-            ids=None,
-            types=None,
-            tags=None,
-            is_faulty=None,
-            search=None,
-            driver_id=None,
-            transport_id=None,
+            DevicesQuery(attribute="temperature"), attribute_selection=None
         )
 
 
@@ -504,14 +418,7 @@ class TestListDeviceAttributes:
     def test_same_filters_as_list_devices(self, client: TestClient, dm: MagicMock):
         client.get("/attributes", params={"type": "thermostat"})
         dm.list_devices.assert_called_once_with(
-            attribute=None,
-            ids=None,
-            types=["thermostat"],
-            tags=None,
-            is_faulty=None,
-            search=None,
-            driver_id=None,
-            transport_id=None,
+            DevicesQuery(types=["thermostat"]), attribute_selection=None
         )
 
     def test_empty_device_set(self, client: TestClient):
@@ -546,14 +453,7 @@ class TestListDeviceTagGroups:
     def test_same_filters_as_list_devices(self, client: TestClient, dm: MagicMock):
         client.get("/tag-groups", params={"tag_key": "floor", "type": "thermostat"})
         dm.list_devices.assert_called_once_with(
-            attribute=None,
-            ids=None,
-            types=["thermostat"],
-            tags=None,
-            is_faulty=None,
-            search=None,
-            driver_id=None,
-            transport_id=None,
+            DevicesQuery(types=["thermostat"]), attribute_selection=None
         )
 
     def test_empty_device_set(self, client: TestClient):
@@ -1848,7 +1748,7 @@ class TestTagVocabulary:
             json={"key": "ECS", "old_value": "east", "new_value": "west"},
         )
         assert response.status_code == 200
-        dm.list_devices.assert_called_once_with(tags={"ecs": ["east"]})
+        dm.list_devices.assert_called_once_with(DevicesQuery(tags={"ecs": ["east"]}))
         dm.mutate_device_tags.assert_awaited_once_with(
             ["device1"],
             TagMutation(key="ecs", add=["west"], remove=["east"], require_value="east"),

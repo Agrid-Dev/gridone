@@ -8,6 +8,9 @@ from .device_dto import core_to_dto as device_to_public
 from .device_dto import create_to_base as device_create_from_public
 from .device_dto import dto_to_base as device_public_to_base
 from .device_dto import dto_to_core as device_from_public
+from .device_listing import DeviceFacets, DeviceHealth, DeviceListing, DeviceSortKey
+from .device_query import DevicesQuery
+from .device_query import dto_to_core as device_query_to_filters
 from .driver_dto import (
     AttributeDriverSpec,
     AttributePatch,
@@ -53,7 +56,12 @@ __all__ = [
     "AttributeSelection",
     "Device",
     "DeviceCreate",
+    "DeviceFacets",
+    "DeviceHealth",
+    "DeviceListing",
+    "DeviceSortKey",
     "DeviceUpdate",
+    "DevicesQuery",
     "DriverLabels",
     "DriverPatch",
     "DriverSpec",
@@ -70,6 +78,7 @@ __all__ = [
     "device_create_from_public",
     "device_from_public",
     "device_public_to_base",
+    "device_query_to_filters",
     "device_to_public",
     "driver_from_public",
     "driver_to_public",

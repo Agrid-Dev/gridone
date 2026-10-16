@@ -12,6 +12,7 @@ from devices_manager.dto import (
     AttributeDriverSpec,
     AttributePatch,
     AttributeRename,
+    DevicesQuery,
     DriverLabels,
     DriverPatch,
     DriverSpec,
@@ -148,7 +149,7 @@ async def rename_driver_attribute(
     ts: Annotated[TimeSeriesService, Depends(get_ts_service)],
 ) -> AttributeDriverSpec:
     result = await dm.rename_driver_attribute(driver_id, attribute_id, payload.new_name)
-    device_ids = [d.id for d in dm.list_devices(driver_id=driver_id)]
+    device_ids = [d.id for d in dm.list_devices(DevicesQuery(driver_id=driver_id))]
     try:
         await ts.rename_metric_for_owners(device_ids, attribute_id, payload.new_name)
     except Exception:

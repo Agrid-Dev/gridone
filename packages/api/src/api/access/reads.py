@@ -8,8 +8,9 @@ them: hidden is a 404, never a 403.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
+from devices_manager.dto import DeviceListing
 from models.errors import NotFoundError
 
 if TYPE_CHECKING:
@@ -17,25 +18,36 @@ if TYPE_CHECKING:
 
     from api.access.policy import AccessPolicy
     from devices_manager import DevicesServiceInterface
-    from devices_manager.dto import DriverLabels, FaultView
-    from devices_manager.dto.device_dto import AttributeSelection, Device
-    from models.types import DataType, Severity
+    from devices_manager.dto import (
+        AttributeSelection,
+        Device,
+        DevicesQuery,
+        DriverLabels,
+        FaultView,
+    )
+    from models.types import Severity
 
 
-def _still_matches(device: Device, query: dict[str, Any]) -> bool:
+def _still_matches(device: Device, query: DevicesQuery | None) -> bool:
     """Re-check the attribute filters the service matched on the full device."""
+    if query is None:
+        return True
     attributes = device.attributes
-    attribute: str | None = query.get("attribute")
-    writable: str | None = query.get("writable_attribute")
-    writable_type: DataType | None = query.get("writable_attribute_type")
-    if attribute is not None and attribute not in attributes:
+    if query.attribute is not None and query.attribute not in attributes:
         return False
-    if writable is not None and writable not in attributes:
+    if (
+        query.writable_attribute is not None
+        and query.writable_attribute not in attributes
+    ):
         return False
-    return writable_type is None or any(
-        "write" in a.read_write_modes and a.data_type == writable_type
+    return query.writable_attribute_type is None or any(
+        "write" in a.read_write_modes and a.data_type == query.writable_attribute_type
         for a in attributes.values()
     )
+
+
+def _as_is(device: Device) -> Device:
+    return device
 
 
 class ScopedDeviceReads:
@@ -49,18 +61,31 @@ class ScopedDeviceReads:
     def is_unrestricted(self) -> bool:
         return self._policy.is_unrestricted
 
-    def list_devices(self, **query: Any) -> list[Device]:  # noqa: ANN401
+    def list_devices(
+        self,
+        query: DevicesQuery | None = None,
+        *,
+        attribute_selection: AttributeSelection | None = None,
+    ) -> DeviceListing:
+        """The devices the caller may read among those matching *query*.
+
+        A scoped caller's listing is built over the projected devices, so
+        its pages, counts and facets only ever see what the caller may read.
+        That projection converts every match first: scoped reads pay the
+        whole listing, unrestricted ones pay what they page.
+        """
         if self._policy.is_unrestricted:
-            return self._dm.list_devices(**query)
+            return self._dm.list_devices(query, attribute_selection=attribute_selection)
         # Visibility and the attribute filters judge the whole device, so a
         # selection only trims what is left to return.
-        selection: AttributeSelection | None = query.pop("attribute_selection", None)
-        devices = self._dm.list_devices(**query)
-        projected = (self._policy.project_device(d) for d in devices)
+        projected = (
+            self._policy.project_device(d) for d in self._dm.list_devices(query)
+        )
         visible = [d for d in projected if d is not None and _still_matches(d, query)]
-        if selection is None:
-            return visible
-        return [selection.restrict(d) for d in visible]
+        convert = (
+            _as_is if attribute_selection is None else attribute_selection.restrict
+        )
+        return DeviceListing(visible, convert=convert)
 
     def get_device(self, device_id: str) -> Device:
         device = self._policy.project_device(self._dm.get_device(device_id))

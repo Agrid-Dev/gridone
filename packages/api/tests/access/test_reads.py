@@ -7,7 +7,7 @@ import pytest
 
 from api.access import UNRESTRICTED, AccessPolicy, ScopedDeviceReads
 from devices_manager import Attribute, DevicesServiceInterface
-from devices_manager.dto import FaultView
+from devices_manager.dto import DevicesQuery, FaultView
 from devices_manager.dto.device_dto import AttributeSelection, Device
 from models.errors import NotFoundError
 from models.types import DataType, Severity
@@ -69,8 +69,10 @@ TEMPERATURES_ONLY = _policy(DeviceScope(attributes=["temperature"]))
 def dm() -> MagicMock:
     dm = MagicMock(spec=DevicesServiceInterface)
     devices = {d.id: d for d in (THERMOSTAT, ROOM)}
-    dm.list_devices.side_effect = lambda **query: [
-        d for d in devices.values() if query.get("ids") is None or d.id in query["ids"]
+    dm.list_devices.side_effect = lambda query=None, **_: [
+        d
+        for d in devices.values()
+        if query is None or query.ids is None or d.id in query.ids
     ]
 
     def _get(device_id: str) -> Device:
@@ -114,20 +116,24 @@ class TestListDevices:
     def test_an_attribute_filter_is_rechecked_on_the_projection(self, dm, query):
         # The service matched the thermostat on ``mode``; the caller cannot
         # read ``mode``, so the match no longer holds.
-        assert ScopedDeviceReads(dm, TEMPERATURES_ONLY).list_devices(**query) == []
+        reads = ScopedDeviceReads(dm, TEMPERATURES_ONLY)
+
+        assert list(reads.list_devices(DevicesQuery(**query))) == []
 
     def test_unrestricted_passes_the_query_and_result_through(self, dm):
-        devices = ScopedDeviceReads(dm, UNRESTRICTED).list_devices(ids=["room"])
+        query = DevicesQuery(ids=["room"])
+
+        devices = ScopedDeviceReads(dm, UNRESTRICTED).list_devices(query)
 
         assert devices == [ROOM]
-        dm.list_devices.assert_called_once_with(ids=["room"])
+        dm.list_devices.assert_called_once_with(query, attribute_selection=None)
 
     def test_unrestricted_leaves_a_selection_to_the_service(self, dm):
         selection = AttributeSelection(names=frozenset({"mode"}))
 
         ScopedDeviceReads(dm, UNRESTRICTED).list_devices(attribute_selection=selection)
 
-        dm.list_devices.assert_called_once_with(attribute_selection=selection)
+        dm.list_devices.assert_called_once_with(None, attribute_selection=selection)
 
     def test_scoped_reads_judge_whole_devices_then_trim(self, dm):
         devices = ScopedDeviceReads(dm, TEMPERATURES_ONLY).list_devices(
@@ -135,7 +141,7 @@ class TestListDevices:
         )
 
         # The service lists whole devices: visibility needs every attribute.
-        dm.list_devices.assert_called_once_with()
+        dm.list_devices.assert_called_once_with(None)
         # Both read a temperature, so both stay listed; `mode` is not theirs.
         assert {d.id: list(d.attributes) for d in devices} == {
             "thermo": [],

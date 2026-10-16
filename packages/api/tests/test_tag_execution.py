@@ -39,10 +39,10 @@ async def test_automation_resolves_current_members_once():
         for id_ in ("a", "b")
     }
     dm = MagicMock(spec=DevicesServiceInterface)
-    dm.list_devices.side_effect = lambda **kwargs: [
+    dm.list_devices.side_effect = lambda query, **_: [
         d
         for d in devices.values()
-        if d.tags.get("loop") == ["east"] and d.driver_id == kwargs["driver_id"]
+        if d.tags.get("loop") == ["east"] and d.driver_id == query.driver_id
     ]
     writer = AsyncMock(return_value=WriteResult(last_changed=now))
     commands = CommandsService(None, writer, AsyncMock(), CompositeTargetResolver(dm))
@@ -99,8 +99,8 @@ async def test_diagnosis_follows_the_members_a_dispatch_would_write():
         for id_ in ("a", "b", "meter")
     }
     dm = MagicMock(spec=DevicesServiceInterface)
-    dm.list_devices.side_effect = lambda **kwargs: [
-        d for d in devices.values() if d.tags.get("loop") == kwargs["tags"]["loop"]
+    dm.list_devices.side_effect = lambda query, **_: [
+        d for d in devices.values() if d.tags.get("loop") == query.tags["loop"]
     ]
     commands = CommandsService(
         None, AsyncMock(), AsyncMock(), CompositeTargetResolver(dm)

@@ -17,6 +17,7 @@ from devices_manager.core.device import (
     FaultAttribute,
 )
 from devices_manager.core.device.attribute import AttributeKind
+from devices_manager.core.device_filters import DeviceFilters
 from devices_manager.core.driver import (
     AttributeDriver,
     AttributeRef,
@@ -40,11 +41,14 @@ from devices_manager.dto import (
     AttributeSelection,
     Device,
     DeviceCreate,
+    DeviceSortKey,
+    DevicesQuery,
     DeviceUpdate,
     DriverPatch,
     DriverSpec,
     TransportBase,
     TransportUpdate,
+    device_to_public,
     driver_to_public,
 )
 from devices_manager.dto.transport_dto import HttpTransportCreate, MqttTransportCreate
@@ -62,6 +66,7 @@ from models.errors import (
     ConflictError,
     NotFoundError,
 )
+from models.pagination import PaginationParams
 from models.types import Severity
 
 from .fixtures.fake_time import fake_time
@@ -609,7 +614,7 @@ class TestDevicesServiceDiscovery:
         await mock_push_transport_client.simulate_event("/xx", _DISCOVERY_EVENT)
         await asyncio.sleep(0.05)
         assert len(dm_with_discovery.list_devices()) == 1
-        device = dm_with_discovery.list_devices()[0]
+        device = next(iter(dm_with_discovery.list_devices()))
         assert device.config is not None
         assert device.config["vendor_id"] == "abc"
         assert device.config["gateway_id"] == "gtw"
@@ -808,7 +813,7 @@ class TestDevicesServiceDiscovery:
         await asyncio.sleep(0.05)
 
         assert len(received) == 1
-        assert received[0].id == dm_with_discovery.list_devices()[0].id
+        assert received[0].id == next(iter(dm_with_discovery.list_devices())).id
 
     @pytest.mark.asyncio
     async def test_multiple_discovery_listeners_all_fire(
@@ -898,7 +903,7 @@ class TestDevicesServiceDiscovery:
         await asyncio.sleep(0.05)
 
         assert len(received) == 1
-        assert received[0].id == dm_with_discovery.list_devices()[0].id
+        assert received[0].id == next(iter(dm_with_discovery.list_devices())).id
 
     @pytest.mark.asyncio
     async def test_discovered_device_starts_syncing_when_service_running(
@@ -921,7 +926,7 @@ class TestDevicesServiceDiscovery:
         await mock_push_transport_client.simulate_event("/xx", _DISCOVERY_EVENT)
         await asyncio.sleep(0.05)
 
-        device_dto = dm.list_devices()[0]
+        device_dto = next(iter(dm.list_devices()))
         core_device = dm._device_registry.get(device_dto.id)  # noqa: SLF001
         assert core_device.syncing is True
         assert mock_push_transport_client._listener_registry.get_by_address_id(  # noqa: SLF001
@@ -1527,23 +1532,21 @@ class TestDevicesServiceDeviceDelegation:
 
         dm = await _dm_with_mock_registry(mock_reg)
         dm.list_devices(
-            ids=["d1"],
-            types=["thermostat"],
-            writable_attribute="temperature_setpoint",
-            writable_attribute_type=DataType.FLOAT,
+            DevicesQuery(
+                ids=["d1"],
+                types=["thermostat"],
+                writable_attribute="temperature_setpoint",
+                writable_attribute_type=DataType.FLOAT,
+            )
         )
 
         mock_reg.list_all.assert_called_once_with(
-            ids=["d1"],
-            types=["thermostat"],
-            attribute=None,
-            writable_attribute="temperature_setpoint",
-            writable_attribute_type=DataType.FLOAT,
-            tags=None,
-            is_faulty=None,
-            search=None,
-            driver_id=None,
-            transport_id=None,
+            DeviceFilters(
+                ids=["d1"],
+                types=["thermostat"],
+                writable_attribute="temperature_setpoint",
+                writable_attribute_type=DataType.FLOAT,
+            )
         )
 
     @pytest.mark.asyncio
@@ -1694,12 +1697,101 @@ class TestDevicesServiceListDevicesSelection:
     )
     async def test_filters_match_attributes_the_selection_leaves_out(self, dm, query):
         listed = dm.list_devices(
-            **query,
+            DevicesQuery(**query),
             attribute_selection=AttributeSelection(names=frozenset({"temperature"})),
         )
 
         assert sorted(d.id for d in listed) == ["t0", "t1", "t2"]
         assert all(set(d.attributes) == {"temperature"} for d in listed)
+
+
+class TestDevicesServiceListDevices:
+    """A listing is the ordered match, converted when paged or iterated."""
+
+    @pytest_asyncio.fixture
+    async def dm(self, driver, other_http_driver, mock_transport_client):
+        # Two typed thermostats and four devices outside the standard catalog,
+        # named so that the name order differs from the id order.
+        names = {
+            "t0": "Room 2",
+            "t1": "room 1",
+            "o0": "Boiler",
+            "o1": "Annex",
+            "o2": "Zone",
+            "o3": "boiler 2",
+        }
+        devices = {
+            device_id: CoreDevice.from_base(
+                DeviceBase(id=device_id, name=name, config={"some_id": "x"}),
+                driver=driver if device_id.startswith("t") else other_http_driver,
+                transport=mock_transport_client,
+            )
+            for device_id, name in names.items()
+        }
+        for device_id in ("t0", "t1"):
+            devices[device_id].type = "thermostat"
+        dm = DevicesService(
+            devices=devices,
+            drivers={driver.id: driver, other_http_driver.id: other_http_driver},
+            transports={mock_transport_client.id: mock_transport_client},
+        )
+        await dm.load()
+        return dm
+
+    @pytest.mark.asyncio
+    async def test_iterates_the_whole_match_in_registry_order(self, dm):
+        assert [d.id for d in dm.list_devices()] == [
+            "t0",
+            "t1",
+            "o0",
+            "o1",
+            "o2",
+            "o3",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_pages_the_name_order_and_counts_the_whole_match(self, dm):
+        listing = dm.list_devices()
+
+        page = listing.page(DeviceSortKey.NAME, PaginationParams(page=2, size=4))
+
+        # Name order: Annex, Boiler, boiler 2, room 1 | Room 2, Zone.
+        assert [d.id for d in page.items] == ["t0", "o2"]
+        assert (page.total, page.total_pages) == (6, 2)
+        assert listing.facets.type == {"thermostat": 2, "other": 4}
+        assert listing.facets.health == {"healthy": 6, "faulty": 0}
+        assert listing.facets.connection_status["idle"] == 6
+
+    @pytest.mark.asyncio
+    async def test_sort_by_type_puts_other_last(self, dm):
+        page = dm.list_devices().page(DeviceSortKey.TYPE)
+
+        assert [d.id for d in page.items] == ["t1", "t0", "o1", "o0", "o3", "o2"]
+
+    @pytest.mark.asyncio
+    async def test_facets_count_the_filtered_match_only(self, dm):
+        listing = dm.list_devices(DevicesQuery(types=["thermostat"]))
+
+        assert listing.total == 2
+        assert listing.facets.type == {"thermostat": 2}
+
+    @pytest.mark.asyncio
+    async def test_type_other_selects_outside_the_standard_catalog(self, dm):
+        listing = dm.list_devices(DevicesQuery(types=["other"]))
+
+        assert sorted(d.id for d in listing) == ["o0", "o1", "o2", "o3"]
+
+    @pytest.mark.asyncio
+    async def test_only_the_page_becomes_public(self, dm):
+        with patch(
+            "devices_manager.service.device_to_public", wraps=device_to_public
+        ) as converted:
+            page = dm.list_devices().page(
+                DeviceSortKey.NAME, PaginationParams(page=1, size=2)
+            )
+
+        assert [d.id for d in page.items] == ["o1", "o0"]
+        assert converted.call_count == 2
 
 
 class TestDevicesServiceStorage:

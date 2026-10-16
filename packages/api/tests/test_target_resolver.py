@@ -12,7 +12,7 @@ from api.targets import (
 )
 from devices_manager import DevicesServiceInterface
 from devices_manager.core.device import Attribute
-from devices_manager.dto import AttributeLabels, DriverLabels
+from devices_manager.dto import AttributeLabels, DevicesQuery, DriverLabels
 from devices_manager.dto.device_dto import Device
 from devices_manager.types import DataType
 from models.attribute_metadata import LocalizedText, ValueLabel, WriteConstraints
@@ -70,12 +70,15 @@ _METER = _device(
 def _make_dm(devices: list[Device]) -> MagicMock:
     dm = MagicMock(spec=DevicesServiceInterface)
 
-    def _list_devices(*, ids=None, types=None, **_kwargs: object) -> list[Device]:
+    def _list_devices(
+        query: DevicesQuery | None = None, **_kwargs: object
+    ) -> list[Device]:
+        query = query or DevicesQuery()
         results = devices
-        if ids is not None:
-            results = [d for d in results if d.id in set(ids)]
-        if types is not None:
-            results = [d for d in results if d.type in set(types)]
+        if query.ids is not None:
+            results = [d for d in results if d.id in set(query.ids)]
+        if query.types is not None:
+            results = [d for d in results if d.type in set(query.types)]
         return list(results)
 
     dm.list_devices.side_effect = _list_devices
@@ -159,7 +162,7 @@ class TestCompositeTargetResolver:
             DevicesFilter(types=["thermostat"])
         )
         assert [c.attribute for c in coverage] == ["setpoint", "temperature"]
-        dm.list_devices.assert_called_once_with(types=["thermostat"])
+        dm.list_devices.assert_called_once_with(DevicesQuery(types=["thermostat"]))
 
 
 class TestResolveWithDevices:

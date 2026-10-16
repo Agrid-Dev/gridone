@@ -36,6 +36,7 @@ from commands import BatchCommandDispatch, CommandsServiceInterface, UnitCommand
 from commands.models import CommandStatus
 from devices_manager import DevicesServiceInterface
 from devices_manager.core.device import Attribute
+from devices_manager.dto import DevicesQuery
 from devices_manager.dto.device_dto import AttributeSelection, Device
 from devices_manager.types import DataType
 from models.errors import InvalidError, NotFoundError
@@ -112,32 +113,29 @@ def _make_dm() -> MagicMock:
     mock = MagicMock(spec=DevicesServiceInterface)
 
     def _list_devices(
-        *,
-        ids=None,
-        types=None,
-        tags=None,
-        writable_attribute=None,
-        **_kwargs: object,
+        query: DevicesQuery | None = None, **_kwargs: object
     ) -> list[Device]:
+        query = query or DevicesQuery()
         results = list(devices.values())
-        if ids is not None:
-            id_set = set(ids)
+        if query.ids is not None:
+            id_set = set(query.ids)
             results = [d for d in results if d.id in id_set]
-        if types is not None:
-            types_set = set(types)
+        if query.types is not None:
+            types_set = set(query.types)
             results = [d for d in results if d.type in types_set]
-        if tags is not None:
-            for key, values in tags.items():
+        if query.tags is not None:
+            for key, values in query.tags.items():
                 values_set = set(values)
                 results = [
                     d for d in results if values_set.intersection(d.tags.get(key, []))
                 ]
-        if writable_attribute is not None:
+        if query.writable_attribute is not None:
+            writable = query.writable_attribute
             results = [
                 d
                 for d in results
-                if writable_attribute in d.attributes
-                and "write" in d.attributes[writable_attribute].read_write_modes
+                if writable in d.attributes
+                and "write" in d.attributes[writable].read_write_modes
             ]
         return results
 
@@ -453,7 +451,7 @@ class TestGetTreeWithDevices:
         ]
         # No attribute: building them all was the tree's cost on large sites.
         dm.list_devices.assert_called_once_with(
-            attribute_selection=AttributeSelection()
+            None, attribute_selection=AttributeSelection()
         )
 
 

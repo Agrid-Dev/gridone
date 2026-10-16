@@ -1,5 +1,6 @@
 """HTTP tag payloads and the temporary single-zone compatibility adapter."""
 
+from collections.abc import Iterable
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -36,7 +37,7 @@ class TagFacet(BaseModel):
     values: list[TagFacetValue]
 
 
-def tag_facets(devices: list[Device]) -> list[TagFacet]:
+def tag_facets(devices: Iterable[Device]) -> list[TagFacet]:
     counts: dict[str, dict[str, set[str]]] = {}
     for device in devices:
         for key, values in device.tags.items():

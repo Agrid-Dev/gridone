@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
@@ -9,7 +9,7 @@ from api.access import ScopedDeviceReads
 from api.access.dependencies import get_device_reads
 from api.auth import require_permission
 from api.dependencies import get_assets_service, get_device_manager, get_ts_service
-from api.devices_filter import ASSET_TAG, parse_tags_params, to_list_devices_kwargs
+from api.devices_filter import ASSET_TAG, parse_tags_params, with_asset_tag
 from api.routes.command_router import router as command_router
 from api.routes.devices_timeseries_router import router as devices_ts_router
 from api.routes.faults_router import router as faults_router
@@ -46,7 +46,7 @@ from devices_manager import DevicesServiceInterface
 from devices_manager.core.device import Attribute
 from devices_manager.core.device.connection_status import AttributeLogs
 from devices_manager.core.tags import TagMutation, TagMutationResult
-from devices_manager.dto import StandardAttributeSchema
+from devices_manager.dto import DevicesQuery, StandardAttributeSchema
 from devices_manager.dto.device_dto import (
     Device,
     DeviceCreate,
@@ -130,24 +130,21 @@ def get_devices_query(
     search: str | None = Query(None),
     driver_id: str | None = Query(None),
     transport_id: str | None = Query(None),
-) -> dict[str, Any]:
-    """Parse the device-list query params into ``DM.list_devices`` kwargs.
+) -> DevicesQuery:
+    """Parse the device-list query params into the service's query.
 
     Shared by every endpoint that selects a device set (``GET /devices``,
     ``GET /devices/attributes``) so the filters stay identical.
     """
-    return to_list_devices_kwargs(
-        {
-            "ids": ids,
-            "types": types,
-            "tags": parse_tags_params(tags),
-            "attribute": attribute,
-            "is_faulty": is_faulty,
-            "asset_id": asset_id,
-            "search": search,
-            "driver_id": driver_id,
-            "transport_id": transport_id,
-        }
+    return DevicesQuery(
+        ids=ids,
+        types=types,
+        tags=with_asset_tag(parse_tags_params(tags), asset_id),
+        attribute=attribute,
+        is_faulty=is_faulty,
+        search=search,
+        driver_id=driver_id,
+        transport_id=transport_id,
     )
 
 
@@ -159,9 +156,9 @@ def get_devices_query(
 )
 def list_devices(
     reads: Annotated[ScopedDeviceReads, Depends(get_device_reads)],
-    query: Annotated[dict[str, Any], Depends(get_devices_query)],
+    query: Annotated[DevicesQuery, Depends(get_devices_query)],
 ) -> list[Device]:
-    return reads.list_devices(**query)
+    return list(reads.list_devices(query))
 
 
 @router.get(
@@ -169,9 +166,9 @@ def list_devices(
 )
 def list_tags(
     reads: Annotated[ScopedDeviceReads, Depends(get_device_reads)],
-    query: Annotated[dict[str, Any], Depends(get_devices_query)],
+    query: Annotated[DevicesQuery, Depends(get_devices_query)],
 ) -> list[TagFacet]:
-    return tag_facets(reads.list_devices(**query))
+    return tag_facets(reads.list_devices(query))
 
 
 @router.post(
@@ -199,7 +196,9 @@ async def bulk_tags(
         raise InvalidError(msg)
     ids = [device.id for device in devices]
     if body.target.ids is not None:
-        known_ids = {device.id for device in dm.list_devices(ids=body.target.ids)}
+        known_ids = {
+            device.id for device in dm.list_devices(DevicesQuery(ids=body.target.ids))
+        }
         ids.extend(
             id_ for id_ in body.target.ids if id_ not in ids and id_ not in known_ids
         )
@@ -216,7 +215,7 @@ async def rename_tag(
     if body.key == ASSET_TAG:
         msg = "Use zone assignment to change a device's zone"
         raise InvalidError(msg)
-    devices = dm.list_devices(tags={body.key: [body.old_value]})
+    devices = dm.list_devices(DevicesQuery(tags={body.key: [body.old_value]}))
     return await dm.mutate_device_tags(
         [device.id for device in devices],
         TagMutation(
@@ -235,7 +234,7 @@ async def rename_tag(
 )
 def list_device_attributes(
     reads: Annotated[ScopedDeviceReads, Depends(get_device_reads)],
-    query: Annotated[dict[str, Any], Depends(get_devices_query)],
+    query: Annotated[DevicesQuery, Depends(get_devices_query)],
 ) -> AttributeCoverageResponse:
     """Report attribute coverage over the matched device set.
 
@@ -243,7 +242,7 @@ def list_device_attributes(
     device set, and the response annotates every exposed attribute with its
     data types and coverage counts.
     """
-    devices = reads.list_devices(**query)
+    devices = reads.list_devices(query)
     return AttributeCoverageResponse(
         total_devices=len(devices),
         attributes=compute_attribute_coverage(devices, reads.get_driver_labels),
@@ -256,7 +255,7 @@ def list_device_attributes(
 )
 def list_device_tag_groups(
     reads: Annotated[ScopedDeviceReads, Depends(get_device_reads)],
-    query: Annotated[dict[str, Any], Depends(get_devices_query)],
+    query: Annotated[DevicesQuery, Depends(get_devices_query)],
     tag_key: Tag = Query(...),
 ) -> TagGroupsResponse:
     """Preview how the matched device set splits by *tag_key*.
@@ -264,7 +263,7 @@ def list_device_tag_groups(
     Same filters as ``GET /devices``. Backs the group-by editor's free-text
     fallback, ahead of a proper tag vocabulary.
     """
-    devices = reads.list_devices(**query)
+    devices = reads.list_devices(query)
     groups = group_device_ids_by_tag(devices, tag_key)
     return TagGroupsResponse(
         total_devices=len(devices),
@@ -444,7 +443,7 @@ async def assign_devices_to_assets(
     without a write.
     """
     device_ids = [a.device_id for a in body.assignments]
-    devices_by_id = {d.id: d for d in dm.list_devices(ids=device_ids)}
+    devices_by_id = {d.id: d for d in dm.list_devices(DevicesQuery(ids=device_ids))}
     known_asset_ids = {a.id for a in await assets_svc.list_all()}
 
     results = [
