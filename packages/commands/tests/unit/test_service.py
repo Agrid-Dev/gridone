@@ -442,6 +442,25 @@ class TestDispatchBatch:
         gate.set()
         await service._await_pending()  # noqa: SLF001
 
+    async def test_a_per_call_resolver_picks_the_recipients(
+        self,
+        service: CommandsService,
+        target_resolver: AsyncMock,
+    ):
+        narrower = AsyncMock()
+        narrower.resolve.return_value = _resolved(["d1"], attribute="mode")
+
+        dispatch = await service.dispatch_batch(
+            target=DevicesFilter(ids=["d1", "d2"]),
+            write=MODE_AUTO,
+            user_id="u1",
+            target_resolver=narrower,
+        )
+
+        assert [c.device_id for c in dispatch.commands] == ["d1"]
+        target_resolver.resolve.assert_not_awaited()
+        await service._await_pending()  # noqa: SLF001
+
     async def test_every_batch_creates_an_ephemeral_template(
         self,
         service: CommandsService,

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from api.access import ScopedDeviceReads
 from api.access.dependencies import get_device_reads
-from api.auth import require_permission
+from api.auth import require_device_read, require_permission
 from api.dependencies import get_assets_service, get_device_manager, get_ts_service
 from api.devices_filter import ASSET_TAG, parse_tags_params, to_list_devices_kwargs
 from api.routes.command_router import router as command_router
@@ -77,7 +77,7 @@ router.include_router(faults_router, prefix="/faults")
 @router.get(
     "/{device_id}/presentation",
     response_model_exclude_none=True,
-    dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
+    dependencies=[Depends(require_device_read)],
 )
 async def get_device_presentation(
     device_id: str,
@@ -91,7 +91,7 @@ async def get_device_presentation(
 
 @router.get(
     "/{device_id}/presentation/assets/{asset_id}",
-    dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
+    dependencies=[Depends(require_device_read)],
     response_class=Response,
     responses={
         200: {
@@ -154,7 +154,7 @@ def get_devices_query(
 # Device payloads omit unset fields: an attribute carries what it has.
 @router.get(
     "/",
-    dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
+    dependencies=[Depends(require_device_read)],
     response_model_exclude_none=True,
 )
 def list_devices(
@@ -164,9 +164,7 @@ def list_devices(
     return reads.list_devices(**query)
 
 
-@router.get(
-    "/tags", dependencies=[Depends(require_permission(Permission.DEVICES_READ))]
-)
+@router.get("/tags", dependencies=[Depends(require_device_read)])
 def list_tags(
     reads: Annotated[ScopedDeviceReads, Depends(get_device_reads)],
     query: Annotated[dict[str, Any], Depends(get_devices_query)],
@@ -230,7 +228,7 @@ async def rename_tag(
 
 @router.get(
     "/attributes",
-    dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
+    dependencies=[Depends(require_device_read)],
     response_model_exclude_none=True,
 )
 def list_device_attributes(
@@ -252,7 +250,7 @@ def list_device_attributes(
 
 @router.get(
     "/tag-groups",
-    dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
+    dependencies=[Depends(require_device_read)],
 )
 def list_device_tag_groups(
     reads: Annotated[ScopedDeviceReads, Depends(get_device_reads)],
@@ -277,7 +275,7 @@ def list_device_tag_groups(
 
 @router.get(
     "/standard-types",
-    dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
+    dependencies=[Depends(require_device_read)],
 )
 def get_standard_types(
     dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
@@ -302,7 +300,7 @@ def get_attribute_logs(
 
 @router.post(
     "/{device_id}/attributes/{attr_name}/refresh",
-    dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
+    dependencies=[Depends(require_device_read)],
     response_model_exclude_none=True,
 )
 async def refresh_device_attribute(
@@ -320,7 +318,7 @@ async def refresh_device_attribute(
 
 @router.get(
     "/{device_id}",
-    dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
+    dependencies=[Depends(require_device_read)],
     response_model_exclude_none=True,
 )
 def get_device(

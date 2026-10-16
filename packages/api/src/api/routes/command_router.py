@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from api.access import ScopedDeviceReads
 from api.access.dependencies import get_device_reads, get_target_resolver
-from api.auth import get_current_user_id, require_permission
+from api.auth import get_current_user_id, require_device_read, require_permission
 from api.dependencies import (
     get_commands_service,
     get_device_manager,
@@ -105,7 +105,7 @@ def _resolve_start(query: CommandsQuery) -> datetime | None:
 
 @router.get(
     "/commands",
-    dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
+    dependencies=[Depends(require_device_read)],
 )
 async def list_commands(
     request: Request,
@@ -138,7 +138,7 @@ def _readable_history(
     ``total`` counts every command and is an upper bound; unrestricted
     callers are untouched.
     """
-    if reads.is_unrestricted:
+    if reads.reads_everything:
         return page
     items = reads.filter_readable(
         page.items, device_id=lambda c: c.device_id, attribute=lambda c: c.attribute
@@ -148,7 +148,7 @@ def _readable_history(
 
 @router.get(
     "/{device_id}/commands",
-    dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
+    dependencies=[Depends(require_device_read)],
 )
 async def list_device_commands(
     device_id: str,
@@ -185,10 +185,11 @@ def get_selection_commands(request: Request) -> SelectionCommands:
 )
 async def preview_selection_command(
     body: SelectionCommandPrepare,
+    reads: ScopedDeviceReads = Depends(get_device_reads),
     coordinator: SelectionCommands = Depends(get_selection_commands),
     user_id: str = Depends(get_current_user_id),
 ) -> SelectionCommandPreview:
-    return coordinator.prepare(body, user_id)
+    return coordinator.prepare(body, user_id, reads)
 
 
 @router.post(
@@ -198,10 +199,11 @@ async def preview_selection_command(
 )
 async def confirm_selection_command(
     body: SelectionCommandConfirm,
+    reads: ScopedDeviceReads = Depends(get_device_reads),
     coordinator: SelectionCommands = Depends(get_selection_commands),
     user_id: str = Depends(get_current_user_id),
 ) -> BatchDispatchResponse:
-    return await coordinator.confirm(body, user_id)
+    return await coordinator.confirm(body, user_id, reads)
 
 
 # ---------------------------------------------------------------------------
@@ -233,6 +235,7 @@ async def dispatch_batch_command(
         ),
         user_id=user_id,
         confirm=body.confirm,
+        target_resolver=resolver,
     )
     if not dispatch.commands:
         raise HTTPException(
@@ -263,9 +266,12 @@ async def preview_single_command(
     # The preview reads and expires loop-owned device state: it must run on the
     # event loop like every other route, never in a worker thread.
     # The preview carries the attribute's current value: an attribute the
-    # caller cannot read is a 404, as it is on every other read path.
-    reads.require_attribute(device_id, body.attribute)
-    preview = dm.preview_device_write(device_id, body.attribute, body.value)
+    # caller cannot read is a 404, as it is on every other read path, and one
+    # it reads but may not command is a 403, as on the dispatch.
+    reads.require_command(device_id, body.attribute)
+    preview = reads.project_preview(
+        dm.preview_device_write(device_id, body.attribute, body.value)
+    )
     token = None
     if (
         preview.eligible and preview.user_confirmation is not None
@@ -277,6 +283,7 @@ async def preview_single_command(
                 value=body.value,
             ),
             user_id,
+            reads,
         )
         preview = prepared.members[0]
         token = prepared.token
@@ -296,7 +303,7 @@ async def dispatch_single_command(
     user_id: str = Depends(get_current_user_id),
     coordinator: SelectionCommands = Depends(get_selection_commands),
 ) -> UnitCommand:
-    reads.get_device(device_id)  # NotFoundError → 404 if unknown or hidden
+    reads.require_command(device_id, body.attribute)
     resolved = await resolver.resolve(
         AttributeTarget(
             devices=DevicesFilter(ids=[device_id]), attribute=body.attribute
@@ -350,23 +357,26 @@ async def dispatch_single_command(
 )
 async def create_template(
     body: CommandTemplateCreatePayload,
+    reads: ScopedDeviceReads = Depends(get_device_reads),
     resolver: TargetResolver = Depends(get_target_resolver),
     commands_svc: CommandsServiceInterface = Depends(get_commands_service),
     user_id: str = Depends(get_current_user_id),
 ) -> CommandTemplateResponse:
+    target = body.target.to_devices_filter()
     await _validated_write_target(
         resolver,
-        devices=body.target.to_devices_filter(),
+        devices=target,
         attribute=body.write.attribute,
         expected_data_type=body.write.data_type,
     )
+    reads.require_commandable(target, body.write.attribute)
     template = await commands_svc.save_template(body.to_domain(), user_id)
     return CommandTemplateResponse.from_domain(template)
 
 
 @router.get(
     "/commands/templates/",
-    dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
+    dependencies=[Depends(require_device_read)],
 )
 async def list_templates(
     request: Request,
@@ -385,7 +395,7 @@ async def list_templates(
 
 @router.get(
     "/commands/templates/{template_id}",
-    dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
+    dependencies=[Depends(require_device_read)],
 )
 async def get_template(
     template_id: str,
@@ -402,6 +412,7 @@ async def get_template(
 async def update_template(
     template_id: str,
     body: CommandTemplateUpdatePayload,
+    reads: ScopedDeviceReads = Depends(get_device_reads),
     resolver: TargetResolver = Depends(get_target_resolver),
     commands_svc: CommandsServiceInterface = Depends(get_commands_service),
 ) -> CommandTemplateResponse:
@@ -419,6 +430,7 @@ async def update_template(
             attribute=merged_write.attribute,
             expected_data_type=merged_write.data_type,
         )
+        reads.require_commandable(merged_target, merged_write.attribute)
     template = await commands_svc.update_template(template_id, patch)
     return CommandTemplateResponse.from_domain(template)
 
@@ -442,13 +454,17 @@ async def delete_template(
 )
 async def dispatch_template(
     template_id: str,
+    resolver: TargetResolver = Depends(get_target_resolver),
     commands_svc: CommandsServiceInterface = Depends(get_commands_service),
     user_id: str = Depends(get_current_user_id),
 ) -> BatchDispatchResponse:
     template = await commands_svc.get_template(template_id)
     if bool(template.target.tags):
         raise ResourceConflictError(ResourceConflictCode.COMMAND_PREVIEW_REQUIRED, [])
-    dispatch = await commands_svc.dispatch_template(template=template, user_id=user_id)
+    # A template someone else saved runs as the caller's own write.
+    dispatch = await commands_svc.dispatch_template(
+        template=template, user_id=user_id, target_resolver=resolver
+    )
     if not dispatch.commands:
         raise HTTPException(
             status_code=422,

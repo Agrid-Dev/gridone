@@ -77,17 +77,17 @@ describe("roles", () => {
     expect(await statusOf(admin.users.deleteRole("viewer"))).toBe(409);
   });
 
-  // A scope narrows a permission the role holds; only devices:read accepts
-  // one for now (AGR-1209). What a scoped role is served is scopes.spec.ts.
+  // A scope narrows devices:read or devices:command, held by the role. What a
+  // scoped role is served is scopes.spec.ts.
   it.each<{
     case: string;
     permissions: RoleCreate["permissions"];
     scopes: RoleCreate["scopes"];
   }>([
     {
-      case: "a scope on devices:command, not scopable yet",
-      permissions: ["devices:read", "devices:command"],
-      scopes: { "devices:command": [{ devices: { types: ["thermostat"] } }] },
+      case: "a scope on a permission that is not scopable",
+      permissions: ["devices:read", "devices:write"],
+      scopes: { "devices:write": [{ devices: { types: ["thermostat"] } }] },
     },
     {
       case: "an empty scope list",
@@ -219,9 +219,11 @@ describe("a custom integration role", () => {
 
   it("applies a permission edit on the next request, without re-login", async () => {
     const role = await admin.users.getRole(roleId);
+    // Both go: commanding implies reading, so devices:command alone still lists.
     await admin.users.updateRole(roleId, {
       permissions: role.permissions.filter(
-        (permission) => permission !== "devices:read",
+        (permission) =>
+          permission !== "devices:read" && permission !== "devices:command",
       ),
     });
 

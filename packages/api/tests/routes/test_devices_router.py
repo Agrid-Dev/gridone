@@ -1903,7 +1903,7 @@ def test_single_preview_only_reserves_consent_for_eligible_warning(
     )
     assert response.json()["user_confirmation"] == warning.model_dump()
     if eligible:
-        body, user_id = mock_selection_commands.prepare.call_args.args
+        body, user_id, _reads = mock_selection_commands.prepare.call_args.args
         assert isinstance(body, SelectionCommandPrepare)
         assert body.target.ids == ["device1"]
         assert body.attribute == "temperature_setpoint"

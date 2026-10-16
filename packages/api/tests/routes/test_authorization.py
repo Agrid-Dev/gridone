@@ -1,7 +1,8 @@
 """Tests that RBAC permissions are enforced on API endpoints."""
 
+import asyncio
 import inspect
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
@@ -97,7 +98,7 @@ from models.errors import NotFoundError
 from models.metadata import ResourceMetadata
 from models.operating_rules import OperatingRule
 from models.pagination import Page
-from models.targets import DevicesFilter, ResolvedTarget
+from models.targets import AttributeTarget, DevicesFilter, ResolvedTarget
 from models.types import Severity
 from notifications import (
     Notification,
@@ -2415,26 +2416,31 @@ ZONE_READER_ROLE = Role(
         ]
     },
 )
-_ZONE_ROLES = {r.id: r for r in (TEMPERATURE_READER_ROLE, ZONE_READER_ROLE)}
 _ZONE_ID = "zone"
 
 
-class _ZoneUsersService(MockUsersService):
-    """The shared users, plus a temperature reader and a zone reader."""
+def _users_service_with(users: dict[str, Role]) -> type[MockUsersService]:
+    """The shared users, plus one user per extra role, logging in as named."""
+    roles = {role.id: role for role in users.values()}
 
-    def __init__(self) -> None:
-        super().__init__()
-        for username, role in (
-            ("temperature-reader", TEMPERATURE_READER_ROLE),
-            ("zone-reader", ZONE_READER_ROLE),
-        ):
-            self._credentials[username] = username
-            self._users[username] = User(
-                id=f"{username}-id", username=username, role=role.id
-            )
+    class _UsersService(MockUsersService):
+        def __init__(self) -> None:
+            super().__init__()
+            for username, role in users.items():
+                self._credentials[username] = username
+                self._users[username] = User(
+                    id=f"{username}-id", username=username, role=role.id
+                )
 
-    async def find_role(self, role_id: str) -> Role | None:
-        return _ZONE_ROLES.get(role_id) or await super().find_role(role_id)
+        async def find_role(self, role_id: str) -> Role | None:
+            return roles.get(role_id) or await super().find_role(role_id)
+
+    return _UsersService
+
+
+_ZoneUsersService = _users_service_with(
+    {"temperature-reader": TEMPERATURE_READER_ROLE, "zone-reader": ZONE_READER_ROLE}
+)
 
 
 def _build_zone_tree_app() -> FastAPI:
@@ -2488,6 +2494,178 @@ def test_the_zone_tree_names_the_devices_the_scope_lets_through(username, expect
     assert [d["id"] for d in zone["devices"]] == expected
 
 
+# --- devices:command scopes: what a scoped role may command ---
+
+# Commands the thermostat's mode, without holding devices:read.
+MODE_COMMANDER_ROLE = Role(
+    id="mode_commander",
+    name="Mode commander",
+    permissions=[Permission.DEVICES_COMMAND],
+    scopes={
+        Permission.DEVICES_COMMAND: [
+            DeviceScope(
+                devices=DeviceSelector(types=["thermostat"]), attributes=["mode"]
+            )
+        ]
+    },
+)
+# Reads every device, commands temperatures only: the mode is read-only to it.
+TEMPERATURE_COMMANDER_ROLE = Role(
+    id="temperature_commander",
+    name="Temperature commander",
+    permissions=[Permission.DEVICES_READ, Permission.DEVICES_COMMAND],
+    scopes={Permission.DEVICES_COMMAND: [DeviceScope(attributes=["temperature"])]},
+)
+_CommandScopeUsersService = _users_service_with(
+    {
+        "mode-commander": MODE_COMMANDER_ROLE,
+        "temperature-commander": TEMPERATURE_COMMANDER_ROLE,
+    }
+)
+
+
+def _build_command_scoped_app() -> tuple[FastAPI, AsyncMock]:
+    app = _build_scoped_devices_app()
+    app.dependency_overrides[get_users_service] = _CommandScopeUsersService
+    app.state.selection_commands = MagicMock(spec=SelectionCommands)
+    app.state.device_manager.preview_device_write.return_value = MagicMock(
+        eligible=True, user_confirmation=None, consent_required=False
+    )
+    commands = app.dependency_overrides[get_commands_service]()
+    commands.dispatch_unit.return_value = _command(3, _THERMOSTAT, "mode")
+    return app, commands
+
+
+MODE_COMMAND = {"attribute": "mode", "value": "heat"}
+
+COMMAND_SCOPE_SCENARIOS = [
+    pytest.param(
+        "mode-commander",
+        "GET",
+        "/devices/thermo",
+        None,
+        200,
+        id="reads-what-it-commands",
+    ),
+    pytest.param("mode-commander", "GET", "/devices/room", None, 404, id="no-room"),
+    pytest.param(
+        "mode-commander",
+        "POST",
+        "/devices/thermo/commands",
+        MODE_COMMAND,
+        200,
+        id="commands-its-attribute",
+    ),
+    pytest.param(
+        "temperature-commander",
+        "POST",
+        "/devices/thermo/commands",
+        MODE_COMMAND,
+        403,
+        id="read-only-attribute-403",
+    ),
+    pytest.param(
+        "temperature-commander",
+        "POST",
+        "/devices/thermo/commands/preview",
+        MODE_COMMAND,
+        403,
+        id="read-only-attribute-preview-403",
+    ),
+    pytest.param(
+        "temperature-commander",
+        "POST",
+        "/devices/commands",
+        {"target": {"ids": ["thermo"]}, **MODE_COMMAND},
+        422,
+        id="batch-excludes-it",
+    ),
+    pytest.param(
+        "operator",
+        "POST",
+        "/devices/thermo/commands",
+        MODE_COMMAND,
+        200,
+        id="operator-unscoped",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("username", "method", "path", "body", "expected"), COMMAND_SCOPE_SCENARIOS
+)
+def test_devices_command_scopes_gate_every_write(
+    username, method, path, body, expected
+):
+    app, commands = _build_command_scoped_app()
+    with TestClient(app) as client:
+        headers = _auth_header(_login(client, username))
+        resp = client.request(method, path, headers=headers, json=body)
+    assert resp.status_code == expected, resp.text
+    if expected != 200:
+        commands.dispatch_unit.assert_not_awaited()
+        commands.dispatch_batch.assert_not_awaited()
+
+
+def test_a_role_reads_only_what_it_commands_without_devices_read():
+    app, _ = _build_command_scoped_app()
+    with TestClient(app) as client:
+        headers = _auth_header(_login(client, "mode-commander"))
+        thermostat = client.get("/devices/thermo", headers=headers).json()
+        listed = client.get("/devices/", headers=headers).json()
+    assert list(thermostat["attributes"]) == ["mode"]
+    assert "write" in thermostat["attributes"]["mode"]["read_write_modes"]
+    assert [d["id"] for d in listed] == ["thermo"]
+
+
+@pytest.mark.parametrize(
+    ("path", "body"),
+    [
+        pytest.param(
+            "/devices/commands",
+            {"target": {"ids": ["thermo", "room"]}, **MODE_COMMAND},
+            id="batch",
+        ),
+        pytest.param(
+            "/assets/zone/commands",
+            {"device_type": "thermostat", **MODE_COMMAND},
+            id="asset",
+        ),
+    ],
+)
+def test_a_dispatch_resolves_its_recipients_through_the_callers_view(path, body):
+    # The commands service resolves the recipients: through the caller's view,
+    # not the whole fleet, or a hidden device would be written to.
+    app, commands = _build_command_scoped_app()
+    commands.dispatch_batch.return_value = BatchCommandDispatch(
+        batch_id="b", commands=[_command(4, _THERMOSTAT, "mode")]
+    )
+    assets = AsyncMock()
+    app.dependency_overrides[get_assets_service] = lambda: assets
+    app.include_router(
+        assets_router, prefix="/assets", dependencies=[Depends(get_current_user_id)]
+    )
+    with TestClient(app) as client:
+        headers = _auth_header(_login(client, "mode-commander"))
+        resp = client.post(path, headers=headers, json=body)
+    assert resp.status_code == 202, resp.text
+    kwargs = commands.dispatch_batch.await_args.kwargs
+    resolved = asyncio.run(
+        kwargs["target_resolver"].resolve(
+            AttributeTarget(devices=kwargs["target"], attribute="mode"), writable=True
+        )
+    )
+    assert resolved.device_ids == ["thermo"]
+
+
+def test_a_readable_attribute_it_may_not_command_is_served_read_only():
+    app, _ = _build_command_scoped_app()
+    with TestClient(app) as client:
+        headers = _auth_header(_login(client, "temperature-commander"))
+        thermostat = client.get("/devices/thermo", headers=headers).json()
+    assert thermostat["attributes"]["mode"]["read_write_modes"] == ["read"]
+
+
 # A route serving device data must read through the caller's policy. Walk
 # the real app: every route gated by a device-reading permission resolves
 # the scoped reads (directly or through the target resolver), or is listed
@@ -2527,20 +2705,49 @@ def _route_permissions(route: APIRoute) -> set[Permission]:
     for dep in route.dependant.dependencies:
         if dep.call is None:
             continue
-        perm = inspect.getclosurevars(dep.call).nonlocals.get("perm")
-        if isinstance(perm, Permission):
-            perms.add(perm)
+        perms |= set(inspect.getclosurevars(dep.call).nonlocals.get("perms", ()))
     return perms
 
 
-def test_every_device_reading_route_goes_through_the_scoped_reads() -> None:
+def _unscoped_routes(gated: Callable[[set[Permission]], bool]) -> set:
+    """The (method, path) of every gated route not resolving the scoped reads."""
     offenders = set()
     for route in create_app().routes:
-        if not isinstance(route, APIRoute):
-            continue
-        if not _route_permissions(route) & _DEVICE_READ_PERMISSIONS:
+        if not isinstance(route, APIRoute) or not gated(_route_permissions(route)):
             continue
         if _dependency_calls(route.dependant) & _SCOPED_READS:
             continue
         offenders |= {(m, route.path) for m in route.methods}
+    return offenders
+
+
+def test_every_device_reading_route_goes_through_the_scoped_reads() -> None:
+    offenders = _unscoped_routes(lambda perms: bool(perms & _DEVICE_READ_PERMISSIONS))
     assert offenders == _UNSCOPED_ALLOWED
+
+
+# A route writing to devices must check the write against the caller's policy:
+# it resolves the scoped reads, or is listed here, consciously.
+_UNCHECKED_COMMANDS = {
+    # Removes a stored document; writes to no device.
+    ("DELETE", "/devices/commands/templates/{template_id}"),
+}
+
+
+def test_every_device_commanding_route_goes_through_the_scoped_reads() -> None:
+    # Device reads also admit devices:command: commanding implies reading.
+    offenders = _unscoped_routes(lambda perms: perms == {Permission.DEVICES_COMMAND})
+    assert offenders == _UNCHECKED_COMMANDS
+
+
+def test_no_device_route_refuses_what_commanding_implies() -> None:
+    # A route gated on devices:read alone would refuse a role that reads
+    # through its command scope: device reads use require_device_read.
+    offenders = {
+        (method, route.path)
+        for route in create_app().routes
+        if isinstance(route, APIRoute)
+        and _route_permissions(route) == {Permission.DEVICES_READ}
+        for method in route.methods
+    }
+    assert offenders == set()

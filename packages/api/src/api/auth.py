@@ -176,18 +176,25 @@ async def get_current_permissions(
     return frozenset(role.permissions) if role is not None else frozenset()
 
 
-def require_permission(perm: Permission) -> Callable:
-    """Factory that returns a FastAPI dependency enforcing *perm*."""
+def require_permission(*perms: Permission) -> Callable:
+    """Factory that returns a FastAPI dependency enforcing any one of *perms*."""
 
     async def _check(
         payload: TokenPayload = Depends(get_current_token_payload),
         allowed: frozenset[Permission] = Depends(get_current_permissions),
     ) -> str:
-        if perm not in allowed:
+        if allowed.isdisjoint(perms):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Permission denied: requires {perm}",
+                detail=f"Permission denied: requires {' or '.join(perms)}",
             )
         return payload.sub
 
     return _check
+
+
+# Commanding implies reading (ADR 0004 §2): a role commanding through a scope
+# reads the devices it commands without holding devices:read.
+require_device_read = require_permission(
+    Permission.DEVICES_READ, Permission.DEVICES_COMMAND
+)

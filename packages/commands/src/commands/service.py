@@ -269,6 +269,7 @@ class CommandsService(Service):
         confirm: bool = True,
         ui_confirmations: dict[str, UIConfirmationContext] | None = None,
         consents: dict[str, WriteConsent] | None = None,
+        target_resolver: TargetResolver | None = None,
     ) -> BatchCommandDispatch:
         """Fan-out a command to the devices matched by *target*.
 
@@ -287,6 +288,7 @@ class CommandsService(Service):
             confirm=confirm,
             ui_confirmations=ui_confirmations,
             consents=consents,
+            target_resolver=target_resolver,
         )
 
     async def dispatch_from_template(
@@ -303,7 +305,7 @@ class CommandsService(Service):
             template=template, user_id=user_id, confirm=confirm
         )
 
-    async def dispatch_template(
+    async def dispatch_template(  # noqa: PLR0913 -- command dispatch contract
         self,
         *,
         template: CommandTemplate,
@@ -311,6 +313,7 @@ class CommandsService(Service):
         confirm: bool = True,
         ui_confirmations: dict[str, UIConfirmationContext] | None = None,
         consents: dict[str, WriteConsent] | None = None,
+        target_resolver: TargetResolver | None = None,
     ) -> BatchCommandDispatch:
         """Resolve the template's target, persist PENDING unit commands, and
         spawn the per-device writes in the background. Shared by
@@ -321,10 +324,11 @@ class CommandsService(Service):
 
         An empty target logs a warning and returns a dispatch with no commands.
         Incompatible dynamic targets raise ``InvalidError`` before any command
-        is queued.
+        is queued. *target_resolver* replaces the injected one for this
+        dispatch: a caller resolving through a narrower view of the devices.
         """
         batch_id = gen_id()
-        recipients = await self._template_recipients(template)
+        recipients = await self._template_recipients(template, target_resolver)
         _log_unreached(template, recipients)
         device_ids = recipients.device_ids
         if not device_ids:
@@ -386,7 +390,9 @@ class CommandsService(Service):
         """
         return (await self._template_recipients(template)).device_ids
 
-    async def _template_recipients(self, template: CommandTemplate) -> _Recipients:
+    async def _template_recipients(
+        self, template: CommandTemplate, resolver: TargetResolver | None = None
+    ) -> _Recipients:
         """Resolve the template's stored target to writable device ids.
 
         Empty filters return no recipients. Incompatible tag/driver targets
@@ -395,7 +401,7 @@ class CommandsService(Service):
         do not expose the attribute as writable are excluded.
         """
         try:
-            resolved = await self._target_resolver.resolve(
+            resolved = await (resolver or self._target_resolver).resolve(
                 AttributeTarget(
                     devices=template.target,
                     attribute=template.write.attribute,

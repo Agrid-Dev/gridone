@@ -3,7 +3,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 
-from api.auth import require_permission
+from api.auth import require_device_read, require_permission
 from api.dependencies import get_device_manager, get_ts_service
 from api.schemas.driver_package import PackageImportErrorResponse
 from devices_manager import DevicesServiceInterface
@@ -241,7 +241,7 @@ async def export_driver_package(
 @router.get(
     "/{driver_id}/labels",
     response_model_exclude_none=True,
-    dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
+    dependencies=[Depends(require_device_read)],
 )
 def get_driver_labels(
     driver_id: str,

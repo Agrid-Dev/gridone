@@ -10,15 +10,18 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from models.errors import NotFoundError
+from api.access.policy import AccessPolicy
+from api.targets import resolve_devices
+from models.errors import ForbiddenError, NotFoundError
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
 
-    from api.access.policy import AccessPolicy
     from devices_manager import DevicesServiceInterface
+    from devices_manager.core.write_preview import DeviceWritePreview
     from devices_manager.dto import DriverLabels, FaultView
     from devices_manager.dto.device_dto import AttributeSelection, Device
+    from models.targets import DevicesFilter
     from models.types import DataType, Severity
 
 
@@ -30,7 +33,10 @@ def _still_matches(device: Device, query: dict[str, Any]) -> bool:
     writable_type: DataType | None = query.get("writable_attribute_type")
     if attribute is not None and attribute not in attributes:
         return False
-    if writable is not None and writable not in attributes:
+    if writable is not None and (
+        writable not in attributes
+        or "write" not in attributes[writable].read_write_modes
+    ):
         return False
     return writable_type is None or any(
         "write" in a.read_write_modes and a.data_type == writable_type
@@ -48,6 +54,10 @@ class ScopedDeviceReads:
     @property
     def is_unrestricted(self) -> bool:
         return self._policy.is_unrestricted
+
+    @property
+    def reads_everything(self) -> bool:
+        return self._policy.reads_everything
 
     def list_devices(self, **query: Any) -> list[Device]:  # noqa: ANN401
         if self._policy.is_unrestricted:
@@ -72,12 +82,12 @@ class ScopedDeviceReads:
     def require_attribute(self, device_id: str, attribute: str) -> Device:
         """The device, once the attribute is readable by the caller.
 
-        Unrestricted callers only need the device to exist: the operation's
+        A caller reading everything only needs the device to exist: the operation's
         own lookup decides what an unknown attribute means (history of an
         attribute a driver no longer declares stays reachable, for one).
         """
         device = self.get_device(device_id)
-        if not self._policy.is_unrestricted and attribute not in device.attributes:
+        if not self._policy.reads_everything and attribute not in device.attributes:
             msg = f"Attribute '{attribute}' not found on device '{device_id}'"
             raise NotFoundError(msg)
         return device
@@ -85,6 +95,54 @@ class ScopedDeviceReads:
     def get_driver_labels(self, driver_id: str) -> DriverLabels:
         """A driver's labels are not sensitive: every caller reads them whole."""
         return self._dm.get_driver_labels(driver_id)
+
+    def require_command(self, device_id: str, attribute: str) -> Device:
+        """The device, once the caller may command the attribute.
+
+        Hidden is a 404, as on every read path; readable but not commandable
+        is a 403. An attribute the device lacks is left to the write path.
+        """
+        device = self.require_attribute(device_id, attribute)
+        if attribute in device.attributes and not self.can_command(device, attribute):
+            msg = f"Not allowed to command '{attribute}' on device '{device_id}'"
+            raise ForbiddenError(msg)
+        return device
+
+    def can_command(self, device: Device, attribute: str) -> bool:
+        return self._policy.can_command(
+            type=device.type, driver_id=device.driver_id, attribute=attribute
+        )
+
+    def require_commandable(self, devices: DevicesFilter, attribute: str) -> None:
+        """Refuse a stored target that writes beyond what the caller may command.
+
+        An automation dispatches a template later, over every device: what the
+        caller's view resolves today is not the bound, the whole target is.
+        """
+        if self._policy.is_unrestricted:
+            return
+        for device in resolve_devices(self._dm, devices):
+            exposed = device.attributes.get(attribute)
+            if (
+                exposed is not None
+                and "write" in exposed.read_write_modes
+                and not self.can_command(device, attribute)
+            ):
+                msg = f"Not allowed to command '{attribute}' on every target device"
+                raise ForbiddenError(msg)
+
+    def project_preview(self, preview: DeviceWritePreview) -> DeviceWritePreview:
+        """A write preview without the names of attributes the caller cannot read."""
+        if self._policy.reads_everything:
+            return preview
+        readable = set(self.get_device(preview.device_id).attributes)
+        return preview.model_copy(
+            update={
+                "write_state": AccessPolicy.project_write_state(
+                    preview.write_state, readable
+                )
+            }
+        )
 
     def list_faults(
         self, *, severity: Severity | None = None, device_id: str | None = None
@@ -108,7 +166,7 @@ class ScopedDeviceReads:
         For rows the devices service did not produce (faults, command
         history) and so were never projected.
         """
-        if self._policy.is_unrestricted:
+        if self._policy.reads_everything:
             return list(items)
         visible = {d.id: d.attributes for d in self.list_devices()}
         return [

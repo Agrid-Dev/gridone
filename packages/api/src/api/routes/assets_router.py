@@ -295,6 +295,7 @@ async def dispatch_asset_command(
         ),
         user_id=user_id,
         confirm=body.confirm,
+        target_resolver=resolver,
     )
     if not dispatch.commands:
         # Aligned with batch dispatch: an empty resolution is an invalid

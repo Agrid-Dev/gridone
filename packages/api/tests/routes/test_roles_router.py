@@ -171,8 +171,8 @@ class TestCreate:
     ) -> None:
         # The rules need the whole document (scopes against permissions), so
         # the service answers them; the router only maps InvalidError to 422.
-        um.create_role.side_effect = InvalidError("devices:command is not scopable yet")
-        body = {**CREATE_BODY, "scopes": {"devices:command": [{}]}}
+        um.create_role.side_effect = InvalidError("devices:write is not scopable")
+        body = {**CREATE_BODY, "scopes": {"devices:write": [{}]}}
         with TestClient(app) as client:
             resp = client.post("/users/roles", json=body, headers=_auth(client))
         assert resp.status_code == 422
