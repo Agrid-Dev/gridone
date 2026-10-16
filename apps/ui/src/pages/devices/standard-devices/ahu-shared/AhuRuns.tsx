@@ -18,7 +18,7 @@ import {
   type StreamRow,
 } from "@/components/synoptic/duct";
 import type { AhuUnits } from "./attributes";
-import { useReadingFormat } from "./format";
+import { useReadingFormat } from "@/hooks/useReadingFormat";
 import { useAhuSynopticLabel } from "./labels";
 import type { AhuReadings, AhuStates } from "./streams";
 

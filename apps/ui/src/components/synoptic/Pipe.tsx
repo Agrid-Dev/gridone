@@ -3,10 +3,24 @@ import { fluidFillClass, fluidStrokeClass } from "@/lib/fluidColors";
 import { arrowHead, BEND_RADIUS, roundedPath, unit } from "./geometry";
 import type { Pt } from "./types";
 
+/** The stroke and fill classes of a run that carries no fluid of the
+ *  document's vocabulary: a machine's own refrigerant, say. */
+export type PipePaint = { stroke: string; fill: string };
+
+/** The colours of a fluid of the vocabulary; a run that names none is
+ *  drawn as primary supply, as an unknown fluid is. */
+export const fluidPaint = (fluid: Fluid = "primary_supply"): PipePaint => ({
+  stroke: fluidStrokeClass(fluid),
+  fill: fluidFillClass(fluid),
+});
+
 type PipeProps = {
   /** Orthogonal waypoints, first = flow start, last = flow end. */
   points: Pt[];
-  fluid: Fluid;
+  /** The fluid the run carries, which colours it. */
+  fluid?: Fluid;
+  /** Its colours instead, for a run of a fluid outside the vocabulary. */
+  paint?: PipePaint;
   width?: number;
   /** Corner rounding radius at bends. */
   radius?: number;
@@ -59,6 +73,7 @@ export const flowDelay = (phase: number) =>
 export function Pipe({
   points,
   fluid,
+  paint = fluidPaint(fluid),
   width = PIPE_WIDTH,
   radius = BEND_RADIUS,
   endArrow = false,
@@ -106,7 +121,7 @@ export function Pipe({
         fill="none"
         strokeWidth={width}
         strokeLinejoin="round"
-        className={fluidStrokeClass(fluid)}
+        className={paint.stroke}
       />
       {arrows.map((a, i) => (
         <polygon
@@ -114,7 +129,7 @@ export function Pipe({
           points={a}
           strokeWidth={1.5}
           strokeLinejoin="round"
-          className={`${fluidFillClass(fluid)} stroke-synoptic-plate`}
+          className={`${paint.fill} stroke-synoptic-plate`}
         />
       ))}
       {flowing && (
