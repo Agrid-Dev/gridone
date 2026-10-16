@@ -88,7 +88,7 @@ from devices_manager import (
 from devices_manager.core.device import Attribute
 from devices_manager.core.device.connection_status import AttributeLogs
 from devices_manager.core.presentation.resources import StoredResource
-from devices_manager.dto import DevicesQuery, DriverLabels, FaultView
+from devices_manager.dto import DeviceListing, DevicesQuery, DriverLabels, FaultView
 from devices_manager.dto.device_dto import AttributeSelection, Device
 from devices_manager.dto.presentation_dto import UnavailablePresentationResponse
 from devices_manager.types import DataType
@@ -2262,7 +2262,9 @@ def _build_scoped_devices_app() -> FastAPI:
     app.state.cookie_secure = False
     devices = {d.id: d for d in (_THERMOSTAT, _ROOM)}
     dm = MagicMock(spec=DevicesServiceInterface)
-    dm.list_devices.side_effect = lambda *_, **__: list(devices.values())
+    dm.list_devices.side_effect = lambda *_, **__: DeviceListing(
+        devices.values(), convert=lambda device: device
+    )
 
     def _get_device(device_id: str) -> Device:
         if device_id not in devices:
@@ -2322,7 +2324,10 @@ SCOPE_SCENARIOS = [
         "reader",
         "/devices/",
         200,
-        lambda b: [d["id"] for d in b] == ["thermo"],
+        lambda b: (
+            [d["id"] for d in b["items"]] == ["thermo"]
+            and (b["total"], b["facets"]["type"]) == (1, {"thermostat": 1})
+        ),
         id="list-hides-room",
     ),
     pytest.param(
@@ -2375,7 +2380,7 @@ SCOPE_SCENARIOS = [
         "admin",
         "/devices/",
         200,
-        lambda b: [d["id"] for d in b] == ["thermo", "room"],
+        lambda b: [d["id"] for d in b["items"]] == ["room", "thermo"],
         id="admin-sees-all",
     ),
     pytest.param("admin", "/devices/room", 200, None, id="admin-room"),

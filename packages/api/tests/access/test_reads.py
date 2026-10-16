@@ -7,9 +7,10 @@ import pytest
 
 from api.access import UNRESTRICTED, AccessPolicy, ScopedDeviceReads
 from devices_manager import Attribute, DevicesServiceInterface
-from devices_manager.dto import DevicesQuery, FaultView
+from devices_manager.dto import DeviceSortKey, DevicesQuery, FaultView
 from devices_manager.dto.device_dto import AttributeSelection, Device
 from models.errors import NotFoundError
+from models.pagination import PaginationParams
 from models.types import DataType, Severity
 from users.permissions import Permission
 from users.roles import DeviceScope, DeviceSelector, Role
@@ -102,6 +103,15 @@ class TestListDevices:
         devices = ScopedDeviceReads(dm, THERMOSTATS_ONLY).list_devices()
 
         assert [d.id for d in devices] == ["thermo"]
+
+    def test_a_scoped_page_and_its_facets_only_count_readable_devices(self, dm):
+        listing = ScopedDeviceReads(dm, THERMOSTATS_ONLY).list_devices()
+
+        page = listing.page(DeviceSortKey.NAME, PaginationParams(page=1, size=1))
+
+        assert [d.id for d in page.items] == ["thermo"]
+        assert (page.total, page.total_pages) == (1, 1)
+        assert listing.facets.type == {"thermostat": 1}
 
     @pytest.mark.parametrize(
         "query",

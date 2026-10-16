@@ -6,8 +6,12 @@ from pydantic import ValidationError
 from api.schemas.device import (
     DeviceBatchCreate,
     DeviceBatchItemResult,
+    to_devices_page_response,
 )
+from devices_manager.dto import DeviceFacets, DeviceHealth
 from devices_manager.dto.device_dto import Device
+from devices_manager.types import ConnectionStatus
+from models.pagination import Page
 
 
 def _device() -> Device:
@@ -19,6 +23,28 @@ def _device() -> Device:
         transport_id="transport",
         is_faulty=False,
     )
+
+
+class TestToDevicesPageResponse:
+    def test_carries_the_page_its_links_and_the_facets(self):
+        device = _device()
+        page = Page(items=[device], total=7, page=2, size=3)
+        facets = DeviceFacets(
+            type={"other": 7},
+            health={DeviceHealth.HEALTHY: 7, DeviceHealth.FAULTY: 0},
+            connection_status=dict.fromkeys(ConnectionStatus, 0),
+        )
+
+        response = to_devices_page_response(page, facets, "http://api/devices/")
+
+        assert response.items == [device]
+        assert (response.total, response.page, response.size) == (7, 2, 3)
+        assert response.total_pages == 3
+        assert response.facets is facets
+        payload = response.model_dump(by_alias=True)
+        assert payload["links"]["self"] == "http://api/devices/?page=2&size=3"
+        assert payload["links"]["next"] == "http://api/devices/?page=3&size=3"
+        assert payload["facets"]["type"] == {"other": 7}
 
 
 class TestDeviceBatchItemResult:

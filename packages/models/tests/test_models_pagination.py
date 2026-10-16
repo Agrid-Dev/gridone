@@ -35,16 +35,16 @@ class TestPaginationParams:
             PaginationParams(page=-1)
 
     def test_size_zero_raises(self):
-        with pytest.raises(InvalidError, match="size must be between 1 and 200"):
+        with pytest.raises(InvalidError, match="size must be between 1 and 500"):
             PaginationParams(size=0)
 
     def test_size_over_max_raises(self):
-        with pytest.raises(InvalidError, match="size must be between 1 and 200"):
-            PaginationParams(size=201)
+        with pytest.raises(InvalidError, match="size must be between 1 and 500"):
+            PaginationParams(size=501)
 
     def test_size_at_boundaries(self):
         PaginationParams(size=1)
-        PaginationParams(size=200)
+        PaginationParams(size=500)
 
     def test_frozen(self):
         params = PaginationParams()

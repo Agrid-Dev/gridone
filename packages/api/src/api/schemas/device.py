@@ -5,10 +5,32 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field, model_validator
 
+from api.schemas.pagination import PaginatedResponse, to_paginated_response
+from devices_manager.dto import DeviceFacets
 from devices_manager.dto.device_dto import Device
 from devices_manager.types import AttributeValueType
+from models.pagination import Page
 from models.tags import Tag
 from models.targets import AttributeCoverage
+
+
+class DevicesPageResponse(PaginatedResponse[Device]):
+    """Response body for ``GET /devices``.
+
+    One page of the matched devices, and ``facets`` counting every device the
+    filters matched, not only the page: a client renders filter chips and a
+    fleet summary from the same call.
+    """
+
+    facets: DeviceFacets
+
+
+def to_devices_page_response(
+    page: Page[Device], facets: DeviceFacets, request_url: str
+) -> DevicesPageResponse:
+    envelope = to_paginated_response(page, request_url)
+    # Iterating a model yields its fields as they are, nested models included.
+    return DevicesPageResponse(**dict(envelope), facets=facets)
 
 
 class TimeseriesPushPoint(BaseModel):
