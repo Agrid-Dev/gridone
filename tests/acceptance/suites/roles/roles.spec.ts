@@ -219,16 +219,17 @@ describe("a custom integration role", () => {
 
   it("applies a permission edit on the next request, without re-login", async () => {
     const role = await admin.users.getRole(roleId);
+    // Both go: writing implies reading, so dashboards:write alone still lists.
     await admin.users.updateRole(roleId, {
       permissions: role.permissions.filter(
-        (permission) => permission !== "devices:read",
+        (permission) => !permission.startsWith("dashboards:"),
       ),
     });
 
-    expect(await statusOf(integration.devices.list())).toBe(403);
+    expect(await statusOf(integration.dashboards.list())).toBe(403);
 
     await admin.users.updateRole(roleId, { permissions: role.permissions });
-    expect(await statusOf(integration.devices.list())).toBeNull();
+    expect(await statusOf(integration.dashboards.list())).toBeNull();
   });
 
   it("cannot be deleted while a user holds it, and can once the user is gone", async () => {
@@ -289,5 +290,65 @@ describe("a users:write role", () => {
     const moved = await support.users.update(bystanderId, { role: roleId });
 
     expect(moved.role).toBe(roleId);
+  });
+});
+
+// A role that writes or commands a resource reads it too, without listing the
+// read permission: at the route gate, in /auth/me, and when assigning roles.
+describe("writing implies reading", () => {
+  const stamp = Date.now();
+  const commanderRoleId = `commander_${stamp}`;
+  const readerRoleId = `device_reader_${stamp}`;
+  let admin: GridoneClient;
+  let commander: GridoneClient;
+  const userIds: string[] = [];
+
+  beforeAll(async () => {
+    admin = await makeAdminClient();
+    await admin.users.createRole({
+      id: commanderRoleId,
+      name: "Commander",
+      permissions: ["devices:command", "dashboards:write", "users:write"],
+    });
+    await admin.users.createRole({
+      id: readerRoleId,
+      name: "Device reader",
+      permissions: ["devices:read"],
+    });
+    const created = await makeRoleUser(commanderRoleId);
+    commander = created.client;
+    userIds.push(created.userId);
+  });
+
+  afterAll(async () => {
+    for (const userId of userIds) {
+      await admin.users.delete(userId).catch(() => undefined);
+    }
+    await admin.users.deleteRole(commanderRoleId).catch(() => undefined);
+    await admin.users.deleteRole(readerRoleId).catch(() => undefined);
+  });
+
+  it("reads what it writes or commands", async () => {
+    expect(await statusOf(commander.devices.list())).toBeNull();
+    expect(await statusOf(commander.dashboards.list())).toBeNull();
+  });
+
+  it("lists the implied permissions in /auth/me", async () => {
+    const me = await commander.request<CurrentUser>("GET", "/auth/me");
+
+    expect(me.permissions).toEqual(
+      expect.arrayContaining(["devices:read", "dashboards:read", "users:read"]),
+    );
+  });
+
+  it("can assign a role holding a read it only implies", async () => {
+    const created = await commander.users.create({
+      username: `acceptance-reader-${stamp}`,
+      password: "acceptance-pass",
+      role: readerRoleId,
+    });
+    userIds.push(created.id);
+
+    expect(created.role).toBe(readerRoleId);
   });
 });
