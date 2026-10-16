@@ -60,7 +60,7 @@ def preview_write(
         current_value=attribute.current_value,
         current_value_known=attribute.current_value is not None,
         user_confirmation=attribute.user_confirmation,
-        attribute_label=attribute.label,
+        attribute_label=device.driver.attribute_label(attribute_name),
         unit=attribute.unit,
         eligible=evaluation.eligible,
         value=evaluation.value,

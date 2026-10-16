@@ -64,7 +64,7 @@ Declare the polarity from the wiring rather than inverting with a codec: `health
 
 Every attribute may carry optional presentation metadata. It is stored with the driver and never interpreted by Gridone. Unknown keys inside these objects are rejected.
 
-The texts (`label`, `description`, `group`, `value_labels`) are the driver's, identical for every device of the driver, so the API also serves them once per driver as its *labels* document. Each device carries a `driver_revision` that moves whenever the driver changes; clients cache the labels under it and read them again only then. Devices still copy these fields onto their attributes for now; that copy is deprecated and will go.
+The texts (`label`, `description`, `group`, `value_labels`) are the driver's, identical for every device of the driver, so the API also serves them once per driver as its *labels* document. Each device carries a `driver_revision` that moves whenever the driver changes; clients cache the labels under it and read them again only then. Device attributes carry none of `label` and `description`: a client that names an attribute reads the driver's labels document.
 
 | Field | Description |
 |---|---|

@@ -69,13 +69,12 @@ class DeviceUpdate(BaseModel):
     driver_id: str | None = None
 
 
-# Internal projections can omit write contracts and long texts. HTTP device
-# listings and detail reads keep the complete attributes.
+# Internal projections can omit write contracts and confirmation texts. HTTP
+# device listings and detail reads keep the complete attributes.
 _OMITTED_FROM_SELECTION = dict.fromkeys(
     (
         "write_constraints",
         "write_state",
-        "description",
         "user_confirmation",
         "default_value",
     )
@@ -88,7 +87,7 @@ class AttributeSelection:
 
     Keeps the ones named, plus every
     attribute of the given kinds, each with its value and display fields but
-    without its write contract or descriptions. An empty selection carries
+    without its write contract or confirmation text. An empty selection carries
     none, which is enough for counts, names and tags."""
 
     names: frozenset[str] = frozenset()

@@ -136,7 +136,8 @@ def _fault_view_from(device: CoreDevice, attr: FaultAttribute) -> FaultView:
         current_value=attr.current_value,
         last_updated=attr.last_updated,
         last_changed=attr.last_changed,
-        label=attr.label,
+        # Labels live on the driver, not on the device (ADR 0008).
+        label=device.driver.attribute_label(attr.name),
     )
 
 

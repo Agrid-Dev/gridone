@@ -6,6 +6,7 @@ from pydantic import TypeAdapter
 from devices_manager.core.presentation.envelope import PresentationEnvelope
 from devices_manager.core.standard_schemas import validate_standard_schema
 from devices_manager.types import DataType, TransportProtocols
+from models.attribute_metadata import LocalizedText
 from models.errors import InvalidError
 
 from .attribute_driver import AttributeDriver
@@ -130,6 +131,13 @@ class Driver:
     @property
     def id(self) -> str:
         return self.metadata.id
+
+    def attribute_label(self, attribute_name: str) -> LocalizedText | None:
+        """What the driver calls the attribute; ``None`` when it labels it
+        not, or does not declare it at all (``connection_status`` is the
+        device's, reserved, not the driver's)."""
+        declared = self.attributes.get(attribute_name)
+        return declared.label if declared is not None else None
 
     @property
     def discovery_listener(self) -> DiscoveryListener | None:

@@ -35,6 +35,7 @@ from devices_manager.core.device.connection_status_attribute import (
     CONNECTION_STATUS_ATTR,
 )
 from devices_manager.core.write_preview import DeviceWritePreview
+from devices_manager.dto import AttributeLabels, DriverLabels
 from devices_manager.dto.device_dto import Device
 from devices_manager.types import ConnectionStatus, DataType
 from models.attribute_metadata import LocalizedText
@@ -182,6 +183,7 @@ def _make_dm(
             "temperature", DataType.FLOAT, {"read"}, value=23.5
         )
     )
+    mock.get_driver_labels.return_value = DriverLabels(revision="rev")
     return mock
 
 
@@ -479,6 +481,25 @@ class TestListDeviceAttributes:
             "writable_count": 0,
         }  # unset metadata is omitted, not null
         assert by_name["setpoint"]["writable_count"] == 1
+
+    def test_labels_come_from_the_drivers_labels_document(
+        self, client: TestClient, dm: MagicMock
+    ):
+        dm.get_driver_labels.return_value = DriverLabels(
+            revision="rev",
+            attributes={
+                "temperature": AttributeLabels(label=LocalizedText(default="Temp."))
+            },
+        )
+        body = client.get("/attributes").json()
+        by_name = {a["attribute"]: a for a in body["attributes"]}
+        assert by_name["temperature"]["label"] == {
+            "default": "Temp.",
+            "translations": {},
+        }
+        assert "label" not in by_name["setpoint"]
+        # The three devices share one driver: its document is read once.
+        dm.get_driver_labels.assert_called_once_with("test_driver")
 
     def test_same_filters_as_list_devices(self, client: TestClient, dm: MagicMock):
         client.get("/attributes", params={"type": "thermostat"})

@@ -2270,6 +2270,7 @@ def _build_scoped_devices_app() -> FastAPI:
         return devices[device_id]
 
     dm.get_device.side_effect = _get_device
+    dm.get_driver_labels.return_value = DriverLabels(revision="rev")
     dm.list_active_faults.return_value = [
         _fault(_THERMOSTAT, "mode"),
         _fault(_ROOM, "humidity"),

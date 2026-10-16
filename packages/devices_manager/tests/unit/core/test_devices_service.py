@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import UTC, datetime
 from typing import ClassVar
 from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
@@ -20,6 +21,7 @@ from devices_manager.core.driver import (
     AttributeDriver,
     AttributeRef,
     Driver,
+    FaultAttributeDriver,
     HealthCheck,
     UpdateStrategy,
     WriteConstraints,
@@ -2279,7 +2281,6 @@ class TestDevicesServiceListActiveFaults:
         severity: Severity,
         last_updated: datetime,
         last_changed: datetime | None = None,
-        label: LocalizedText | None = None,
     ) -> FaultAttribute:
         return FaultAttribute(
             name=name,
@@ -2290,8 +2291,25 @@ class TestDevicesServiceListActiveFaults:
             last_changed=last_changed or last_updated,
             severity=severity,
             healthy_values=healthy_values,
-            label=label,
         )
+
+    _ALARM_LABEL = LocalizedText(
+        default="Compressor alarm", translations={"fr": "Alarme compresseur"}
+    )
+
+    @classmethod
+    def _declaring_alarm(cls, driver: Driver) -> Driver:
+        """``driver`` with a labelled ``alarm`` fault: the fault view reads the
+        label from the driver, the device attribute carries none."""
+        alarm = FaultAttributeDriver(
+            name="alarm",
+            data_type=DataType.STRING,
+            read="GET /alarm",
+            codecs=[],
+            healthy_values=["ok"],
+            label=cls._ALARM_LABEL,
+        )
+        return replace(driver, attributes={**driver.attributes, "alarm": alarm})
 
     def _make_devices(
         self, driver: Driver, transport
@@ -2306,13 +2324,9 @@ class TestDevicesServiceListActiveFaults:
                     healthy_values=["ok"],
                     severity=Severity.ALERT,
                     last_updated=datetime(2026, 4, 20, 12, 0, tzinfo=UTC),
-                    label=LocalizedText(
-                        default="Compressor alarm",
-                        translations={"fr": "Alarme compresseur"},
-                    ),
                 ),
             },
-            driver=driver,
+            driver=self._declaring_alarm(driver),
             transport=transport,
             config={},
         )
@@ -2445,11 +2459,10 @@ class TestDevicesServiceListActiveFaults:
     @pytest.mark.asyncio
     async def test_fault_view_carries_the_drivers_label(self, dm: DevicesService):
         """A fault list names a fault the way the device page does, so the
-        driver's wording rides along; an unlabelled attribute carries none."""
+        driver's wording rides along; an attribute the driver does not label,
+        or no longer declares, carries none."""
         by_device = {f.device_id: f for f in dm.list_active_faults()}
-        assert by_device["chiller"].label == LocalizedText(
-            default="Compressor alarm", translations={"fr": "Alarme compresseur"}
-        )
+        assert by_device["chiller"].label == self._ALARM_LABEL
         assert by_device["boiler"].label is None
 
 

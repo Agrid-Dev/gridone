@@ -1257,8 +1257,9 @@ class TestReadAttributeValueMetrics:
 
 
 class TestCoreDeviceAttributeMetadata:
-    """Presentation metadata and write constraints are projected verbatim from
-    the driver onto the runtime attributes."""
+    """Display metadata and write constraints are projected verbatim from
+    the driver onto the runtime attributes. Labels and descriptions are not:
+    the driver's labels document serves them (ADR 0008)."""
 
     def test_metadata_projected_from_driver(
         self, constrained_driver: Driver, mock_transport_client
@@ -1270,18 +1271,13 @@ class TestCoreDeviceAttributeMetadata:
         )
         setpoint = device.attributes["temperature_setpoint"]
         spec = constrained_driver.attributes["temperature_setpoint"]
-        assert setpoint.label == spec.label
-        assert setpoint.description == spec.description
+        assert spec.label is not None
+        assert "label" not in setpoint.model_fields_set
         assert setpoint.group == "setpoints"
         assert setpoint.unit == "°C"
         assert setpoint.write_constraints == spec.write_constraints
         mode = device.attributes["mode"]
-        assert (mode.label, mode.group, mode.unit, mode.write_constraints) == (
-            None,
-            None,
-            None,
-            None,
-        )
+        assert (mode.group, mode.unit, mode.write_constraints) == (None, None, None)
 
     def test_metadata_projected_onto_fault_attribute(self, mock_transport_client):
         driver = Driver(
@@ -1313,9 +1309,6 @@ class TestCoreDeviceAttributeMetadata:
         )
         alarm = device.attributes["alarm"]
         assert isinstance(alarm, FaultAttribute)
-        assert alarm.label == LocalizedText(
-            default="Alarm", translations={"fr": "Alarme"}
-        )
         assert alarm.group == "diagnostics"
         assert alarm.value_labels == driver.attributes["alarm"].value_labels
 

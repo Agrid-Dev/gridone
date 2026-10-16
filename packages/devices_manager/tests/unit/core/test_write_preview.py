@@ -12,6 +12,8 @@ from models.attribute_metadata import LocalizedText
     [
         ("temperature_setpoint", 23, None),
         ("temperature", 23, "not_writable"),
+        # Every device carries it, no driver declares it.
+        ("connection_status", "ok", "not_writable"),
         ("missing", 23, "unknown_attribute"),
         ("temperature_setpoint", "not a number", "invalid_value"),
     ],
@@ -24,6 +26,17 @@ def test_preview_uses_write_contract_without_changing_values(
     assert [r.code for r in result.reasons][:1] == ([reason] if reason else [])
     assert result.eligible == (reason is None)
     assert device.get_attribute("temperature_setpoint").current_value == before
+
+
+def test_preview_names_the_attribute_the_way_the_driver_does(device):
+    """The device attribute carries no label (ADR 0008): the preview reads the
+    driver's wording so a confirmation dialog can still name the attribute."""
+    spec = device.driver.attributes["temperature_setpoint"]
+    spec.label = LocalizedText(default="Setpoint", translations={"fr": "Consigne"})
+    preview = preview_write(device, "temperature_setpoint", 23)
+    assert preview.attribute_label == spec.label
+    # An attribute the driver does not declare is previewed, just unnamed.
+    assert preview_write(device, "connection_status", "ok").attribute_label is None
 
 
 def test_preview_projects_user_confirmation_through_public_device_path(device):

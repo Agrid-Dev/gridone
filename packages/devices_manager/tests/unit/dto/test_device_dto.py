@@ -377,7 +377,6 @@ class TestDeviceAttributeSerialization:
 _OMITTED = (
     "write_constraints",
     "write_state",
-    "description",
     "user_confirmation",
     "default_value",
 )
@@ -397,8 +396,6 @@ def _rich_attribute(
             "current_value": value,
             "last_updated": _NOW,
             "last_changed": _NOW,
-            "label": LocalizedText(default=f"{name} label"),
-            "description": LocalizedText(default=f"What {name} is"),
             "user_confirmation": LocalizedText(default=f"Change {name}?"),
             "write_state": AttributeWriteState(status="ready"),
             **fields,
@@ -416,7 +413,6 @@ def _fault(name: str, value: str) -> FaultAttribute:
         severity=Severity.ALERT,
         last_updated=_NOW,
         last_changed=_NOW,
-        description=LocalizedText(default=f"What {name} means"),
     )
 
 
@@ -475,7 +471,7 @@ def rich_device(driver, mock_transport_client) -> CoreDevice:
 
 class TestAttributeSelection:
     """A listing's selection keeps the named attributes and every attribute of
-    the selected kinds, each without its write contract or texts."""
+    the selected kinds, each without its write contract or confirmation text."""
 
     @pytest.mark.parametrize(
         ("selection", "expected"),
@@ -530,21 +526,21 @@ class TestAttributeSelection:
         setpoint = dto.attributes["temperature_setpoint"]
         assert all(getattr(setpoint, field) is not None for field in _OMITTED)
 
-    def test_a_kept_attribute_loses_its_write_contract_and_texts_only(
+    def test_a_kept_attribute_loses_its_write_contract_and_confirmation_only(
         self, rich_device
     ):
         everything = AttributeSelection(names=frozenset(rich_device.attributes))
 
         dto = core_to_dto(rich_device, attribute_selection=everything)
 
-        # Not vacuous: the live setpoint carries all five, write state included.
+        # Not vacuous: the live setpoint carries all four, write state included.
         live_setpoint = rich_device.attributes["temperature_setpoint"]
         assert all(getattr(live_setpoint, field) is not None for field in _OMITTED)
         for name, kept in dto.attributes.items():
             live = rich_device.attributes[name]
             assert all(getattr(kept, field) is None for field in _OMITTED), name
-            # Value, timestamps, kind, type, unit, label, value labels and
-            # options, severity: everything else is the live attribute's.
+            # Value, timestamps, kind, type, unit, value labels and options,
+            # severity: everything else is the live attribute's.
             assert kept.model_dump(exclude=set(_OMITTED)) == live.model_dump(
                 exclude=set(_OMITTED)
             ), name
@@ -553,7 +549,7 @@ class TestAttributeSelection:
         assert isinstance(alarm, FaultAttribute)
         assert alarm.is_faulty is True
 
-    def test_the_wire_shape_has_no_write_contract_or_texts(self, rich_device):
+    def test_the_wire_shape_has_no_write_contract_or_confirmation(self, rich_device):
         dto = core_to_dto(
             rich_device,
             attribute_selection=AttributeSelection(
@@ -568,10 +564,6 @@ class TestAttributeSelection:
         assert set(_OMITTED).isdisjoint(setpoint)
         assert setpoint["current_value"] == 21.0
         assert setpoint["unit"] == "°C"
-        assert setpoint["label"] == {
-            "default": "temperature_setpoint label",
-            "translations": {},
-        }
 
     def test_the_live_device_keeps_its_full_attributes(self, rich_device):
         # Project once up front so the snapshot is what the listing projects.
@@ -595,7 +587,7 @@ class TestAttributeSelection:
         full = core_to_dto(rich_device).attributes["temperature_setpoint"]
         assert full.write_constraints == _CONSTRAINTS
         assert full.write_state is not None
-        assert full.description is not None
+        assert full.user_confirmation is not None
 
     @pytest.mark.parametrize(
         "selection",

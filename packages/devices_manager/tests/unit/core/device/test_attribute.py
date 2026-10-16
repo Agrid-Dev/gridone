@@ -308,7 +308,7 @@ def test_internal_attribute_serializes_with_kind():
 
 
 # ---------------------------------------------------------------------------
-# Presentation metadata and write constraints
+# Display metadata and write constraints (labels live on the driver, ADR 0008)
 # ---------------------------------------------------------------------------
 
 
@@ -322,8 +322,6 @@ _PLAIN_ATTRIBUTE_KEYS = {
     "last_changed",
 }
 
-_LABEL = LocalizedText(default="Setpoint", translations={"fr": "Consigne"})
-_DESCRIPTION = LocalizedText(default="Requested room temperature")
 _CONSTRAINTS = WriteConstraints(
     step=0.5, minimum=AttributeRef(attribute="setpoint_min"), maximum=30
 )
@@ -334,8 +332,6 @@ def _annotated_attribute() -> Attribute:
         "temperature_setpoint",
         DataType.FLOAT,
         {"read", "write"},
-        label=_LABEL,
-        description=_DESCRIPTION,
         group="setpoints",
         unit="°C",
         write_constraints=_CONSTRAINTS,
@@ -344,8 +340,6 @@ def _annotated_attribute() -> Attribute:
 
 _METADATA_KEYS = {
     "value_options",
-    "label",
-    "description",
     "user_confirmation",
     "group",
     "unit",
@@ -388,8 +382,6 @@ def test_fault_attribute_without_metadata_adds_only_its_own_fields():
 
 def test_attribute_create_carries_metadata():
     attr = _annotated_attribute()
-    assert attr.label == _LABEL
-    assert attr.description == _DESCRIPTION
     assert attr.group == "setpoints"
     assert attr.unit == "°C"
     assert attr.write_constraints == _CONSTRAINTS
@@ -397,14 +389,6 @@ def test_attribute_create_carries_metadata():
 
 def test_attribute_metadata_serializes_when_set():
     dumped = _annotated_attribute().model_dump(mode="json")
-    assert dumped["label"] == {
-        "default": "Setpoint",
-        "translations": {"fr": "Consigne"},
-    }
-    assert dumped["description"] == {
-        "default": "Requested room temperature",
-        "translations": {},
-    }
     assert dumped["group"] == "setpoints"
     assert dumped["unit"] == "°C"
     assert dumped["write_constraints"] == {
@@ -426,7 +410,7 @@ def test_partially_set_metadata_omits_only_the_unset_fields():
 def test_attribute_metadata_round_trips_through_validation():
     restored = Attribute.model_validate(_annotated_attribute().model_dump(mode="json"))
     assert restored.write_constraints == _CONSTRAINTS
-    assert restored.label == _LABEL
+    assert restored.group == "setpoints"
 
 
 def test_value_labels_serialize_when_set_and_round_trip():
